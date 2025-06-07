@@ -40,21 +40,44 @@ export default function Editor({ userId }: { userId: string }) {
 
     setSelectionRange({ start, end })
 
-    const res = await fetch('/api/feedback', {
+    const diaryEntryMarked = text.slice(0, end) + ' <<INSERT HERE>> ' + text.slice(end)
+
+    const res = await fetch('/api/augment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        content: selected, 
-        before: contextBefore,
-        after: contextAfter,
-        belief: beliefSummary,
-       }),
+        diaryEntry: text,
+        diaryEntryMarked: diaryEntryMarked,
+        userProfile: beliefSummary,
+      }),
     })
-    const data = await res.json()
 
-    if (data.options) {
-      setAugmentOptions(data.options)
+    const data = await res.json()
+    console.log('Augment API result: ', data)
+
+    if (data.interpretiveAgentResult) {
+      setAugmentOptions([
+        data.interpretiveAgentResult.option1,
+        data.interpretiveAgentResult.option2,
+        data.interpretiveAgentResult.option3,
+      ]);
     }
+
+    // const res = await fetch('/api/feedback', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ 
+    //     content: selected, 
+    //     before: contextBefore,
+    //     after: contextAfter,
+    //     belief: beliefSummary,
+    //    }),
+    // })
+    // const data = await res.json()
+
+    // if (data.options) {
+    //   setAugmentOptions(data.options)
+    // }
   }
 
   const applyAugmentation = (inserted: string) => {
