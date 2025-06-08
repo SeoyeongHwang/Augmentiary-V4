@@ -9,6 +9,8 @@ export default function Editor({ userId }: { userId: string }) {
   const [augmentOptions, setAugmentOptions] = useState<string[] | null>(null)
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [loading, setLoading] = useState(false)
+
 
   // 사용자 프로필 가져오기
   useEffect(() => {
@@ -28,6 +30,8 @@ export default function Editor({ userId }: { userId: string }) {
   }, [userId])
 
   const handleAugment = async () => {
+    if (loading) return // 로딩 중이면 요청 무시
+
     const textarea = textareaRef.current
     if (!textarea) return
 
@@ -39,29 +43,36 @@ export default function Editor({ userId }: { userId: string }) {
     // const contextBefore = text.slice(Math.max(0, start - 100), start)
     // const contextAfter = text.slice(end, end + 100)
 
+    setLoading(true) // 로딩 시작
     setSelectionRange({ start, end })
 
     const diaryEntryMarked = text.slice(0, end) + ' <<INSERT HERE>> ' + text.slice(end)
 
-    const res = await fetch('/api/augment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        diaryEntry: text,
-        diaryEntryMarked: diaryEntryMarked,
-        userProfile: beliefSummary,
-      }),
-    })
+    try {
+      const res = await fetch('/api/augment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          diaryEntry: text,
+          diaryEntryMarked: diaryEntryMarked,
+          userProfile: beliefSummary,
+        }),
+      })
 
-    const data = await res.json()
-    console.log('Augment API result: ', data)
+      const data = await res.json()
+      console.log('Augment API result: ', data)
 
-    if (data.interpretiveAgentResult) {
-      setAugmentOptions([
-        data.interpretiveAgentResult.option1,
-        data.interpretiveAgentResult.option2,
-        data.interpretiveAgentResult.option3,
-      ]);
+      if (data.interpretiveAgentResult) {
+        setAugmentOptions([
+          data.interpretiveAgentResult.option1,
+          data.interpretiveAgentResult.option2,
+          data.interpretiveAgentResult.option3,
+        ])
+      }
+    } catch (error) {
+      console.error('Error fetching augment options:', error)
+    } finally {
+      setLoading(false) // 로딩 종료
     }
 
     // const res = await fetch('/api/feedback', {
@@ -100,10 +111,11 @@ export default function Editor({ userId }: { userId: string }) {
         value={text}
         onChange={setText}
         placeholder="텍스트를 입력하고 일부 선택 후 증강해보세요."
+        disabled={loading}
       />
 
-      <Button onClick={handleAugment}>
-         관점 추가하기
+      <Button onClick={handleAugment} disabled={loading}>
+        {loading ? '고민하는 중...' : '더 생각해보기'}
       </Button>
 
       {augmentOptions && (
@@ -126,14 +138,12 @@ export default function Editor({ userId }: { userId: string }) {
 
       {augments.length > 0 && (
         <div className="mt-4 text-sm text-gray-700">
-          <strong>증강된 텍스트:</strong>
-          <ul className="list-disc ml-5">
-            {augments.map((a, i) => (
-              <li key={i} className="text-blue-700 italic">
-                {a.inserted}
-              </li>
-            ))}
-          </ul>
+          <strong>추가된 문장:</strong>
+          {augments.map((a, i) => (
+            <p key={i} className="text-blue-700 italic mt-2">
+              {a.inserted}
+            </p>
+          ))}
         </div>
       )}
     </div>

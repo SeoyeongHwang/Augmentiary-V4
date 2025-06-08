@@ -28,7 +28,7 @@ export default function Home() {
 
   return (
     <Section> 
-      <Heading level={1}>오늘의 일기</Heading>
+      <Heading level={1}>오늘은 무슨 일이 있었나요?</Heading>
       {user && (
         <>
         <Heading level={4}>환영합니다, {user.email}</Heading>
