@@ -10,7 +10,7 @@ export default function Editor({ userId }: { userId: string }) {
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // 사용자 신념 요약 가져오기
+  // 사용자 프로필 가져오기
   useEffect(() => {
     const fetchBelief = async () => {
       const { data, error } = await supabase
@@ -84,7 +84,7 @@ export default function Editor({ userId }: { userId: string }) {
   const applyAugmentation = (inserted: string) => {
     if (!selectionRange) return
 
-    const { start, end } = selectionRange
+    const { end } = selectionRange
     const newText = text.slice(0, end) + inserted + text.slice(end)
     setText(newText)
 
@@ -124,7 +124,7 @@ export default function Editor({ userId }: { userId: string }) {
         </Card>
       )}
 
-      {/* {augments.length > 0 && (
+      {augments.length > 0 && (
         <div className="mt-4 text-sm text-gray-700">
           <strong>증강된 텍스트:</strong>
           <ul className="list-disc ml-5">
@@ -135,7 +135,7 @@ export default function Editor({ userId }: { userId: string }) {
             ))}
           </ul>
         </div>
-      )} */}
+      )}
     </div>
   )
 }

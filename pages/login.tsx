@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
-import { Button, TextInput, Heading, Section, Card } from '../components'
+import { Button, TextInput, Heading, Section } from '../components'
 
 
 export default function LoginPage() {
