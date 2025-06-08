@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Button, Textarea, Heading, Section, Card } from './index'
+import { Button, Textarea, Heading, Card } from './index'
 
 export default function Editor({ userId }: { userId: string }) {
   const [text, setText] = useState('')
@@ -36,8 +36,8 @@ export default function Editor({ userId }: { userId: string }) {
     const selected = text.slice(start, end)
     if (!selected.trim()) return alert('텍스트를 선택하세요.')
 
-    const contextBefore = text.slice(Math.max(0, start - 100), start)
-    const contextAfter = text.slice(end, end + 100)
+    // const contextBefore = text.slice(Math.max(0, start - 100), start)
+    // const contextAfter = text.slice(end, end + 100)
 
     setSelectionRange({ start, end })
 

@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/router'
 import { User } from '@supabase/supabase-js'
 //import EntryList from '../components/EntryList' 
-import { Editor, Button, Card, TextInput, Textarea, Heading, Section } from '../components'
+import { Editor, Button, Heading, Section } from '../components'
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null)
