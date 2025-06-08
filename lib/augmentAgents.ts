@@ -71,12 +71,12 @@ You will receive:
 - The user's profile (core values, life themes, identity cues)
 - The suggested narrative strategy to apply
 
-Your task is to generate THREE interpretive sentence that will be inserted in place of <<INSERT HERE>> in the diary to encourage deeper reflection and meaning-making.
+Your task is to generate THREE interpretive sentences that will be inserted in place of <<INSERT HERE>> in the diary to encourage deeper reflection and meaning-making.
 
 Guidelines:
 - Align with the suggested narrative strategy
 - Subtly reflect the user's profile and values
-- Be phrased as if written by the user (first person voice) in fluent Korean.
+- Be phrased as if written by the user (first-person voice) in fluent Korean.
 - Avoid generic or clichéd phrasing
 - Vary across the three versions (each offering a slightly different lens)
 - The sentence should maintain an open stance. Avoid overly prescriptive phrasing such as "I will do X", "I must Y". Instead, favor phrases that open up possibilities (could, might, perhaps, I am starting to see...).

@@ -2,6 +2,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
+import { Button, TextInput, Heading, Section, Card } from '../components'
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -22,31 +24,31 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-6 border rounded">
-      <h1 className="text-xl font-bold mb-4">{isSignUp ? '회원가입' : '로그인'}</h1>
-      <input
+    <Section>
+      <Heading level={1}>{isSignUp ? '회원가입' : '로그인'}</Heading>
+      <TextInput
         type="email"
         placeholder="이메일"
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        onChange={setEmail}
         className="w-full mb-3 p-2 border"
       />
-      <input
+      <TextInput
         type="password"
         placeholder="비밀번호"
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        onChange={setPassword}
         className="w-full mb-3 p-2 border"
       />
-      <button onClick={handleAuth} className="w-full bg-blue-500 text-white p-2 rounded">
+      <Button onClick={handleAuth} className="w-full bg-blue-500 text-white p-2 rounded">
         {isSignUp ? '가입하기' : '로그인'}
-      </button>
+      </Button>
       <p className="mt-4 text-sm text-center">
         {isSignUp ? '이미 계정이 있나요?' : '계정이 없나요?'}{' '}
-        <button className="text-blue-500 underline" onClick={() => setIsSignUp(!isSignUp)}>
+        <Button className="text-blue-500 underline" onClick={() => setIsSignUp(!isSignUp)}>
           {isSignUp ? '로그인' : '회원가입'}
-        </button>
+        </Button>
       </p>
-    </div>
+    </Section>
   )
 }

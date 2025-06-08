@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { Button, Textarea, Heading, Section, Card } from './index'
 
 export default function Editor({ userId }: { userId: string }) {
   const [text, setText] = useState('')
@@ -93,25 +94,21 @@ export default function Editor({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="mt-6">
-      <textarea
+    <div className="mt-6"> 
+      <Textarea
         ref={textareaRef}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={setText}
         placeholder="텍스트를 입력하고 일부 선택 후 증강해보세요."
-        className="w-full h-64 border p-4 rounded resize-none font-mono"
       />
 
-      <button
-        onClick={handleAugment}
-        className="mt-4 bg-indigo-500 text-white px-4 py-2 rounded"
-      >
-        🪄 선택 증강하기
-      </button>
+      <Button onClick={handleAugment}>
+         관점 추가하기
+      </Button>
 
       {augmentOptions && (
-        <div className="mt-4 border p-4 rounded bg-gray-50">
-          <p className="mb-2 font-semibold">어떤 문장을 추가할까요?</p>
+        <Card>
+          <Heading level={4}>어떤 문장을 추가할까요?</Heading>
           <ul className="space-y-2">
             {augmentOptions.map((option, idx) => (
               <li key={idx}>
@@ -124,7 +121,7 @@ export default function Editor({ userId }: { userId: string }) {
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       )}
 
       {/* {augments.length > 0 && (

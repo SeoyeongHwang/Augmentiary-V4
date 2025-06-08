@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/router'
 import { User } from '@supabase/supabase-js'
-import Editor from '../components/Editor'
-import EntryList from '../components/EntryList' 
+//import EntryList from '../components/EntryList' 
+import { Editor, Button, Card, TextInput, Textarea, Heading, Section } from '../components'
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null)
@@ -27,23 +27,22 @@ export default function Home() {
   }, [router])
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl">오늘의 일기</h1>
+    <Section> 
+      <Heading level={1}>오늘의 일기</Heading>
       {user && (
         <>
-        <p className='mb-4 text-gray-600'>환영합니다, {user.email}</p>
+        <Heading level={4}>환영합니다, {user.email}</Heading>
+        <Button onClick={() => {
+          supabase.auth.signOut()
+          router.push('/login')
+        }}>로그아웃</Button>
+
         <Editor userId={user.id} />
         {/* <EntryList userId={user.id} />  */}
-        <div className='mt-4'></div>
         </>
         )}
 
-      <button onClick={() => {
-        supabase.auth.signOut()
-        router.push('/login')
-      }} className="w-50 bg-blue-500 text-white p-2 rounded">로그아웃</button>
-
-    </div>
+    </Section>
   )
   
 }
