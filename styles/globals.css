@@ -6,7 +6,8 @@
 
 body {
   font-family: 'Noto Serif KR', sans-serif;
-  background-color: #f9fafb; /* 연한 그레이 배경 */
+  background-color: #ffffff;
+  /* background-color: #f9fafb; 연한 그레이 배경 */
   color: #111827; /* 거의 검은색 텍스트 */
   line-height: 1.6;
 }

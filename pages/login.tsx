@@ -40,7 +40,7 @@ export default function LoginPage() {
         onChange={setPassword}
         className="w-full mb-3 p-2 border"
       />
-      <Button onClick={handleAuth} className="w-full bg-blue-500 text-white p-2 rounded">
+      <Button onClick={handleAuth}>
         {isSignUp ? '가입하기' : '로그인'}
       </Button>
       <p className="mt-4 text-sm text-center">

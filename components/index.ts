@@ -5,3 +5,4 @@ export { default as TextInput } from './TextInput';
 export { default as Textarea } from './Textarea';
 export { default as Heading } from './Heading';
 export { default as Section } from './Section';
+export { default as CircleIconButton } from './CircleIconButton';

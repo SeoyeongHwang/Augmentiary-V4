@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Button, Textarea, Heading, Card } from './index'
+import { Button, Heading, Card, Textarea } from './index'
+import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import CircleIconButton from './CircleIconButton';
 
 export default function Editor({ userId }: { userId: string }) {
   const [text, setText] = useState('')
@@ -11,7 +13,6 @@ export default function Editor({ userId }: { userId: string }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [loading, setLoading] = useState(false)
 
-
   // 사용자 프로필 가져오기
   useEffect(() => {
     const fetchBelief = async () => {
@@ -20,34 +21,24 @@ export default function Editor({ userId }: { userId: string }) {
         .select('belief_summary')
         .eq('id', userId)
         .single()
-
       if (!error && data?.belief_summary) {
         setBeliefSummary(data.belief_summary)
       }
     }
-
     if (userId) fetchBelief()
   }, [userId])
 
   const handleAugment = async () => {
-    if (loading) return // 로딩 중이면 요청 무시
-
+    if (loading) return
     const textarea = textareaRef.current
     if (!textarea) return
-
     const start = textarea.selectionStart
     const end = textarea.selectionEnd
     const selected = text.slice(start, end)
     if (!selected.trim()) return alert('텍스트를 선택하세요.')
-
-    // const contextBefore = text.slice(Math.max(0, start - 100), start)
-    // const contextAfter = text.slice(end, end + 100)
-
-    setLoading(true) // 로딩 시작
+    setLoading(true)
     setSelectionRange({ start, end })
-
     const diaryEntryMarked = text.slice(0, end) + ' <<INSERT HERE>> ' + text.slice(end)
-
     try {
       const res = await fetch('/api/augment', {
         method: 'POST',
@@ -58,10 +49,7 @@ export default function Editor({ userId }: { userId: string }) {
           userProfile: beliefSummary,
         }),
       })
-
       const data = await res.json()
-      console.log('Augment API result: ', data)
-
       if (data.interpretiveAgentResult) {
         setAugmentOptions([
           data.interpretiveAgentResult.option1,
@@ -72,80 +60,79 @@ export default function Editor({ userId }: { userId: string }) {
     } catch (error) {
       console.error('Error fetching augment options:', error)
     } finally {
-      setLoading(false) // 로딩 종료
+      setLoading(false)
     }
-
-    // const res = await fetch('/api/feedback', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ 
-    //     content: selected, 
-    //     before: contextBefore,
-    //     after: contextAfter,
-    //     belief: beliefSummary,
-    //    }),
-    // })
-    // const data = await res.json()
-
-    // if (data.options) {
-    //   setAugmentOptions(data.options)
-    // }
   }
 
   const applyAugmentation = (inserted: string) => {
     if (!selectionRange) return
-
     const { end } = selectionRange
     const newText = text.slice(0, end) + inserted + text.slice(end)
     setText(newText)
-
     setAugments((prev) => [...prev, { start: end, end: end + inserted.length, inserted }])
     setAugmentOptions(null)
     setSelectionRange(null)
   }
 
   return (
-    <div className="mt-6"> 
-      <Textarea
-        ref={textareaRef}
-        value={text}
-        onChange={setText}
-        placeholder="텍스트를 입력하고 일부 선택 후 증강해보세요."
-        disabled={loading}
-      />
-
-      <Button onClick={handleAugment} disabled={loading}>
-        {loading ? '고민하는 중...' : '더 생각해보기'}
-      </Button>
-
-      {augmentOptions && (
-        <Card>
-          <Heading level={4}>어떤 문장을 추가할까요?</Heading>
-          <ul className="space-y-2">
-            {augmentOptions.map((option, idx) => (
-              <li key={idx}>
-                <button
-                  onClick={() => applyAugmentation(option)}
-                  className="text-left w-full bg-white border px-3 py-2 rounded hover:bg-indigo-100"
-                >
-                  {option}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      {augments.length > 0 && (
-        <div className="mt-4 text-sm text-gray-700">
-          <strong>추가된 문장:</strong>
-          {augments.map((a, i) => (
-            <p key={i} className="text-blue-700 italic mt-2">
-              {a.inserted}
-            </p>
-          ))}
+    <div className="flex flex-row h-full w-full overflow-hidden">
+      {/* 왼쪽 버튼 패널 */}
+      <div className="hidden md:flex md:w-64 border-r flex-shrink-0 flex-col justify-start px-4 space-y-2 items-end">
+        <CircleIconButton onClick={() => {}} aria-label="이전">
+          <ChevronLeftIcon className="h-5 w-5 text-gray-700" />
+        </CircleIconButton>
+        <CircleIconButton onClick={() => {}} aria-label="다음">
+          <ChevronRightIcon className="h-5 w-5 text-gray-700" />
+        </CircleIconButton>
+      </div>
+      {/* 에디터 */}
+      <div className="w-full flex-1 min-h-0 flex flex-col items-center justify-start overflow-y-auto p-4">
+        <Heading level={1}>Title</Heading>
+        <Textarea
+          ref={textareaRef}
+          value={text}
+          onChange={setText}
+          placeholder="텍스트를 입력하고 일부 선택 후 증강해보세요."
+          disabled={loading}
+        />
+      </div>
+      {/* 오른쪽 디스플레이 패널 */}
+      <aside className="hidden md:flex md:w-96 border-l px-4 flex-shrink-0 flex-col overflow-y-auto">
+        <div className="flex flex-col space-y-4">
+          <Button onClick={handleAugment} disabled={loading} className="px-4 py-2 rounded">
+            {loading ? '고민하는 중...' : '더 생각해보기'}
+          </Button>
+          {/* 증강 옵션 */}
+          {augmentOptions && (
+            <Card>
+              <Heading level={4}>어떤 문장을 추가할까요?</Heading>
+              <ul className="space-y-2">
+                {augmentOptions.map((option, idx) => (
+                  <li key={idx}>
+                    <button
+                      onClick={() => applyAugmentation(option)}
+                      className="text-left bg-white border px-4 py-2 rounded hover:bg-indigo-100"
+                    >
+                      {option}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+          {/* 추가된 문장 */}
+          {augments.length > 0 && (
+            <div className="mt-4 text-sm text-gray-700">
+              <strong>추가된 문장:</strong>
+              {augments.map((a, i) => (
+                <p key={i} className="text-blue-700 italic mt-2">
+                  {a.inserted}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </aside>
     </div>
   )
 }
