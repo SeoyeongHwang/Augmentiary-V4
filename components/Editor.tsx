@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Button, Heading, Card, Textarea, TextInput } from './index'
-import { ArrowUturnLeftIcon, ArrowUturnRightIcon, BookmarkSquareIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { ArrowUturnLeftIcon, ArrowUturnRightIcon, BookmarkSquareIcon } from "@heroicons/react/24/outline";
 import CircleIconButton from './CircleIconButton';
 
 export default function Editor({ userId }: { userId: string }) {
