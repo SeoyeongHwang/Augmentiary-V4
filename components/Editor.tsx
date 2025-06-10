@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Button, Heading, Card, Textarea } from './index'
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { Button, Heading, Card, Textarea, TextInput } from './index'
+import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import CircleIconButton from './CircleIconButton';
 
 export default function Editor({ userId }: { userId: string }) {
   const [text, setText] = useState('')
+  const [title, setTitle] = useState('')
   const [augments, setAugments] = useState<{ start: number; end: number; inserted: string }[]>([])
   const [beliefSummary, setBeliefSummary] = useState('')
   const [augmentOptions, setAugmentOptions] = useState<string[] | null>(null)
@@ -78,23 +79,32 @@ export default function Editor({ userId }: { userId: string }) {
     <div className="flex flex-row h-full w-full overflow-hidden">
       {/* 왼쪽 버튼 패널 */}
       <div className="hidden md:flex md:w-64 border-r flex-shrink-0 flex-col justify-start px-4 space-y-2 items-end">
-        <CircleIconButton onClick={() => {}} aria-label="이전">
-          <ChevronLeftIcon className="h-5 w-5 text-gray-700" />
+        <CircleIconButton onClick={() => {}} aria-label="되돌리기" className='mb-2'>
+          <ArrowUturnLeftIcon className="h-5 w-5 text-gray-700" />
         </CircleIconButton>
-        <CircleIconButton onClick={() => {}} aria-label="다음">
-          <ChevronRightIcon className="h-5 w-5 text-gray-700" />
+        <CircleIconButton onClick={() => {}} aria-label="다시하기">
+          <ArrowUturnRightIcon className="h-5 w-5 text-gray-700" />
         </CircleIconButton>
       </div>
       {/* 에디터 */}
       <div className="w-full flex-1 min-h-0 flex flex-col items-center justify-start overflow-y-auto p-4">
-        <Heading level={1}>Title</Heading>
-        <Textarea
-          ref={textareaRef}
-          value={text}
-          onChange={setText}
-          placeholder="텍스트를 입력하고 일부 선택 후 증강해보세요."
-          disabled={loading}
-        />
+        <div className="w-full max-w-4xl flex flex-col">
+          <TextInput 
+            type='text' 
+            className='w-full text-xl font-extrabold text-left mb-4 border-none overflow-auto focus:outline-none focus:ring-0 focus:underline focus:underline-offset-4' 
+            placeholder='어울리는 제목을 붙여주세요' 
+            value={title} 
+            onChange={setTitle} 
+          />
+          <Textarea
+            ref={textareaRef}
+            value={text}
+            onChange={setText}
+            placeholder="있었던 일에 대해 자유롭게 써보세요."
+            disabled={loading}
+          />
+        </div>
+        
       </div>
       {/* 오른쪽 디스플레이 패널 */}
       <aside className="hidden md:flex md:w-96 border-l px-4 flex-shrink-0 flex-col overflow-y-auto">

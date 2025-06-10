@@ -39,7 +39,7 @@ export default function Home() {
     <main className="flex flex-col h-screen">
       {/* Header: sidebarOpen이 true이거나, 스크롤이 상단일 때만 보임 */}
       {(sidebarOpen || !hideTitle) && (
-        <header className="h-24 px-6 flex items-center bg-white transition-all duration-300">
+        <header className="h-24 p-6 flex items-center bg-white transition-all duration-300">
           <button
             className="p-2"
             onClick={() => setSidebarOpen(true)}
@@ -49,7 +49,7 @@ export default function Home() {
           {/* 제목은 hideTitle이 false일 때만 보임 */}
           {!hideTitle && (
             <Heading level={1} className="ml-4 text-xl font-bold text-gray-900 transition-all duration-300">
-              오늘은 무슨 일이 있었나요?
+              Augmentiary
             </Heading>
           )}
         </header>

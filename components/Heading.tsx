@@ -18,7 +18,7 @@ export default function Heading({
   
     return React.createElement(
       `h${level}`,
-      { className: `${size} font-bold text-gray-900 mb-4 ${className}` },
+      { className: `${size} font-bold text-gray-900 ${className}` },
       children
     );
   }
