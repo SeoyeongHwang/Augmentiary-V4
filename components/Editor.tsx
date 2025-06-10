@@ -75,14 +75,31 @@ export default function Editor({ userId }: { userId: string }) {
     setSelectionRange(null)
   }
 
+  const handleUndo = () => {
+    if (augments.length === 0) return
+
+    const lastAugment = augments[augments.length - 1]
+    const newText = 
+      text.slice(0, lastAugment.start - 2) + 
+      text.slice(lastAugment.end)
+
+    setText(newText)
+    setAugments(augments.slice(0, -1))
+  }
+
+  const handleRedo = () => {
+    // Redo 기능은 복잡하므로 여기서는 간단히 구현하지 않음
+    console.log('Redo functionality would go here')
+  }
+
   return (
     <div className="flex flex-row h-full w-full overflow-hidden">
       {/* 왼쪽 버튼 패널 */}
       <div className="hidden md:flex md:w-64 border-r flex-shrink-0 flex-col justify-start px-4 space-y-2 items-end">
-        <CircleIconButton onClick={() => {}} aria-label="되돌리기" className='mb-2'>
+        <CircleIconButton onClick={handleUndo} aria-label="되돌리기" className='mb-2'>
           <ArrowUturnLeftIcon className="h-5 w-5 text-gray-700" />
         </CircleIconButton>
-        <CircleIconButton onClick={() => {}} aria-label="다시하기">
+        <CircleIconButton onClick={handleRedo} aria-label="다시하기">
           <ArrowUturnRightIcon className="h-5 w-5 text-gray-700" />
         </CircleIconButton>
       </div>
@@ -91,7 +108,7 @@ export default function Editor({ userId }: { userId: string }) {
         <div className="w-full max-w-4xl flex flex-col">
           <TextInput 
             type='text' 
-            className='w-full text-xl font-extrabold text-left mb-4 border-none overflow-auto focus:outline-none focus:ring-0 focus:underline focus:underline-offset-4' 
+            className='w-full text-xl font-extrabold text-left mb-4 border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
             placeholder='어울리는 제목을 붙여주세요' 
             value={title} 
             onChange={setTitle} 
