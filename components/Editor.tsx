@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Button, Heading, Card, Textarea, TextInput } from './index'
-import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { ArrowUturnLeftIcon, ArrowUturnRightIcon, BookmarkSquareIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import CircleIconButton from './CircleIconButton';
 
 export default function Editor({ userId }: { userId: string }) {
@@ -95,12 +95,15 @@ export default function Editor({ userId }: { userId: string }) {
   return (
     <div className="flex flex-row h-full w-full overflow-hidden">
       {/* 왼쪽 버튼 패널 */}
-      <div className="hidden md:flex md:w-64 border-r flex-shrink-0 flex-col justify-start px-4 space-y-2 items-end">
-        <CircleIconButton onClick={handleUndo} aria-label="되돌리기" className='mb-2'>
+      <div className="hidden md:flex md:w-64 border-r flex-shrink-0 flex-col justify-start px-4 space-y-2 items-end space-y-4">
+        <CircleIconButton onClick={handleUndo} aria-label="되돌리기" >
           <ArrowUturnLeftIcon className="h-5 w-5 text-gray-700" />
         </CircleIconButton>
-        <CircleIconButton onClick={handleRedo} aria-label="다시하기">
+        <CircleIconButton onClick={handleRedo} aria-label="다시하기" >
           <ArrowUturnRightIcon className="h-5 w-5 text-gray-700" />
+        </CircleIconButton>
+        <CircleIconButton onClick={() => {}} aria-label="저장하기기" >
+          <BookmarkSquareIcon className="h-5 w-5 text-gray-700" />
         </CircleIconButton>
       </div>
       {/* 에디터 */}
