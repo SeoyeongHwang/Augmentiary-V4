@@ -5,7 +5,7 @@
 /* 나의 글로벌 스타일 설정 시작 */
 
 body {
-  font-family: 'Noto Serif KR', sans-serif;
+  font-family: 'Nanum Myeongjo', serif;
   background-color: #ffffff;
   /* background-color: #f9fafb; 연한 그레이 배경 */
   color: #111827; /* 거의 검은색 텍스트 */
@@ -19,4 +19,20 @@ a {
 
 a:hover {
   color: #191919; /* primary hover 컬러 */
+}
+
+.editor-wrapper .ql-editor {
+  font-size: 1rem; /* fallback default */
+}
+
+.ql-editor {
+  padding: 0 !important;
+}
+
+.ql-editor p {
+  font-family: 'Nanum Myeongjo', serif;
+  line-height: 2.5; 
+  font-weight: 400;
+  color: #000000;
+  caret-color: #292524; /* stone-900 */
 }

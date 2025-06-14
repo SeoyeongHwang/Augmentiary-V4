@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/router'
 import { User } from '@supabase/supabase-js'
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
-import { Editor, Button, Heading } from '../components'
+import { QuillEditor, Button, Heading } from '../components'
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null)
@@ -56,7 +56,7 @@ export default function Home() {
       )}
       <div className="flex flex-1 overflow-hidden">
         {/* Editor 전체 UI는 Editor.tsx에서 담당 */}
-        <Editor userId={user?.id || ''} />
+        <QuillEditor userId={user?.id || ''} />
       </div>
       {/* 왼쪽 슬라이드 사이드바 (모바일용) */}
       <aside
