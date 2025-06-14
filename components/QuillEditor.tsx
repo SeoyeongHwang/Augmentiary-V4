@@ -31,7 +31,7 @@ export default function Editor({ userId }: { userId: string }) {
             userOnly: true,
           },
     },
-    formats: [],
+    formats: ['background'],
   })
 
   // 사용자 프로필 가져오기
@@ -131,7 +131,9 @@ export default function Editor({ userId }: { userId: string }) {
     const { end } = selectionRange
 
     quill.setSelection(end, 0)
-    quill.insertText(end, inserted)
+    quill.insertText(end, inserted, {
+        background: '#deffee'
+    })
 
     setAugments((prev) => [...prev, { start: end, end: end + inserted.length, inserted }])
     setAugmentOptions(null)
@@ -185,14 +187,14 @@ export default function Editor({ userId }: { userId: string }) {
             value={title} 
             onChange={setTitle} 
           />
-          <div ref={quillRef} className={`editor-wrapper w-full h-fit p-6 min-h-[60vh] overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none`} style={{marginBottom: '30px' }} />
+          <div ref={quillRef} className={`editor-wrapper w-full h-fit p-6 min-h-[60vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none`} style={{marginBottom: '30px' }} />
         </div>
       </div>
       {/* 오른쪽 디스플레이 패널 */}
       <aside className="hidden md:flex md:w-96 border-l px-4 flex-shrink-0 flex-col overflow-y-auto">
         <div className="flex flex-col space-y-4">
           <Button onClick={handleAugment} disabled={loading} className="px-4 py-2 rounded">
-            {loading ? '고민하는 중...' : '더 생각해보기'}
+            {loading ? '고민하는 중...' : '의미 찾기'}
           </Button>
           {/* 증강 옵션 */}
           {augmentOptions && (
