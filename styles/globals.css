@@ -21,8 +21,13 @@ a:hover {
   color: #191919; /* primary hover 컬러 */
 }
 
+.ql-container {
+  border: none !important;
+}
+
 .editor-wrapper .ql-editor {
   font-size: 1rem; /* fallback default */
+  border: none !important;
 }
 
 .ql-editor {

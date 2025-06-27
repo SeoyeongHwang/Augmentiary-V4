@@ -80,6 +80,7 @@ Guidelines:
 - Avoid generic or clichéd phrasing
 - Vary across the three versions (each offering a slightly different lens)
 - The sentence should maintain an open stance. Avoid overly prescriptive phrasing such as "I will do X", "I must Y". Instead, favor phrases that open up possibilities (could, might, perhaps, I am starting to see...).
+- Conclude with an unfinished phrase using a fitting connective (such as 'because', 'so that', or similar), inviting user reflection and continuation.
     `
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

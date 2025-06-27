@@ -143,7 +143,7 @@ export default function Editor({ userId }: { userId: string }) {
   return (
     <div className="flex flex-row h-full w-full overflow-hidden">
       {/* 왼쪽 버튼 패널 */}
-      <div className="hidden md:flex md:w-64 border-r flex-shrink-0 flex-col justify-start px-4 space-y-2 items-end space-y-4">
+      <div className="hidden md:flex md:w-64 border-r flex-shrink-0 flex-col justify-start p-4 space-y-2 items-end space-y-4">
         
         <div className="relative" onMouseEnter={() => setFontMenuOpen(true)} onMouseLeave={() => setFontMenuOpen(false)}>
           <CircleIconButton aria-label="글자 크기 조절">
@@ -182,7 +182,7 @@ export default function Editor({ userId }: { userId: string }) {
         <div className="w-full max-w-4xl flex flex-col">
           <TextInput 
             type='text' 
-            className='w-full text-xl font-extrabold text-left border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
+            className='w-full pt-0 text-xl font-extrabold text-center border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
             placeholder='어울리는 제목을 붙여주세요' 
             value={title} 
             onChange={setTitle} 
@@ -191,7 +191,7 @@ export default function Editor({ userId }: { userId: string }) {
         </div>
       </div>
       {/* 오른쪽 디스플레이 패널 */}
-      <aside className="hidden md:flex md:w-96 border-l px-4 flex-shrink-0 flex-col overflow-y-auto">
+      <aside className="hidden md:flex md:w-96 border-l p-4 flex-shrink-0 flex-col overflow-y-auto">
         <div className="flex flex-col space-y-4">
           <Button onClick={handleAugment} disabled={loading} className="px-4 py-2 rounded">
             {loading ? '고민하는 중...' : '의미 찾기'}
