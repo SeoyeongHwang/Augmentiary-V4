@@ -111,7 +111,7 @@ export default function Editor({ userId }: { userId: string }) {
         <div className="w-full max-w-4xl flex flex-col">
           <TextInput 
             type='text' 
-            className='w-full text-xl font-extrabold text-left mb-4 border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
+            className='w-full text-4xl font-extrabold text-center mb-4 border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
             placeholder='어울리는 제목을 붙여주세요' 
             value={title} 
             onChange={setTitle} 

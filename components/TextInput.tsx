@@ -20,7 +20,7 @@ const TextInput = forwardRef<HTMLInputElement, {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full border border-gray-300 rounded-xl px-6 py-4 text-base focus:ring-highlight transition ${className}`}
+        className={`w-full border border-gray-300 rounded-xl px-6 py-4 focus:ring-highlight transition ${className}`}
       />
     );
   }

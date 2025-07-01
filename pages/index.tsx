@@ -111,14 +111,14 @@ export default function Home() {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto p-6">
         {/* 인사말 */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div className="mb-8 text-center">
+          <h1 className="text-4xl font-bold text-gray-900">
             <span className="font-bold">{user.user_metadata?.name || '사용자'}님</span>, {getGreeting()}.
           </h1>
         </div>
 
         {/* 작성하러 가기 버튼 */}
-        <div className="mb-8">
+        <div className="mb-8 text-center">
           <Button
             onClick={() => router.push('/write')}
             className="px-8 py-4 text-lg font-semibold"
@@ -129,7 +129,7 @@ export default function Home() {
 
         {/* 이전 일기 카드 그리드 */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">이전 일기</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6 text-center">이전 일기</h2>
           
           {loading ? (
             <div className="text-center py-8">
