@@ -12,9 +12,24 @@ const namum = Nanum_Myeongjo({
     weight: ['400', '700', '800'],
   })
 
-export default function Editor({ userId }: { userId: string }) {
+export default function Editor({ 
+  userId, 
+  onTitleChange, 
+  onContentChange 
+}: { 
+  userId: string
+  onTitleChange?: (title: string) => void
+  onContentChange?: (content: string) => void
+}) {
   const [editorContent, setEditorContent] = useState('');
   const [title, setTitle] = useState('')
+
+  // 제목 변경 시 외부로 알림
+  useEffect(() => {
+    if (onTitleChange) {
+      onTitleChange(title)
+    }
+  }, [title, onTitleChange])
   const [augments, setAugments] = useState<{ start: number; end: number; inserted: string }[]>([])
   const [beliefSummary, setBeliefSummary] = useState('')
   const [augmentOptions, setAugmentOptions] = useState<string[] | null>(null)
@@ -53,10 +68,14 @@ export default function Editor({ userId }: { userId: string }) {
   useEffect(() => {
     if (quill) {
       quill.on('text-change', () => {
-        setEditorContent(quill.root.innerHTML)
+        const content = quill.root.innerHTML
+        setEditorContent(content)
+        if (onContentChange) {
+          onContentChange(content)
+        }
       })
     }
-  }, [quill])
+  }, [quill, onContentChange])
 
   useEffect(() => {
     const editor = quillRef.current?.querySelector('.ql-editor') as HTMLElement | null
@@ -182,7 +201,7 @@ export default function Editor({ userId }: { userId: string }) {
         <div className="w-full max-w-4xl flex flex-col">
           <TextInput 
             type='text' 
-            className='w-full pt-0 text-xl font-extrabold text-center border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
+            className='w-full pt-0 text-4xl font-extrabold text-center border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
             placeholder='어울리는 제목을 붙여주세요' 
             value={title} 
             onChange={setTitle} 

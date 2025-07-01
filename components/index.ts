@@ -7,4 +7,7 @@ export { default as Textarea } from './Textarea';
 export { default as Heading } from './Heading';
 export { default as Section } from './Section';
 export { default as CircleIconButton } from './CircleIconButton';
+export { default as JournalCard } from './JournalCard';
+export { default as JournalModal } from './JournalModal';
+export { default as ESMModal } from './ESMModal';
 
