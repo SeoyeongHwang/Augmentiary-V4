@@ -3,29 +3,70 @@ import { useState } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { Button, TextInput, Heading, Section } from '../components'
+import type { CreateUserData } from '../types/user'
 
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const router = useRouter()
 
   const handleAuth = async () => {
-    const { error } = isSignUp
-      ? await supabase.auth.signUp({ email, password })
-      : await supabase.auth.signInWithPassword({ email, password })
+    if (isSignUp) {
+      // 회원가입
+      const { data, error } = await supabase.auth.signUp({ email, password })
+      
+      if (error) {
+        alert(error.message)
+        return
+      }
 
-    if (error) {
-      alert(error.message)
+      if (data.user) {
+        // users 테이블에 사용자 정보 저장
+        const userData: CreateUserData = {
+          id: data.user.id,
+          email: email,
+          name: name,
+          participant_code: `P${Date.now()}` // 임시로 타임스탬프 기반 코드 생성
+        }
+
+        const { error: userError } = await supabase
+          .from('users')
+          .insert(userData)
+
+        if (userError) {
+          console.error('사용자 정보 저장 실패:', userError)
+          alert('사용자 정보 저장에 실패했습니다.')
+          return
+        }
+      }
     } else {
-      router.push('/') // 로그인 성공 시 메인 페이지로 이동
+      // 로그인
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      
+      if (error) {
+        alert(error.message)
+        return
+      }
     }
+
+    router.push('/') // 로그인/회원가입 성공 시 메인 페이지로 이동
   }
 
   return (
     <Section>
       <Heading level={1}>{isSignUp ? '회원가입' : '로그인'}</Heading>
+      {isSignUp && (
+        <TextInput
+          type="text"
+          placeholder="이름"
+          value={name}
+          onChange={setName}
+          className="w-full mb-3 p-2 border"
+        />
+      )}
       <TextInput
         type="email"
         placeholder="이메일"

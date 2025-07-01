@@ -1,4 +1,5 @@
 import { Card } from './index'
+import { formatKST } from '../lib/time'
 
 type JournalCardProps = {
   id: string
@@ -19,16 +20,9 @@ export default function JournalCard({ id, title, content, createdAt, onClick }: 
   // 내용 미리보기 (100자 제한)
   const preview = stripHtml(content).substring(0, 100) + (stripHtml(content).length > 100 ? '...' : '')
 
-  // 날짜 포맷팅
+  // 날짜 포맷팅 (KST 기준)
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    return formatKST(dateString)
   }
 
   return (

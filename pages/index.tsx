@@ -5,16 +5,14 @@ import { supabase } from '../lib/supabase'
 import { User } from '@supabase/supabase-js'
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline"
 import { Button, Heading, JournalCard, JournalModal } from '../components'
+import type { Entry } from '../types/entry'
+import { formatKST } from '../lib/time'
 
-type Entry = {
-  id: string
-  title: string
-  content_html: string
-  created_at: string
-}
+import type { User as AppUser } from '../types/user'
 
 export default function Home() {
-  const [user, setUser] = useState<User | null>(null)
+  const [authUser, setAuthUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AppUser | null>(null)
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -32,12 +30,31 @@ export default function Home() {
       if (!session) {
         router.push('/login')
       } else {
-        setUser(session.user)
+        setAuthUser(session.user)
+        await fetchUserData(session.user.id)
         fetchEntries(session.user.id)
       }
     }
     fetchSession()
   }, [router])
+
+  const fetchUserData = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        console.error('사용자 정보 불러오기 실패:', error)
+      } else {
+        setUser(data)
+      }
+    } catch (error) {
+      console.error('사용자 정보 불러오기 오류:', error)
+    }
+  }
 
   const fetchEntries = async (userId: string) => {
     try {
@@ -85,7 +102,7 @@ export default function Home() {
     return '좋은 저녁입니다'
   }
 
-  if (!user) {
+  if (!authUser || !user) {
     return <div>로딩 중...</div>
   }
 
@@ -113,7 +130,7 @@ export default function Home() {
         {/* 인사말 */}
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold text-gray-900">
-            <span className="font-bold">{user.user_metadata?.name || '사용자'}님</span>, {getGreeting()}.
+            <span className="font-bold">{user.name}님</span>, {getGreeting()}.
           </h1>
         </div>
 

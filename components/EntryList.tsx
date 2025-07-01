@@ -2,27 +2,27 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { formatKST } from '../lib/time'
 
 type Props = {
   userId: string
 }
 
-type Entry = {
-  id: string
-  content: string
-  created_at: string
+import type { Entry } from '../types/entry'
+
+type EntryWithFeedback = Entry & {
   feedback?: string
 }
 
 export default function EntryList({ userId }: Props) {
-  const [entries, setEntries] = useState<Entry[]>([])
+  const [entries, setEntries] = useState<EntryWithFeedback[]>([])
   const [loading, setLoading] = useState(true)
 
   // 일기 목록 불러오기
   useEffect(() => {
     const fetchEntries = async () => {
       const { data, error } = await supabase
-        .from('journal_entries')
+        .from('entries')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
@@ -52,9 +52,9 @@ export default function EntryList({ userId }: Props) {
         {entries.map((entry) => (
             <li key={entry.id} className="p-4 border rounded">
             <p className="text-sm text-gray-400 mb-1">
-                {new Date(entry.created_at).toLocaleString()}
+                {formatKST(entry.created_at)}
             </p>
-            <p className="mb-2 whitespace-pre-wrap">{entry.content}</p>
+            <p className="mb-2 whitespace-pre-wrap">{entry.content_html}</p>
             {entry.feedback && (
                 <div className="mt-2 p-2 bg-purple-50 border rounded text-sm">
                 <p className="font-semibold mb-1">💬 AI 피드백</p>

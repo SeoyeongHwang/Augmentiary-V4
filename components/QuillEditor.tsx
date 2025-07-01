@@ -53,12 +53,12 @@ export default function Editor({
   useEffect(() => {
     const fetchBelief = async () => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('belief_summary')
+        .from('users')
+        .select('profile')
         .eq('id', userId)
         .single()
-      if (!error && data?.belief_summary) {
-        setBeliefSummary(data.belief_summary)
+      if (!error && data?.profile) {
+        setBeliefSummary(data.profile)
       }
     }
     if (userId) fetchBelief()

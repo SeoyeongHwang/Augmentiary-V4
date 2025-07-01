@@ -5,6 +5,9 @@ import { User } from '@supabase/supabase-js'
 import { ArrowLeftIcon } from "@heroicons/react/24/outline"
 import { QuillEditor, Button, ESMModal } from '../components'
 import type { ESMData } from '../components/ESMModal'
+import type { CreateESMResponseData } from '../types/esm'
+import type { CreateEntryData } from '../types/entry'
+import { getCurrentKST } from '../lib/time'
 
 export default function Write() {
   const [user, setUser] = useState<User | null>(null)
@@ -46,18 +49,19 @@ export default function Write() {
   const handleESMSubmit = async (esmData: ESMData) => {
     try {
       // ESM 응답은 항상 저장
+      const esmDataToInsert: CreateESMResponseData = {
+        user_id: user?.id!,
+        consent: esmData.consent,
+        q1: esmData.q1,
+        q2: esmData.q2,
+        q3: esmData.q3,
+        q4: esmData.q4,
+        q5: esmData.q5
+      }
+      
       const { error: esmError } = await supabase
         .from('esm_responses')
-        .insert({
-          user_id: user?.id,
-          consent: esmData.consent,
-          q1: esmData.q1,
-          q2: esmData.q2,
-          q3: esmData.q3,
-          q4: esmData.q4,
-          q5: esmData.q5,
-          submitted_at: new Date().toISOString()
-        })
+        .insert(esmDataToInsert)
 
       if (esmError) {
         console.error('ESM 저장 실패:', esmError)
@@ -65,15 +69,16 @@ export default function Write() {
 
       // 일기는 사용자가 동의한 경우에만 저장
       if (esmData.consent) {
+        const entryDataToInsert: CreateEntryData = {
+          user_id: user?.id!,
+          title: title.trim(),
+          content_html: content,
+          shared: true
+        }
+        
         const { error: entryError } = await supabase
           .from('entries')
-          .insert({
-            user_id: user?.id,
-            title: title.trim(),
-            content_html: content,
-            shared: true,
-            created_at: new Date().toISOString()
-          })
+          .insert(entryDataToInsert)
 
         if (entryError) {
           console.error('일기 저장 실패:', entryError)

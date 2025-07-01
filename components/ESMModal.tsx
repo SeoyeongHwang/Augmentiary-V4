@@ -7,6 +7,8 @@ type ESMModalProps = {
   onClose: () => void
 }
 
+import type { CreateESMResponseData } from '../types/esm'
+
 export type ESMData = {
   consent: boolean
   q1: number
