@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { AIHighlight } from '../utils/tiptapExtensions'
 import { Button, Heading, Card, Textarea, TextInput } from './index'
-import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ArchiveBoxIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
+import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ArchiveBoxIcon, DocumentTextIcon, SparklesIcon, BoldIcon, ItalicIcon, CommandLineIcon, LinkIcon } from "@heroicons/react/24/outline";
 import CircleIconButton from './CircleIconButton';
 import { Nanum_Myeongjo } from 'next/font/google'
 import { 
@@ -46,6 +46,9 @@ export default function Editor({
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number; requestId?: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [fontMenuOpen, setFontMenuOpen] = useState(false)
+  const [bubbleMenuLoading, setBubbleMenuLoading] = useState(false)
+  const [bubbleMenuOptions, setBubbleMenuOptions] = useState<string[] | null>(null)
+  const [bubbleMenuPosition, setBubbleMenuPosition] = useState<{ from: number; to: number } | null>(null)
   
   // 디바운스용 ref
   const aiTextEditTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -91,6 +94,49 @@ export default function Editor({
     }
     if (userId) fetchBelief()
   }, [userId])
+
+  // BubbleMenu용 AI API 호출 함수 (useCallback으로 메모이제이션)
+  const handleBubbleMenuAugment = useCallback(async () => {
+    if (bubbleMenuLoading || !editor) return
+
+    const { from, to } = editor.state.selection
+    if (from === to) return
+
+    const selectedText = editor.state.doc.textBetween(from, to).trim()
+    if (!selectedText) return
+
+    setBubbleMenuLoading(true)
+    setBubbleMenuPosition({ from, to })
+    
+    const fullText = editor.state.doc.textContent
+    const diaryEntryMarked = fullText.slice(0, to) + ' <<INSERT HERE>> ' + fullText.slice(to)
+
+    try {
+      const res = await fetch('/api/augment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          diaryEntry: fullText,
+          diaryEntryMarked: diaryEntryMarked,
+          userProfile: beliefSummary,
+        }),
+      })
+      const data = await res.json()
+      if (data.interpretiveAgentResult) {
+        setBubbleMenuOptions([
+          data.interpretiveAgentResult.option1,
+          data.interpretiveAgentResult.option2,
+          data.interpretiveAgentResult.option3,
+        ])
+      }
+    } catch (error) {
+      console.error('Error fetching bubble menu augment options:', error)
+    } finally {
+      setBubbleMenuLoading(false)
+    }
+  }, [bubbleMenuLoading, editor, beliefSummary])
+
+
 
   // AI 텍스트 편집 감지 및 투명도 업데이트 (직접 스타일 적용)
   const handleAITextEdit = useCallback(() => {
@@ -267,6 +313,66 @@ export default function Editor({
     setSelectionRange(null)
   }
 
+
+
+  // BubbleMenu용 증강 적용 함수
+  const applyBubbleMenuAugmentation = (inserted: string) => {
+    if (!bubbleMenuPosition || !editor) return
+    const { to } = bubbleMenuPosition
+
+    const finalRequestId = generateRequestId()
+    const category: AICategory = 'interpretive'
+
+    // 1단계: 텍스트 삽입
+    editor.chain()
+      .focus()
+      .setTextSelection(to)
+      .insertContent(inserted)
+      .run()
+    
+    // 2단계: 삽입된 텍스트에 마크 적용
+    setTimeout(() => {
+      editor.chain()
+        .focus()
+        .setTextSelection({ from: to, to: to + inserted.length })
+        .setMark('aiHighlight', {
+          requestId: finalRequestId,
+          category,
+          dataOriginal: inserted,
+          editRatio: '0'
+        })
+        .run()
+    }, 10)
+    
+    // 3단계: DOM 확인 및 수동 설정
+    setTimeout(() => {
+      const editorElement = editor.view.dom as HTMLElement
+      const aiElements = editorElement.querySelectorAll('mark[ai-text]')
+      const lastElement = aiElements[aiElements.length - 1] as HTMLElement
+      
+      if (lastElement) {
+        const dataOriginal = lastElement.getAttribute('data-original')
+        
+        if (!dataOriginal) {
+          lastElement.setAttribute('data-original', inserted)
+          lastElement.setAttribute('request-id', finalRequestId)
+          lastElement.setAttribute('category', category)
+        }
+      }
+    }, 100)
+
+    setAugments((prev) => [...prev, { 
+      start: to, 
+      end: to + inserted.length, 
+      inserted,
+      requestId: finalRequestId,
+      category,
+      originalText: inserted
+    }])
+    setBubbleMenuOptions(null)
+    setBubbleMenuPosition(null)
+  }
+
   return (
     <div className="flex flex-row h-full w-full overflow-hidden">
       {/* 왼쪽 버튼 패널 */}
@@ -314,8 +420,41 @@ export default function Editor({
             value={title} 
             onChange={setTitle} 
           />
-          <div className={`editor-wrapper w-full h-fit p-6 min-h-[60vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none`} style={{marginBottom: '30px' }}>
+          <div className={`editor-wrapper w-full h-fit p-6 min-h-[60vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none relative`} style={{marginBottom: '30px' }}>
             <EditorContent editor={editor} />
+            
+            {/* BubbleMenu - 공식 React 컴포넌트 사용 */}
+            {editor && (
+              <BubbleMenu 
+                editor={editor} 
+                tippyOptions={{ 
+                  duration: 200,
+                  placement: 'right-end',
+                }}
+                shouldShow={({ editor }) => {
+                  const { from, to } = editor.state.selection
+                  const selectedText = editor.state.doc.textBetween(from, to).trim()
+                  return from !== to && selectedText.length > 0 && selectedText.length < 500
+                }}
+              >
+                <div className="flex items-center gap-0.5 rounded-lg bg-white shadow-xl border border-gray-200 p-1">
+                  <button
+                    onClick={handleBubbleMenuAugment}
+                    disabled={bubbleMenuLoading}
+                    className="flex items-center justify-center px-3 py-1.5 rounded-md hover:bg-gray-100 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold text-gray-700 hover:text-blue-600"
+                    title={bubbleMenuLoading ? "AI가 분석 중..." : "AI로 의미 찾기"}
+                  >
+                    {bubbleMenuLoading ? (
+                      <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                    ) : (
+                      "의미찾기"
+                    )}
+                  </button>
+                </div>
+              </BubbleMenu>
+            )}
+            
+
           </div>
         </div>
       </div>
@@ -326,15 +465,15 @@ export default function Editor({
             {loading ? '고민하는 중...' : '의미 찾기'}
           </Button>
           {/* 증강 옵션 */}
-          {augmentOptions && (
+          {(augmentOptions || bubbleMenuOptions) && (
             <Card>
               <Heading level={4}>어떤 문장을 추가할까요?</Heading>
               <ul className="space-y-2">
-                {augmentOptions.map((option, idx) => (
+                {(bubbleMenuOptions || augmentOptions)?.map((option, idx) => (
                   <li key={idx}>
                     <button
-                      onClick={() => applyAugmentation(option)}
-                      className="text-left bg-white border px-4 py-2 rounded hover:bg-indigo-100"
+                      onClick={() => bubbleMenuOptions ? applyBubbleMenuAugmentation(option) : applyAugmentation(option)}
+                      className="text-left bg-white border px-4 py-2 rounded hover:bg-indigo-100 w-full"
                     >
                       {option}
                     </button>
