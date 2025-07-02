@@ -8,6 +8,7 @@ mark[ai-text="true"] {
   padding: 1px 2px;
   margin: 0 1px;
   transition: background-color 0.3s ease;
+  color: inherit !important; /* 부모 요소의 텍스트 색상 상속 */
 }
 
 /* 호버 시 테두리 제거 */

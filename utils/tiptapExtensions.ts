@@ -66,7 +66,18 @@ export const AIHighlight = Highlight.extend({
       // edit-ratio 속성을 기반으로 투명도 계산
       const editRatio = parseFloat(HTMLAttributes['edit-ratio'] || '0')
       const opacity = Math.max(0, 1 - editRatio) // 수정이 많을수록 투명도가 낮아짐
-      const backgroundColor = opacity > 0 ? `rgba(222, 255, 238, ${opacity})` : 'transparent'
+      
+      // CSS 변수에서 색상 가져오기 (기본값 제공)
+      const getCSSVariable = (name: string, fallback: string) => {
+        const value = getComputedStyle(document.documentElement).getPropertyValue(name)
+        return value || fallback
+      }
+      
+      const highlightBg = getCSSVariable('--ai-highlight-bg', 'rgba(219, 234, 254, 1)') // 기본 파란색
+      const highlightColor = getCSSVariable('--ai-highlight-color', '#3B82F6')
+      
+      // 투명도 적용
+      const backgroundColor = opacity > 0 ? highlightBg.replace('1)', `${opacity})`) : 'transparent'
       
       // data-original 속성 보호 및 유효한 속성만 필터링
       const dataOriginal = HTMLAttributes['data-original']
@@ -94,14 +105,14 @@ export const AIHighlight = Highlight.extend({
         ...validAttributes,
         'data-original': dataOriginal, // 원본 텍스트 보존
         'edit-ratio': editRatioAttr || '0', // edit-ratio 보존
-        style: `background: ${backgroundColor} !important;`
+        style: `background: ${backgroundColor} !important; color: inherit !important;`
       }, 0]
     } catch (error) {
       console.error('❌ AIHighlight renderHTML 에러:', error)
       // 에러 발생 시 기본 마크 반환
       return ['mark', { 
         'ai-text': 'true',
-        style: 'background: rgba(222, 255, 238, 1) !important;'
+        style: 'background: rgba(219, 234, 254, 1) !important; color: inherit !important;'
       }, 0]
     }
   },

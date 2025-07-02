@@ -46,6 +46,7 @@ export default function Editor({
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number; requestId?: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [fontMenuOpen, setFontMenuOpen] = useState(false)
+  const [colorMenuOpen, setColorMenuOpen] = useState(false)
   const [bubbleMenuLoading, setBubbleMenuLoading] = useState(false)
   const [bubbleMenuOptions, setBubbleMenuOptions] = useState<string[] | null>(null)
   const [bubbleMenuPosition, setBubbleMenuPosition] = useState<{ from: number; to: number } | null>(null)
@@ -94,6 +95,12 @@ export default function Editor({
     }
     if (userId) fetchBelief()
   }, [userId])
+
+  // 기본 AI 하이라이트 색상 설정
+  useEffect(() => {
+    // 기본 파란색 배경으로 설정
+    document.documentElement.style.setProperty('--ai-highlight-bg', 'rgba(219, 234, 254, 1)')
+  }, [])
 
   // BubbleMenu용 AI API 호출 함수 (useCallback으로 메모이제이션)
   const handleBubbleMenuAugment = useCallback(async () => {
@@ -208,6 +215,41 @@ export default function Editor({
     }
     if (editor) {
       editor.view.dom.style.fontSize = sizeMap[value] || '1rem'
+    }
+  }
+
+  // AI 하이라이트 색상 옵션들
+  const highlightColors = [
+    { name: 'blue', color: '#3B82F6', bgColor: 'rgba(219, 234, 254, 1)' },
+    { name: 'green', color: '#10B981', bgColor: 'rgba(209, 250, 229, 1)' },
+    { name: 'purple', color: '#8B5CF6', bgColor: 'rgba(237, 233, 254, 1)' },
+    { name: 'pink', color: '#EC4899', bgColor: 'rgba(252, 231, 243, 1)' },
+    { name: 'yellow', color: '#EAB308', bgColor: 'rgba(254, 249, 195, 1)' },
+  ]
+
+  const applyHighlightColor = (colorName: string) => {
+    const selectedColor = highlightColors.find(c => c.name === colorName)
+    if (selectedColor) {
+      // CSS 변수로 배경색 설정 (AIHighlight 확장에서 사용)
+      document.documentElement.style.setProperty('--ai-highlight-bg', selectedColor.bgColor)
+      
+      // 기존 AI 텍스트들의 배경색 업데이트 (투명도 유지)
+      if (editor) {
+        const editorElement = editor.view.dom as HTMLElement
+        const aiElements = editorElement.querySelectorAll('mark[ai-text]')
+        aiElements.forEach((element) => {
+          const htmlElement = element as HTMLElement
+          const editRatio = parseFloat(htmlElement.getAttribute('edit-ratio') || '0')
+          const opacity = Math.max(0, 1 - editRatio) // 수정이 많을수록 투명도가 낮아짐
+          
+          // 투명도 적용된 배경색 계산
+          const backgroundColor = opacity > 0 
+            ? selectedColor.bgColor.replace('1)', `${opacity})`) 
+            : 'transparent'
+          
+          htmlElement.style.backgroundColor = backgroundColor
+        })
+      }
     }
   }
 
@@ -394,6 +436,31 @@ export default function Editor({
                   className="w-8 h-8 rounded-full flex items-center justify-center"
                 >
                   <span className="font-normal font-sans" style={{ fontSize: size === 'small' ? '0.75rem' : size === 'normal' ? '1rem' : size === 'large' ? '1.25rem' : '1.5rem' }}>T</span>
+                </CircleIconButton>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="relative" onMouseEnter={() => setColorMenuOpen(true)} onMouseLeave={() => setColorMenuOpen(false)}>
+          <CircleIconButton aria-label="AI 하이라이트 색상 조절">
+            <SparklesIcon className="h-5 w-5 text-gray-700" />
+          </CircleIconButton>
+          {colorMenuOpen && (
+            <div className="absolute right-full top-1/2 -translate-y-1/2 flex gap-2 bg-transparent z-10 text-sm px-2 py-1">
+              {highlightColors.map((color) => (
+                <CircleIconButton
+                  key={color.name}
+                  onClick={() => {
+                    applyHighlightColor(color.name)
+                    setColorMenuOpen(false)
+                  }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center border-2 border-gray-200 hover:border-gray-300"
+                >
+                  <div 
+                    className="w-4 h-4 rounded-full" 
+                    style={{ backgroundColor: color.color }}
+                  ></div>
                 </CircleIconButton>
               ))}
             </div>
