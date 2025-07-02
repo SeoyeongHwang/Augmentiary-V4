@@ -73,9 +73,7 @@ export const AIHighlight = Highlight.extend({
         return value || fallback
       }
       
-      const highlightBg = getCSSVariable('--ai-highlight-bg', 'rgba(219, 234, 254, 1)') // 기본 파란색
-      const highlightColor = getCSSVariable('--ai-highlight-color', '#3B82F6')
-      
+      const highlightBg = getCSSVariable('--ai-highlight-bg', 'rgba(219, 234, 254, 1)') // 기본 파란색      
       // 투명도 적용
       const backgroundColor = opacity > 0 ? highlightBg.replace('1)', `${opacity})`) : 'transparent'
       
