@@ -123,9 +123,11 @@ export const updateAITextOpacity = (element: HTMLElement): void => {
   // data-original이 있는 경우에만 투명도 계산 (API에서 받은 AI 텍스트만)
   if (originalText) {
     const editRatio = calculateEditRatio(originalText, currentText);
+    
+    // edit-ratio 속성만 업데이트 (data-original은 절대 변경하지 않음)
     element.setAttribute('edit-ratio', editRatio.toString());
     
-    // 투명도 계산 및 적용
+    // 투명도 계산 및 적용 (직접 스타일 적용)
     const opacity = calculateBackgroundOpacity(editRatio);
     element.style.background = getBackgroundColor(opacity);
     

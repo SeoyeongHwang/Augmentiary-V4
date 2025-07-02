@@ -11,6 +11,7 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@supabase/supabase-js": "^2.49.8",
+    "@tiptap/extension-highlight": "^2.23.1",
     "@tiptap/pm": "^2.23.1",
     "@tiptap/react": "^2.23.1",
     "@tiptap/starter-kit": "^2.23.1",

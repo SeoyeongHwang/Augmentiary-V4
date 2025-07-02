@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { AIText } from '../utils/tiptapExtensions'
+import { AIHighlight } from '../utils/tiptapExtensions'
 import { Button, Heading, Card, Textarea, TextInput } from './index'
 import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ArchiveBoxIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import CircleIconButton from './CircleIconButton';
@@ -46,18 +46,21 @@ export default function Editor({
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number; requestId?: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [fontMenuOpen, setFontMenuOpen] = useState(false)
+  
+  // 디바운스용 ref
+  const aiTextEditTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const editor = useEditor({
     extensions: [
       StarterKit,
-      AIText,
+      AIHighlight,
     ],
     editorProps: {
       attributes: {
         class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none',
       },
     },
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor }: { editor: any }) => {
       const content = editor.getHTML()
       setEditorContent(content)
       if (onContentChange) {
@@ -65,7 +68,10 @@ export default function Editor({
       }
       
       // AI 텍스트 편집 감지 (디바운스 적용)
-      setTimeout(() => {
+      if (aiTextEditTimeoutRef.current) {
+        clearTimeout(aiTextEditTimeoutRef.current)
+      }
+      aiTextEditTimeoutRef.current = setTimeout(() => {
         handleAITextEdit()
       }, 100)
     },
@@ -86,46 +92,63 @@ export default function Editor({
     if (userId) fetchBelief()
   }, [userId])
 
-  // AI 텍스트 편집 감지 및 투명도 업데이트 (인라인 스타일 방식)
+  // AI 텍스트 편집 감지 및 투명도 업데이트 (직접 스타일 적용)
   const handleAITextEdit = useCallback(() => {
     if (!editor) return
 
-    // DOM에서 직접 AI 텍스트 요소 찾기
+    // DOM에서 모든 AI 텍스트 요소 찾기
     const editorElement = editor.view.dom as HTMLElement
-    const aiElements = editorElement.querySelectorAll('[ai-text]')
+    const aiElements = editorElement.querySelectorAll('mark[ai-text]')
     
-    console.log(`🔍 AI 텍스트 요소 개수: ${aiElements.length}`)
-    
-    // 각 AI 요소에 대해 수정 정도 계산
+    // 각 AI 요소에 대해 수정 정도 계산 및 직접 스타일 적용
     aiElements.forEach((element, index) => {
       const currentText = element.textContent || ''
-      const originalText = element.getAttribute('data-original')
+      const originalText = element.getAttribute('data-original') // DOM에서는 하이픈 사용
+      const requestId = element.getAttribute('request-id') // DOM에서는 하이픈 사용
       
-      // data-original이 있는 경우에만 투명도 계산 (API에서 받은 AI 텍스트만)
+      // data-original이 있는 경우에만 투명도 계산 (AI 텍스트만)
       if (originalText) {
         const editRatio = calculateEditRatio(originalText, currentText)
         
-        // 배경 투명도 직접 계산 및 적용 (1.0 ~ 0.0 범위)
-        // 수정이 많을수록 투명도가 낮아짐 (배경색이 연해짐)
-        const maxOpacity = 1.0
-        const minOpacity = 0.0
-        const opacity = maxOpacity - editRatio * (maxOpacity - minOpacity)
-        
-        // 배경색 투명도만 적용 (글자색은 변경하지 않음)
+        // Tiptap 명령어를 사용하여 editRatio 속성 업데이트
         const htmlElement = element as HTMLElement
-        const backgroundColor = getBackgroundColor(opacity)
-        htmlElement.style.background = backgroundColor
+        const requestId = htmlElement.getAttribute('request-id') // DOM에서는 하이픈 사용
+        const category = htmlElement.getAttribute('category') as AICategory || 'interpretive' // DOM에서는 하이픈 사용
         
-        console.log(`✅ AI 텍스트 수정 감지:`, {
-          requestId: element.getAttribute('request-id'),
-          original: originalText.substring(0, 50) + '...',
-          current: currentText.substring(0, 50) + '...',
-          editRatio: `${(editRatio * 100).toFixed(1)}%`,
-          opacity: opacity.toFixed(3),
-          backgroundColor: backgroundColor,
-          appliedStyle: htmlElement.style.background,
-          computedStyle: window.getComputedStyle(htmlElement).backgroundColor
+        // 현재 선택 범위를 저장
+        const currentSelection = editor.state.selection
+        
+        // 해당 요소를 찾아서 마크 업데이트
+        const { from, to } = editor.state.selection
+        const doc = editor.state.doc
+        
+        // 문서 전체를 순회하면서 해당 텍스트를 찾아 마크 업데이트
+        doc.descendants((node, pos) => {
+          if (node.isText && node.text === currentText) {
+            // 해당 위치에 마크가 있는지 확인
+            const marks = editor.state.doc.nodeAt(pos)?.marks || []
+            const aiMark = marks.find(mark => mark.type.name === 'aiHighlight')
+            
+            if (aiMark) {
+              // 마크 업데이트
+              editor.chain()
+                .focus()
+                .setTextSelection({ from: pos, to: pos + currentText.length })
+                .setMark('aiHighlight', {
+                  requestId: requestId || 'unknown',
+                  category,
+                  dataOriginal: originalText,
+                  editRatio: editRatio.toString()
+                })
+                .run()
+              
+              // 원래 선택 범위 복원
+              editor.chain().focus().setTextSelection(currentSelection).run()
+            }
+          }
         })
+      } else {
+        console.log(`❌ 원본 텍스트가 없음: data-original 속성 확인 필요`)
       }
     })
   }, [editor])
@@ -193,31 +216,44 @@ export default function Editor({
     const finalRequestId = requestId || generateRequestId()
     const category: AICategory = 'interpretive'
 
-    // Tiptap에서 AI 텍스트 삽입
+    // 1단계: 텍스트 삽입
     editor.chain()
       .focus()
       .setTextSelection(end)
       .insertContent(inserted)
-      .setTextSelection({ from: end, to: end + inserted.length })
-      .setAIText({
-        requestId: finalRequestId,
-        category,
-        'data-original': inserted
-      })
       .run()
     
-    // 삽입된 AI 텍스트 요소에 원본 텍스트 저장 (백업)
+    // 2단계: 삽입된 텍스트에 마크 적용
     setTimeout(() => {
-      const editorElement = editor.view.dom as HTMLElement
-      const aiElements = editorElement.querySelectorAll('[ai-text]')
-      const lastElement = aiElements[aiElements.length - 1] as HTMLElement
-      if (lastElement && lastElement.getAttribute('request-id') === finalRequestId) {
-        lastElement.setAttribute('data-original', inserted)
-        console.log('✅ AI 텍스트 원본 저장:', inserted)
-      }
+      editor.chain()
+        .focus()
+        .setTextSelection({ from: end, to: end + inserted.length })
+        .setMark('aiHighlight', {
+          requestId: finalRequestId,
+          category,
+          dataOriginal: inserted,
+          editRatio: '0'
+        })
+        .run()
     }, 10)
     
-    console.log('✅ AI 텍스트 삽입 완료:', inserted)
+    // 3단계: DOM 확인 및 수동 설정
+    setTimeout(() => {
+      const editorElement = editor.view.dom as HTMLElement
+      const aiElements = editorElement.querySelectorAll('mark[ai-text]')
+      const lastElement = aiElements[aiElements.length - 1] as HTMLElement
+      
+      if (lastElement) {
+        const dataOriginal = lastElement.getAttribute('data-original') // DOM에서는 하이픈 사용
+        
+        // data-original이 없으면 수동으로 설정
+        if (!dataOriginal) {
+          lastElement.setAttribute('data-original', inserted) // DOM에서는 하이픈 사용
+          lastElement.setAttribute('request-id', finalRequestId) // DOM에서는 하이픈 사용
+          lastElement.setAttribute('category', category) // DOM에서는 하이픈 사용
+        }
+      }
+    }, 100)
 
     setAugments((prev) => [...prev, { 
       start: end, 

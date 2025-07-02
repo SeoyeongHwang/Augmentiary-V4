@@ -3,17 +3,20 @@
 @tailwind utilities;
 
 /* AI 텍스트 기본 스타일 */
-span[ai-text="true"] {
-  background-color: rgba(222, 255, 238, 1.0) !important;
+mark[ai-text="true"] {
   border-radius: 4px;
   padding: 1px 2px;
   margin: 0 1px;
   transition: background-color 0.3s ease;
 }
 
-span[ai-text="true"]:hover {
-  outline: 1px solid rgba(0, 0, 0, 0.1);
+/* 호버 시 테두리 제거 */
+mark[ai-text="true"]:hover {
+  outline: none;
+  border: none;
 }
+
+
 
 /* 나의 글로벌 스타일 설정 시작 */
 
