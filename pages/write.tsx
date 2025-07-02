@@ -3,7 +3,7 @@ import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { User } from '@supabase/supabase-js'
 import { ArrowLeftIcon } from "@heroicons/react/24/outline"
-import { QuillEditor, Button, ESMModal } from '../components'
+import { TiptapEditor, Button, ESMModal } from '../components'
 import type { ESMData } from '../components/ESMModal'
 import type { CreateESMResponseData } from '../types/esm'
 import type { CreateEntryData } from '../types/entry'
@@ -126,7 +126,7 @@ export default function Write() {
 
       {/* 메인 콘텐츠 */}
       <main className="flex-1 overflow-hidden">
-        <QuillEditor 
+        <TiptapEditor 
           userId={user.id}
           onTitleChange={setTitle}
           onContentChange={setContent}

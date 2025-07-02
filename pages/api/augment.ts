@@ -4,6 +4,11 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 
 import { callNarrativeAgent, callInterpretiveAgent } from '../../lib/augmentAgents';
 
+// Request ID 생성 함수
+const generateRequestId = (): string => {
+  return `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });

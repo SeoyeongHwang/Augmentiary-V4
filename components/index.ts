@@ -1,5 +1,6 @@
 export { default as Editor } from './Editor';
 export { default as QuillEditor } from './QuillEditor';
+export { default as TiptapEditor } from './TiptapEditor';
 export { default as Button } from './Button';
 export { default as Card } from './Card';
 export { default as TextInput } from './TextInput';

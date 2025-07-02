@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { useQuill } from 'react-quilljs';
-import 'quill/dist/quill.snow.css';
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { AIText } from '../utils/tiptapExtensions'
 import { Button, Heading, Card, Textarea, TextInput } from './index'
 import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ArchiveBoxIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import CircleIconButton from './CircleIconButton';
@@ -9,12 +10,11 @@ import { Nanum_Myeongjo } from 'next/font/google'
 import { 
   generateRequestId, 
   findAITextElement, 
-  updateAITextOpacity,
   createAITextAttributes,
-  registerAITextFormat,
   calculateBackgroundOpacity,
   getBackgroundColor
 } from '../utils/editorHelpers'
+import { calculateEditCount, calculateEditRatio } from '../utils/diff'
 import type { AICategory } from '../types/ai'
 
 const namum = Nanum_Myeongjo({
@@ -40,31 +40,36 @@ export default function Editor({
       onTitleChange(title)
     }
   }, [title, onTitleChange])
-  const [augments, setAugments] = useState<{ start: number; end: number; inserted: string; requestId: string; category: AICategory }[]>([])
+  const [augments, setAugments] = useState<{ start: number; end: number; inserted: string; requestId: string; category: AICategory; originalText: string }[]>([])
   const [beliefSummary, setBeliefSummary] = useState('')
   const [augmentOptions, setAugmentOptions] = useState<string[] | null>(null)
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number; requestId?: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [fontMenuOpen, setFontMenuOpen] = useState(false)
 
-  const { quill, quillRef } = useQuill({
-    modules: {
-        toolbar: false,  //custom DOM toolbar 사용
-        history: {
-            delay: 1000,
-            maxStack: 100,
-            userOnly: true,
-          },
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      AIText,
+    ],
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none',
+      },
     },
-    formats: ['background'],
+    onUpdate: ({ editor }) => {
+      const content = editor.getHTML()
+      setEditorContent(content)
+      if (onContentChange) {
+        onContentChange(content)
+      }
+      
+      // AI 텍스트 편집 감지 (디바운스 적용)
+      setTimeout(() => {
+        handleAITextEdit()
+      }, 100)
+    },
   })
-
-  // AI 텍스트 포맷 등록
-  useEffect(() => {
-    if (quill) {
-      registerAITextFormat()
-    }
-  }, [quill])
 
   // 사용자 프로필 가져오기
   useEffect(() => {
@@ -81,86 +86,49 @@ export default function Editor({
     if (userId) fetchBelief()
   }, [userId])
 
-  // Quill content change listener with AI text edit detection
-  useEffect(() => {
-    if (quill) {
-      quill.on('text-change', (delta, oldDelta, source) => {
-        const content = quill.root.innerHTML
-        setEditorContent(content)
-        if (onContentChange) {
-          onContentChange(content)
-        }
+  // AI 텍스트 편집 감지 및 투명도 업데이트 (인라인 스타일 방식)
+  const handleAITextEdit = useCallback(() => {
+    if (!editor) return
 
-        // AI 텍스트 편집 감지 (사용자 편집인 경우에만)
-        if (source === 'user') {
-          detectAndUpdateAITextEdit()
-        }
-      })
-    }
-  }, [quill, onContentChange])
-
-  // AI 텍스트 편집 감지 및 투명도 업데이트
-  const detectAndUpdateAITextEdit = () => {
-    if (!quill || !quillRef.current) return
-
-    const selection = quill.getSelection()
-    if (!selection) return
-
-    const editorElement = quillRef.current.querySelector('.ql-editor') as HTMLElement
-    if (!editorElement) return
-
-    // 현재 커서 위치에서 AI 텍스트 요소 찾기
-    const range = quill.getSelection()
-    if (!range) return
-
-    console.log('🔍 AI 텍스트 편집 감지 시작')
-
-    // 선택 영역이 있는 경우
-    if (range.length > 0) {
-      // 선택 영역의 시작점과 끝점에서 AI 텍스트 찾기
-      const startNode = quill.getLeaf(range.index)[0]?.domNode || null
-      const endNode = quill.getLeaf(range.index + range.length)[0]?.domNode || null
+    // DOM에서 직접 AI 텍스트 요소 찾기
+    const editorElement = editor.view.dom as HTMLElement
+    const aiElements = editorElement.querySelectorAll('[ai-text]')
+    
+    console.log(`🔍 AI 텍스트 요소 개수: ${aiElements.length}`)
+    
+    // 각 AI 요소에 대해 수정 정도 계산
+    aiElements.forEach((element, index) => {
+      const currentText = element.textContent || ''
+      const originalText = element.getAttribute('data-original')
       
-      const startAIText = findAITextElement(startNode, editorElement)
-      const endAIText = findAITextElement(endNode, editorElement)
-      
-      if (startAIText) {
-        console.log('✅ AI 텍스트 편집 감지 (시작점):', startAIText.textContent)
-        updateAITextOpacity(startAIText)
+      // data-original이 있는 경우에만 투명도 계산 (API에서 받은 AI 텍스트만)
+      if (originalText) {
+        const editRatio = calculateEditRatio(originalText, currentText)
+        
+        // 배경 투명도 직접 계산 및 적용 (1.0 ~ 0.0 범위)
+        // 수정이 많을수록 투명도가 낮아짐 (배경색이 연해짐)
+        const maxOpacity = 1.0
+        const minOpacity = 0.0
+        const opacity = maxOpacity - editRatio * (maxOpacity - minOpacity)
+        
+        // 배경색 투명도만 적용 (글자색은 변경하지 않음)
+        const htmlElement = element as HTMLElement
+        const backgroundColor = getBackgroundColor(opacity)
+        htmlElement.style.background = backgroundColor
+        
+        console.log(`✅ AI 텍스트 수정 감지:`, {
+          requestId: element.getAttribute('request-id'),
+          original: originalText.substring(0, 50) + '...',
+          current: currentText.substring(0, 50) + '...',
+          editRatio: `${(editRatio * 100).toFixed(1)}%`,
+          opacity: opacity.toFixed(3),
+          backgroundColor: backgroundColor,
+          appliedStyle: htmlElement.style.background,
+          computedStyle: window.getComputedStyle(htmlElement).backgroundColor
+        })
       }
-      if (endAIText && endAIText !== startAIText) {
-        console.log('✅ AI 텍스트 편집 감지 (끝점):', endAIText.textContent)
-        updateAITextOpacity(endAIText)
-      }
-    } else {
-      // 커서만 있는 경우
-      const currentNode = quill.getLeaf(range.index)[0]?.domNode || null
-      const aiTextElement = findAITextElement(currentNode, editorElement)
-      
-      if (aiTextElement) {
-        console.log('✅ AI 텍스트 편집 감지 (커서):', aiTextElement.textContent)
-        updateAITextOpacity(aiTextElement)
-      } else {
-        console.log('ℹ️ AI 텍스트 요소를 찾을 수 없음')
-      }
-    }
-  }
-
-  useEffect(() => {
-    const editor = quillRef.current?.querySelector('.ql-editor') as HTMLElement | null
-    if (editor) {
-        editor.classList.add(
-            'text-base',
-            'leading-10',
-            'antialiased',
-            'font-serif',
-            'font-normal',
-            'text-black',
-            'caret-stone-900'
-          );
-      editor.style.fontFamily = `'Nanum Myeongjo', -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Apple SD Gothic Neo", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif'`
-    }
-  }, [quillRef])  
+    })
+  }, [editor])
 
   const applyFontSize = (value: string) => {
     const sizeMap: Record<string, string> = {
@@ -169,25 +137,25 @@ export default function Editor({
       large: '1.25rem',
       huge: '1.5rem',
     }
-    const editor = quillRef.current?.querySelector('.ql-editor') as HTMLElement | null
-    if (editor) editor.style.fontSize = sizeMap[value] || '1rem'
+    if (editor) {
+      editor.view.dom.style.fontSize = sizeMap[value] || '1rem'
+    }
   }
 
   const handleAugment = async () => {
-    if (loading || !quill) return
+    if (loading || !editor) return
 
-    const selection = quill.getSelection()
-    if (!selection) return alert('텍스트를 선택하세요.')
+    const { from, to } = editor.state.selection
+    if (from === to) return alert('텍스트를 선택하세요.')
 
-    const { index, length } = selection;
-    const selectedText = quill.getText(index, length).trim()
+    const selectedText = editor.state.doc.textBetween(from, to).trim()
     if (!selectedText) return alert('텍스트를 선택하세요.')
 
     setLoading(true)
-    setSelectionRange({ start: index, end: index + length })
+    setSelectionRange({ start: from, end: to })
     
-    const fullText = quill.getText();
-    const diaryEntryMarked = fullText.slice(0, index + length) + ' <<INSERT HERE>> ' + fullText.slice(index + length);
+    const fullText = editor.state.doc.textContent
+    const diaryEntryMarked = fullText.slice(0, to) + ' <<INSERT HERE>> ' + fullText.slice(to)
 
     try {
       const res = await fetch('/api/augment', {
@@ -218,27 +186,46 @@ export default function Editor({
   }
 
   const applyAugmentation = (inserted: string) => {
-    if (!selectionRange || !quill) return
+    if (!selectionRange || !editor) return
     const { end, requestId } = selectionRange
 
     // API에서 받은 request ID 사용, 없으면 새로 생성
     const finalRequestId = requestId || generateRequestId()
     const category: AICategory = 'interpretive'
 
-    quill.setSelection(end, 0)
+    // Tiptap에서 AI 텍스트 삽입
+    editor.chain()
+      .focus()
+      .setTextSelection(end)
+      .insertContent(inserted)
+      .setTextSelection({ from: end, to: end + inserted.length })
+      .setAIText({
+        requestId: finalRequestId,
+        category,
+        'data-original': inserted
+      })
+      .run()
     
-    // Quill 포맷을 사용하여 AI 텍스트 삽입
-    const aiTextAttributes = createAITextAttributes(finalRequestId, category, inserted)
-    quill.insertText(end, inserted, aiTextAttributes)
+    // 삽입된 AI 텍스트 요소에 원본 텍스트 저장 (백업)
+    setTimeout(() => {
+      const editorElement = editor.view.dom as HTMLElement
+      const aiElements = editorElement.querySelectorAll('[ai-text]')
+      const lastElement = aiElements[aiElements.length - 1] as HTMLElement
+      if (lastElement && lastElement.getAttribute('request-id') === finalRequestId) {
+        lastElement.setAttribute('data-original', inserted)
+        console.log('✅ AI 텍스트 원본 저장:', inserted)
+      }
+    }, 10)
     
-    console.log('✅ AI 텍스트 삽입 완료:', inserted, aiTextAttributes)
+    console.log('✅ AI 텍스트 삽입 완료:', inserted)
 
     setAugments((prev) => [...prev, { 
       start: end, 
       end: end + inserted.length, 
       inserted,
       requestId: finalRequestId,
-      category
+      category,
+      originalText: inserted
     }])
     setAugmentOptions(null)
     setSelectionRange(null)
@@ -271,10 +258,10 @@ export default function Editor({
           )}
         </div>
         
-        <CircleIconButton onClick={() => quill?.history.undo()} aria-label="되돌리기" >
+        <CircleIconButton onClick={() => editor?.chain().focus().undo().run()} aria-label="되돌리기" >
           <ArrowUturnLeftIcon className="h-5 w-5 text-gray-700" />
         </CircleIconButton>
-        <CircleIconButton onClick={() => quill?.history.redo()} aria-label="다시하기" >
+        <CircleIconButton onClick={() => editor?.chain().focus().redo().run()} aria-label="다시하기" >
           <ArrowUturnRightIcon className="h-5 w-5 text-gray-700" />
         </CircleIconButton>
         <CircleIconButton onClick={() => {}} aria-label="저장하기" >
@@ -291,7 +278,9 @@ export default function Editor({
             value={title} 
             onChange={setTitle} 
           />
-          <div ref={quillRef} className={`editor-wrapper w-full h-fit p-6 min-h-[60vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none`} style={{marginBottom: '30px' }} />
+          <div className={`editor-wrapper w-full h-fit p-6 min-h-[60vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none`} style={{marginBottom: '30px' }}>
+            <EditorContent editor={editor} />
+          </div>
         </div>
       </div>
       {/* 오른쪽 디스플레이 패널 */}

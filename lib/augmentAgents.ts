@@ -117,10 +117,15 @@ Guidelines:
         const jsonStart = textResult.indexOf('{');
         const jsonEnd = textResult.lastIndexOf('}');
         const jsonString = textResult.substring(jsonStart, jsonEnd + 1);
-        const parsedResult = JSON.parse(jsonString);
+        
+        // JSON 문자열 정리 (불필요한 공백 제거)
+        const cleanedJson = jsonString.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+        
+        const parsedResult = JSON.parse(cleanedJson);
         return parsedResult;
       } catch (err) {
         console.error('Error parsing Interpretive Agent JSON:', err);
+        console.error('Raw response:', textResult);
         return { option1: '', option2: '', option3: ''};
       }
   }
