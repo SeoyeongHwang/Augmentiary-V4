@@ -490,11 +490,11 @@ export default function Editor({
                   return from !== to && selectedText.length > 0 && selectedText.length < 500
                 }}
               >
-                <div className="flex items-center gap-0.5 rounded-lg bg-white shadow-xl border border-gray-200 p-1">
+                <div className="flex items-center gap-0.5 rounded-lg bg-black shadow-xl border border-gray-700 p-1">
                   <button
                     onClick={handleBubbleMenuAugment}
                     disabled={bubbleMenuLoading}
-                    className="flex items-center justify-center px-3 py-1.5 rounded-md hover:bg-gray-100 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold text-gray-700 hover:text-blue-600"
+                    className="flex items-center justify-center px-3 py-1.5 rounded-md hover:bg-gray-800 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold text-white hover:text-gray-300"
                     title={bubbleMenuLoading ? "AI가 분석 중..." : "AI로 의미 찾기"}
                   >
                     {bubbleMenuLoading ? (
@@ -514,9 +514,9 @@ export default function Editor({
       {/* 오른쪽 디스플레이 패널 */}
       <aside className="hidden md:flex md:w-96 border-l p-4 flex-shrink-0 flex-col overflow-y-auto">
         <div className="flex flex-col space-y-4">
-          <Button onClick={handleAugment} disabled={loading} className="px-4 py-2 rounded">
+          {/* <Button onClick={handleAugment} disabled={loading} className="px-4 py-2 rounded">
             {loading ? '고민하는 중...' : '의미 찾기'}
-          </Button>
+          </Button> */}
           {/* 증강 옵션 */}
           {(augmentOptions || bubbleMenuOptions) && (
             <Card>
