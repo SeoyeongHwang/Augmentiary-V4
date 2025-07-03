@@ -9,9 +9,11 @@ import type { ESMData } from '../components/ESMModal'
 import type { CreateESMResponseData } from '../types/esm'
 import type { CreateEntryData } from '../types/entry'
 import { getCurrentKST } from '../lib/time'
+import { getParticipantCode } from '../lib/auth'
 
 export default function Write() {
   const [user, setUser] = useState<User | null>(null)
+  const [participantCode, setParticipantCode] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [showESM, setShowESM] = useState(false)
@@ -28,13 +30,16 @@ export default function Write() {
         router.push('/login')
       } else {
         setUser(session.user)
+        // participant_code 가져오기
+        const code = await getParticipantCode(session.user.id)
+        setParticipantCode(code)
       }
     }
     fetchSession()
   }, [router])
 
   const handleSave = async () => {
-    if (!user) {
+    if (!user || !participantCode) {
       alert('사용자 정보를 확인할 수 없습니다.')
       return
     }
@@ -49,10 +54,15 @@ export default function Write() {
   }
 
   const handleESMSubmit = async (esmData: ESMData) => {
+    if (!participantCode) {
+      alert('참가자 코드를 확인할 수 없습니다.')
+      return
+    }
+
     try {
       // 1. entry ID를 먼저 생성 (shared는 임시로 false로 설정)
       const entryDataToInsert: CreateEntryData = {
-        user_id: user?.id!,
+        participant_code: participantCode,
         title: title.trim(),
         content_html: content,
         shared: false // 임시로 false, ESM 응답 후 업데이트
@@ -74,7 +84,7 @@ export default function Write() {
 
       // 2. ESM 응답 저장 (entry_id 포함)
       const esmDataToInsert: CreateESMResponseData = {
-        user_id: user?.id!,
+        participant_code: participantCode,
         entry_id: entryId,
         consent: esmData.consent,
         q1: esmData.q1,

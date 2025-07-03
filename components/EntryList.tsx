@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { formatKST } from '../lib/time'
+import { getParticipantCode } from '../lib/auth'
 
 type Props = {
   userId: string
@@ -21,10 +22,18 @@ export default function EntryList({ userId }: Props) {
   // 일기 목록 불러오기
   useEffect(() => {
     const fetchEntries = async () => {
+      // participant_code 가져오기
+      const participantCode = await getParticipantCode(userId)
+      if (!participantCode) {
+        console.error('참가자 코드를 찾을 수 없습니다.')
+        setLoading(false)
+        return
+      }
+
       const { data, error } = await supabase
         .from('entries')
         .select('*')
-        .eq('user_id', userId)
+        .eq('participant_code', participantCode)
         .order('created_at', { ascending: false })
 
       if (error) {

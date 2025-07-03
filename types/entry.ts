@@ -1,6 +1,6 @@
 export interface Entry {
   id: string
-  user_id: string
+  participant_code: string
   title: string
   content_html: string
   shared: boolean
@@ -8,7 +8,7 @@ export interface Entry {
 }
 
 export interface CreateEntryData {
-  user_id: string
+  participant_code: string
   title: string
   content_html: string
   shared: boolean

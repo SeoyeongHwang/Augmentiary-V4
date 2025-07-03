@@ -59,6 +59,16 @@ a:hover {
   caret-color: #292524; /* stone-900 */
 }
 
+/* Tiptap 에디터 행간 설정 */
+.ProseMirror {
+  line-height: 2.2 !important;
+}
+
+.ProseMirror p {
+  line-height: 2.2 !important;
+  margin-bottom: 1rem;
+}
+
 /* Line clamp utilities */
 .line-clamp-2 {
   display: -webkit-box;

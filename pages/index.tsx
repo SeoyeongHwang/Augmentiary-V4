@@ -7,6 +7,7 @@ import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline"
 import { Button, Heading, JournalCard, JournalModal } from '../components'
 import type { Entry } from '../types/entry'
 import { formatKST } from '../lib/time'
+import { getParticipantCode } from '../lib/auth'
 
 import type { User as AppUser } from '../types/user'
 
@@ -32,7 +33,7 @@ export default function Home() {
       } else {
         setAuthUser(session.user)
         await fetchUserData(session.user.id)
-        fetchEntries(session.user.id)
+        await fetchEntries(session.user.id)
       }
     }
     fetchSession()
@@ -58,10 +59,17 @@ export default function Home() {
 
   const fetchEntries = async (userId: string) => {
     try {
+      // participant_code 가져오기
+      const participantCode = await getParticipantCode(userId)
+      if (!participantCode) {
+        console.error('참가자 코드를 찾을 수 없습니다.')
+        return
+      }
+
       const { data, error } = await supabase
         .from('entries')
         .select('*')
-        .eq('user_id', userId)
+        .eq('participant_code', participantCode)
         .order('created_at', { ascending: false })
         .limit(9) // 최대 9개 (3x3 그리드)
 

@@ -1,6 +1,6 @@
 export interface ESMResponse {
   id: string
-  user_id: string
+  participant_code: string
   entry_id?: string
   consent: boolean
   q1: number
@@ -12,7 +12,7 @@ export interface ESMResponse {
 }
 
 export interface CreateESMResponseData {
-  user_id: string
+  participant_code: string
   entry_id?: string
   consent: boolean
   q1: number

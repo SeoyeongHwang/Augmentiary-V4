@@ -14,7 +14,7 @@ export enum ActionType {
 
 export interface InteractionLog {
   id: string
-  user_id: string
+  participant_code: string
   entry_id?: string
   action_type: ActionType
   timestamp: string
@@ -22,7 +22,7 @@ export interface InteractionLog {
 }
 
 export interface CreateInteractionLogData {
-  user_id: string
+  participant_code: string
   entry_id?: string
   action_type: ActionType
   meta?: Record<string, any>
