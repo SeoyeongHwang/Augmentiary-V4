@@ -171,4 +171,15 @@ export const createAITextAttributes = (
   };
 };
 
+/**
+ * debounce 유틸리티 (함수 실행을 delay, 마지막 호출만 실행)
+ */
+export function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+
 

@@ -32,17 +32,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const interpretiveAgentResult = await callInterpretiveAgent(
       diaryEntryMarked,
       userProfile,
-     narrativeAgentResult.strategy+' '+narrativeAgentResult.justification
+      narrativeAgentResult.strategy+' '+narrativeAgentResult.justification
     );
+    
     console.log('Interpretive Agent Result: ', interpretiveAgentResult);
-
-    // // Step 3: Causal Agent
-    // const causalAgentResult = await callCausalAgent(
-    //   diaryEntry,
-    //   selectedEntry,
-    //   interpretiveAgentResult
-    // );
-    // console.log('Causal Agent Result:', causalAgentResult);
 
     // 최종 결과 반환
     res.status(200).json({
