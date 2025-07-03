@@ -304,28 +304,21 @@ export default function Editor({
     const finalRequestId = requestId || generateRequestId()
     const category: AICategory = 'interpretive'
 
-    // 1단계: 텍스트 삽입
+    // 하나의 트랜잭션으로 텍스트 삽입과 마크 적용을 동시에 실행
     editor.chain()
       .focus()
       .setTextSelection(end)
       .insertContent(inserted)
+      .setTextSelection({ from: end, to: end + inserted.length })
+      .setMark('aiHighlight', {
+        requestId: finalRequestId,
+        category,
+        dataOriginal: inserted,
+        editRatio: '0'
+      })
       .run()
     
-    // 2단계: 삽입된 텍스트에 마크 적용
-    setTimeout(() => {
-      editor.chain()
-        .focus()
-        .setTextSelection({ from: end, to: end + inserted.length })
-        .setMark('aiHighlight', {
-          requestId: finalRequestId,
-          category,
-          dataOriginal: inserted,
-          editRatio: '0'
-        })
-        .run()
-    }, 10)
-    
-    // 3단계: DOM 확인 및 수동 설정
+    // DOM 속성 설정 (히스토리에 영향을 주지 않음)
     setTimeout(() => {
       const editorElement = editor.view.dom as HTMLElement
       const aiElements = editorElement.querySelectorAll('mark[ai-text]')
@@ -341,7 +334,7 @@ export default function Editor({
           lastElement.setAttribute('category', category) // DOM에서는 하이픈 사용
         }
       }
-    }, 100)
+    }, 50)
 
     setAugments((prev) => [...prev, { 
       start: end, 
@@ -365,28 +358,21 @@ export default function Editor({
     const finalRequestId = generateRequestId()
     const category: AICategory = 'interpretive'
 
-    // 1단계: 텍스트 삽입
+    // 하나의 트랜잭션으로 텍스트 삽입과 마크 적용을 동시에 실행
     editor.chain()
       .focus()
       .setTextSelection(to)
       .insertContent(inserted)
+      .setTextSelection({ from: to, to: to + inserted.length })
+      .setMark('aiHighlight', {
+        requestId: finalRequestId,
+        category,
+        dataOriginal: inserted,
+        editRatio: '0'
+      })
       .run()
     
-    // 2단계: 삽입된 텍스트에 마크 적용
-    setTimeout(() => {
-      editor.chain()
-        .focus()
-        .setTextSelection({ from: to, to: to + inserted.length })
-        .setMark('aiHighlight', {
-          requestId: finalRequestId,
-          category,
-          dataOriginal: inserted,
-          editRatio: '0'
-        })
-        .run()
-    }, 10)
-    
-    // 3단계: DOM 확인 및 수동 설정
+    // DOM 속성 설정 (히스토리에 영향을 주지 않음)
     setTimeout(() => {
       const editorElement = editor.view.dom as HTMLElement
       const aiElements = editorElement.querySelectorAll('mark[ai-text]')
@@ -401,7 +387,7 @@ export default function Editor({
           lastElement.setAttribute('category', category)
         }
       }
-    }, 100)
+    }, 50)
 
     setAugments((prev) => [...prev, { 
       start: to, 
@@ -496,7 +482,7 @@ export default function Editor({
                 editor={editor} 
                 tippyOptions={{ 
                   duration: 200,
-                  placement: 'right-end',
+                  placement: 'top',
                 }}
                 shouldShow={({ editor }) => {
                   const { from, to } = editor.state.selection

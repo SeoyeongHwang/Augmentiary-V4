@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { User } from '@supabase/supabase-js'
 import { ArrowLeftIcon } from "@heroicons/react/24/outline"
 import { TiptapEditor, Button, ESMModal } from '../components'
+import ConfirmModal from '../components/ConfirmModal'
 import type { ESMData } from '../components/ESMModal'
 import type { CreateESMResponseData } from '../types/esm'
 import type { CreateEntryData } from '../types/entry'
@@ -14,6 +15,7 @@ export default function Write() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [showESM, setShowESM] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -94,8 +96,16 @@ export default function Write() {
   }
 
   const handleBack = () => {
-    // QuillEditor에서 자체적으로 내용 변경 감지 및 확인 처리
+    setShowConfirmModal(true)
+  }
+
+  const handleConfirmBack = () => {
+    setShowConfirmModal(false)
     router.push('/')
+  }
+
+  const handleCancelBack = () => {
+    setShowConfirmModal(false)
   }
 
   if (!user) {
@@ -138,6 +148,17 @@ export default function Write() {
         isOpen={showESM}
         onSubmit={handleESMSubmit}
         onClose={() => setShowESM(false)}
+      />
+
+      {/* 확인 모달 */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onConfirm={handleConfirmBack}
+        onCancel={handleCancelBack}
+        title="저장되지 않은 정보"
+        message="저장되지 않은 정보는 사라집니다. 뒤로가시겠습니까?"
+        confirmText="뒤로가기"
+        cancelText="취소"
       />
     </div>
   )

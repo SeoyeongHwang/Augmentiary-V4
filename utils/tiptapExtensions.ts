@@ -103,14 +103,14 @@ export const AIHighlight = Highlight.extend({
         ...validAttributes,
         'data-original': dataOriginal, // 원본 텍스트 보존
         'edit-ratio': editRatioAttr || '0', // edit-ratio 보존
-        style: `background: ${backgroundColor} !important; color: inherit !important;`
+        style: `background: ${backgroundColor} !important; color: inherit !important; padding: 4px 0; border-radius: 2px;`
       }, 0]
     } catch (error) {
       console.error('❌ AIHighlight renderHTML 에러:', error)
       // 에러 발생 시 기본 마크 반환
       return ['mark', { 
         'ai-text': 'true',
-        style: 'background: rgba(219, 234, 254, 1) !important; color: inherit !important;'
+        style: 'background: rgba(219, 234, 254, 1) !important; color: inherit !important; padding: 2px 0; border-radius: 2px;'
       }, 0]
     }
   },
