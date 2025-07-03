@@ -50,9 +50,32 @@ export default function Write() {
 
   const handleESMSubmit = async (esmData: ESMData) => {
     try {
-      // ESM 응답은 항상 저장
+      // 1. entry ID를 먼저 생성 (shared는 임시로 false로 설정)
+      const entryDataToInsert: CreateEntryData = {
+        user_id: user?.id!,
+        title: title.trim(),
+        content_html: content,
+        shared: false // 임시로 false, ESM 응답 후 업데이트
+      }
+      
+      const { data: entryData, error: entryError } = await supabase
+        .from('entries')
+        .insert(entryDataToInsert)
+        .select()
+        .single()
+
+      if (entryError) {
+        console.error('일기 저장 실패:', entryError)
+        throw entryError
+      }
+
+      const entryId = entryData.id
+      console.log('생성된 entry ID:', entryId)
+
+      // 2. ESM 응답 저장 (entry_id 포함)
       const esmDataToInsert: CreateESMResponseData = {
         user_id: user?.id!,
+        entry_id: entryId,
         consent: esmData.consent,
         q1: esmData.q1,
         q2: esmData.q2,
@@ -67,25 +90,21 @@ export default function Write() {
 
       if (esmError) {
         console.error('ESM 저장 실패:', esmError)
+        throw esmError
       }
 
-      // 일기는 사용자가 동의한 경우에만 저장
-      if (esmData.consent) {
-        const entryDataToInsert: CreateEntryData = {
-          user_id: user?.id!,
-          title: title.trim(),
-          content_html: content,
-          shared: true
-        }
-        
-        const { error: entryError } = await supabase
-          .from('entries')
-          .insert(entryDataToInsert)
+      // 3. ESM 응답에 따라 entry의 shared 필드 업데이트
+      const { error: updateError } = await supabase
+        .from('entries')
+        .update({ shared: esmData.consent })
+        .eq('id', entryId)
 
-        if (entryError) {
-          console.error('일기 저장 실패:', entryError)
-        }
+      if (updateError) {
+        console.error('entry 업데이트 실패:', updateError)
+        throw updateError
       }
+
+      console.log('저장 완료 - entry_id:', entryId, 'shared:', esmData.consent)
 
       setShowESM(false)
       router.push('/')

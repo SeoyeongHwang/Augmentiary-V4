@@ -22,6 +22,16 @@ module.exports = {
         boxShadow: {
           soft: '0 4px 12px rgba(0, 0, 0, 0.05)',
         },
+        transformStyle: {
+          'preserve-3d': 'preserve-3d',
+        },
+        perspective: {
+          '1000': '1000px',
+        },
+        rotate: {
+          'x-2': 'rotateX(2deg)',
+          'x-1': 'rotateX(1deg)',
+        },
       },
   },
   plugins: [],
