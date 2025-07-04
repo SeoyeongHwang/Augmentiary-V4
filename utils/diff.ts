@@ -68,16 +68,6 @@ export function calculateEditRatio(originalText: string, currentText: string): n
   // 0-1 범위로 정규화
   const normalizedRatio = Math.min(editRatio, 1.0)
   
-  console.log(`📊 수정 분석:`, {
-    original: originalText,
-    current: currentText,
-    originalLength: originalSyllables.length,
-    currentLength: currentSyllables.length,
-    distance,
-    editRatio: `${(editRatio * 100).toFixed(1)}%`,
-    normalizedRatio: `${(normalizedRatio * 100).toFixed(1)}%`
-  })
-  
   return normalizedRatio
 }
 
@@ -94,8 +84,6 @@ export function updateAITextEditRatio(
 ): void {
   const editRatio = calculateEditRatio(originalText, currentText)
   element.setAttribute('edit-ratio', editRatio.toString())
-  
-  console.log(`📝 AI 텍스트 수정 비율 업데이트: ${(editRatio * 100).toFixed(1)}%`)
 }
 
 // 기존 함수는 호환성을 위해 유지하되 내부적으로 새로운 함수 사용

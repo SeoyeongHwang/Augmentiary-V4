@@ -55,20 +55,6 @@ export function useInteractionLog() {
   }, [user?.participant_code])
 
   /**
-   * 텍스트 선택 로그
-   */
-  const logTextSelection = useCallback((entryId: string, selectedText: string) => {
-    logAsync(ActionType.SELECT_TEXT, { selectedText }, entryId)
-  }, [logAsync])
-
-  /**
-   * 텍스트 선택 해제 로그
-   */
-  const logTextDeselection = useCallback((entryId: string) => {
-    logAsync(ActionType.DESELECT_TEXT, undefined, entryId)
-  }, [logAsync])
-
-  /**
    * AI 호출 로그
    */
   const logAITrigger = useCallback((entryId: string, selectedText: string) => {
@@ -78,36 +64,19 @@ export function useInteractionLog() {
   /**
    * AI 응답 수신 로그
    */
-  const logAIReceive = useCallback((entryId: string, aiSuggestion: string) => {
-    logAsync(ActionType.RECEIVE_AI, { aiSuggestion }, entryId)
+  const logAIReceive = useCallback((entryId: string, aiSuggestions: string[]) => {
+    logAsync(ActionType.RECEIVE_AI, { 
+      aiSuggestions,
+      // optionCount: aiSuggestions.length 
+    }, entryId)
   }, [logAsync])
 
   /**
    * AI 텍스트 삽입 로그
    */
-  const logAITextInsert = useCallback((entryId: string, aiSuggestion: string) => {
-    logAsync(ActionType.INSERT_AI_TEXT, { aiSuggestion }, entryId)
-  }, [logAsync])
-
-  /**
-   * AI 텍스트 수정 로그
-   */
-  const logAITextEdit = useCallback((entryId: string, originalText: string, editedText: string) => {
-    logAsync(ActionType.EDIT_AI_TEXT, { 
-      originalText, 
-      editedText,
-      changeType: 'ai_text_edit'
-    }, entryId)
-  }, [logAsync])
-
-  /**
-   * 일반 텍스트 수정 로그
-   */
-  const logManualTextEdit = useCallback((entryId: string, originalText: string, editedText: string) => {
-    logAsync(ActionType.EDIT_MANUAL_TEXT, { 
-      originalText, 
-      editedText,
-      changeType: 'manual_text_edit'
+  const logAITextInsert = useCallback((entryId: string, selectedSuggestion: string) => {
+    logAsync(ActionType.INSERT_AI_TEXT, { 
+      selectedSuggestion
     }, entryId)
   }, [logAsync])
 
@@ -152,13 +121,9 @@ export function useInteractionLog() {
     logSync,
     
     // 특정 액션 로그 함수들
-    logTextSelection,
-    logTextDeselection,
     logAITrigger,
     logAIReceive,
     logAITextInsert,
-    logAITextEdit,
-    logManualTextEdit,
     logEntrySave,
     logTriggerESM,
     logESMSubmit,

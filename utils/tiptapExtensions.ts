@@ -1,4 +1,5 @@
 import Highlight from '@tiptap/extension-highlight'
+import { mergeAttributes } from '@tiptap/core'
 import { calculateEditRatio } from './diff'
 
 declare module '@tiptap/core' {
@@ -61,16 +62,17 @@ export const AIHighlight = Highlight.extend({
 
   renderHTML({ HTMLAttributes }) {
     try {
-      console.log('🎨 AIHighlight renderHTML HTMLAttributes:', HTMLAttributes)
-      
       // edit-ratio 속성을 기반으로 투명도 계산
       const editRatio = parseFloat(HTMLAttributes['edit-ratio'] || '0')
       const opacity = Math.max(0, 1 - editRatio) // 수정이 많을수록 투명도가 낮아짐
       
       // CSS 변수에서 색상 가져오기 (기본값 제공)
       const getCSSVariable = (name: string, fallback: string) => {
-        const value = getComputedStyle(document.documentElement).getPropertyValue(name)
-        return value || fallback
+        if (typeof window !== 'undefined') {
+          const value = getComputedStyle(document.documentElement).getPropertyValue(name)
+          return value || fallback
+        }
+        return fallback
       }
       
       const highlightBg = getCSSVariable('--ai-highlight-bg', 'rgba(219, 234, 254, 1)') // 기본 파란색      
@@ -91,14 +93,6 @@ export const AIHighlight = Highlight.extend({
         return acc
       }, {} as Record<string, any>)
       
-      console.log('🎨 AIHighlight renderHTML:', {
-        'data-original': dataOriginal?.substring(0, 50) + '...',
-        editRatio,
-        opacity,
-        backgroundColor,
-        validAttributes: Object.keys(validAttributes)
-      })
-      
       return ['mark', { 
         ...validAttributes,
         'data-original': dataOriginal, // 원본 텍스트 보존
@@ -106,12 +100,11 @@ export const AIHighlight = Highlight.extend({
         style: `background: ${backgroundColor} !important; color: inherit !important; padding: 4px 0; border-radius: 2px;`
       }, 0]
     } catch (error) {
-      console.error('❌ AIHighlight renderHTML 에러:', error)
       // 에러 발생 시 기본 마크 반환
-      return ['mark', { 
+      return ['mark', mergeAttributes(HTMLAttributes, { 
         'ai-text': 'true',
         style: 'background: rgba(219, 234, 254, 1) !important; color: inherit !important; padding: 2px 0; border-radius: 2px;'
-      }, 0]
+      }), 0]
     }
   },
 

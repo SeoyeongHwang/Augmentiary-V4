@@ -29,25 +29,15 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
     q5: 4
   })
 
-  console.log('ESMModal 렌더링:', { isOpen, formData })
-
   if (!isOpen) return null
 
   const handleSubmit = () => {
-    console.log('ESM 제출 버튼 클릭:', formData)
-    console.log('onSubmit 함수 존재 여부:', !!onSubmit)
-    console.log('제출 중인지:', isSubmitting)
-    
     if (isSubmitting) {
-      console.log('이미 제출 중입니다. 버튼 클릭 무시')
       return
     }
-    
-    try {
+
+    if (onSubmit) {
       onSubmit(formData)
-      console.log('onSubmit 호출 완료')
-    } catch (error) {
-      console.error('onSubmit 호출 중 오류:', error)
     }
   }
 

@@ -130,8 +130,6 @@ export const updateAITextOpacity = (element: HTMLElement): void => {
     // 투명도 계산 및 적용 (직접 스타일 적용)
     const opacity = calculateBackgroundOpacity(editRatio);
     element.style.background = getBackgroundColor(opacity);
-    
-    console.log(`📝 AI 텍스트 수정 비율 업데이트: ${(editRatio * 100).toFixed(1)}%, 투명도: ${opacity.toFixed(3)}`);
   }
 };
 

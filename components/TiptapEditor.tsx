@@ -15,7 +15,7 @@ import {
   getBackgroundColor,
   debounce
 } from '../utils/editorHelpers'
-import { calculateEditCount, calculateEditRatio } from '../utils/diff'
+import { calculateEditRatio } from '../utils/diff'
 import type { AICategory } from '../types/ai'
 import { useInteractionLog } from '../hooks/useInteractionLog'
 
@@ -43,42 +43,17 @@ export default function Editor({
   
   // 인터랙션 로그 훅 사용
   const { 
-    logTextSelection, 
     logAITrigger, 
     logAIReceive, 
     logAITextInsert, 
-    logAITextEdit,
-    logManualTextEdit,
     canLog 
   } = useInteractionLog()
 
-  // 변화 감지용 ref
-  const lastSelectedText = useRef<string>('')
-  const lastManualEdit = useRef<string>('')
-  const lastAIEdit = useRef<{original: string, edited: string}>({original: '', edited: ''})
+  // 로깅 상태 확인
+  const canLogState = canLog && entryId
 
-  // Debounce 적용 (manual edit, select_text, edit_ai_text)
-  const debouncedManualEditLog = useRef(debounce((entryId: string, prev: string, curr: string) => {
-    if (canLog && entryId && prev !== curr) {
-      logManualTextEdit(entryId, prev, curr)
-      lastManualEdit.current = curr
-    }
-  }, 1000)).current
-
-  const debouncedSelectTextLog = useRef(debounce((entryId: string, text: string) => {
-    if (canLog && entryId && lastSelectedText.current !== text) {
-      logTextSelection(entryId, text)
-      lastSelectedText.current = text
-    }
-  }, 500)).current
-
-  const debouncedAIEditLog = useRef(debounce((entryId: string, original: string, edited: string) => {
-    if (canLog && entryId && original !== edited && (lastAIEdit.current.original !== original || lastAIEdit.current.edited !== edited)) {
-      console.log('AI 텍스트 편집 로그:', { original, edited, editRatio: calculateEditRatio(original, edited) })
-      logAITextEdit(entryId, original, edited)
-      lastAIEdit.current = {original, edited}
-    }
-  }, 1000)).current
+  // 변화 감지용 ref (필요한 것만 유지)
+  const lastReceiveAI = useRef<string>('')
 
   // 제목 변경 시 외부로 알림
   useEffect(() => {
@@ -99,20 +74,17 @@ export default function Editor({
   
   // 디바운스용 ref
   const aiTextEditTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  // receive_ai 로그: AI API 응답을 받아올 때 기록
-  const lastReceiveAI = useRef<string>('')
   useEffect(() => {
     const options = bubbleMenuOptions || augmentOptions
-    if (options && options.length > 0 && canLog && entryId) {
-      // 같은 옵션이 반복적으로 세팅될 때 중복 기록 방지
-      const firstOption = options[0]
-      if (lastReceiveAI.current !== firstOption) {
-        logAIReceive(entryId, firstOption)
-        lastReceiveAI.current = firstOption
+    if (options && options.length > 0 && canLogState) {
+      // 모든 옵션을 문자열로 변환하여 중복 체크
+      const optionsString = options.join('|')
+      if (lastReceiveAI.current !== optionsString) {
+        logAIReceive(entryId, options)
+        lastReceiveAI.current = optionsString
       }
     }
-  }, [bubbleMenuOptions, augmentOptions, canLog, entryId, logAIReceive])
+  }, [bubbleMenuOptions, augmentOptions, canLogState, entryId, logAIReceive])
 
   const editor = useEditor({
     extensions: [
@@ -130,31 +102,11 @@ export default function Editor({
       if (onContentChange) {
         onContentChange(content)
       }
-      // manual edit: debounce + 변화 감지
-      if (previousContent && content !== previousContent && canLog && entryId) {
-        debouncedManualEditLog(entryId, previousContent, content)
-      }
-      setPreviousContent(content)
       
-      // AI 텍스트 편집 감지 (디바운스 적용)
-      if (aiTextEditTimeoutRef.current) {
-        clearTimeout(aiTextEditTimeoutRef.current)
-      }
-      aiTextEditTimeoutRef.current = setTimeout(() => {
-        handleAITextEdit()
-      }, 100)
+      setPreviousContent(content)
     },
     onSelectionUpdate: ({ editor }: { editor: any }) => {
-      const { from, to } = editor.state.selection
-      if (from !== to && canLog && entryId) {
-        const selectedText = editor.state.doc.textBetween(from, to).trim()
-        if (selectedText) {
-          debouncedSelectTextLog(entryId, selectedText)
-        }
-      } else if (canLog && entryId) {
-        // logTextDeselection(entryId) 호출 제거, deselect_text는 더 이상 기록하지 않음
-        lastSelectedText.current = ''
-      }
+      // 텍스트 선택 로깅 제거됨
     },
   })
 
@@ -189,6 +141,11 @@ export default function Editor({
     const selectedText = editor.state.doc.textBetween(from, to).trim()
     if (!selectedText) return
 
+    // AI 호출 로그 기록
+    if (canLogState) {
+      logAITrigger(entryId, selectedText)
+    }
+
     setBubbleMenuLoading(true)
     setBubbleMenuPosition({ from, to })
     
@@ -218,36 +175,39 @@ export default function Editor({
     } finally {
       setBubbleMenuLoading(false)
     }
-  }, [bubbleMenuLoading, editor, beliefSummary])
+  }, [bubbleMenuLoading, editor, beliefSummary, canLogState, entryId, logAITrigger])
 
-  // AI 텍스트 편집 감지 및 투명도 업데이트 (직접 스타일 적용)
+  // AI 텍스트 편집 감지 및 투명도 업데이트 (로깅 제거됨)
   const handleAITextEdit = useCallback(() => {
-    if (!editor) return
+    if (!editor) return false
     const editorElement = editor.view.dom as HTMLElement
     const aiElements = editorElement.querySelectorAll('mark[ai-text]')
     
-    console.log('AI 텍스트 편집 감지 시작:', { aiElementsCount: aiElements.length })
+    // AI 텍스트 수정 추적을 위한 상태
+    let hasAITextChanges = false
     
+    // DOM의 AI 요소들과 비교하여 변경사항 감지 (로깅 없이)
     aiElements.forEach((element) => {
       const currentText = element.textContent || ''
       const originalText = element.getAttribute('data-original')
-      if (originalText) {
+      const requestId = element.getAttribute('request-id')
+      
+      if (originalText && requestId) {
         const editRatio = calculateEditRatio(originalText, currentText)
-        console.log('AI 텍스트 편집 감지:', { originalText, currentText, editRatio })
         
-        // AI 텍스트 편집 로그 (실제 변화 + debounce)
-        debouncedAIEditLog(entryId, originalText, currentText)
+        // AI 텍스트 편집 감지 (로깅 제거됨)
+        if (originalText !== currentText) {
+          hasAITextChanges = true
+        }
         
         // Tiptap 명령어를 사용하여 editRatio 속성 업데이트
         const htmlElement = element as HTMLElement
-        const requestId = htmlElement.getAttribute('request-id') // DOM에서는 하이픈 사용
-        const category = htmlElement.getAttribute('category') as AICategory || 'interpretive' // DOM에서는 하이픈 사용
+        const category = htmlElement.getAttribute('category') as AICategory || 'interpretive'
         
         // 현재 선택 범위를 저장
         const currentSelection = editor.state.selection
         
         // 해당 요소를 찾아서 마크 업데이트
-        const { from, to } = editor.state.selection
         const doc = editor.state.doc
         
         // 문서 전체를 순회하면서 해당 텍스트를 찾아 마크 업데이트
@@ -275,11 +235,20 @@ export default function Editor({
             }
           }
         })
-      } else {
-        console.log(`❌ 원본 텍스트가 없음: data-original 속성 확인 필요`)
       }
     })
-  }, [editor, entryId, canLog])
+    
+    // AI 텍스트가 완전히 삭제되었는지 확인
+    const previousAITextCount = augments.length
+    const currentAITextCount = aiElements.length
+    
+    if (previousAITextCount > currentAITextCount) {
+      hasAITextChanges = true
+    }
+    
+    // AI 텍스트 변경이 있었는지 반환
+    return hasAITextChanges
+  }, [editor, augments.length])
 
   const applyFontSize = (value: string) => {
     const sizeMap: Record<string, string> = {
@@ -344,8 +313,8 @@ export default function Editor({
     const selectedText = editor.state.doc.textBetween(from, to).trim()
     if (!selectedText) return alert('텍스트를 선택하세요.')
 
-    // AI 호출 로그
-    if (canLog && entryId) {
+    // AI 호출 로그 기록
+    if (canLogState) {
       logAITrigger(entryId, selectedText)
     }
 
@@ -392,7 +361,7 @@ export default function Editor({
     const category: AICategory = 'interpretive'
 
     // AI 텍스트 삽입 로그
-    if (canLog && entryId) {
+    if (canLogState) {
       logAITextInsert(entryId, inserted)
     }
 
@@ -447,7 +416,7 @@ export default function Editor({
     const finalRequestId = generateRequestId()
     const category: AICategory = 'interpretive'
     // AI 텍스트 삽입 로그 (BubbleMenu 경로에서도 보장)
-    if (canLog && entryId) {
+    if (canLogState) {
       logAITextInsert(entryId, inserted)
     }
     // 하나의 트랜잭션으로 텍스트 삽입과 마크 적용을 동시에 실행
@@ -492,6 +461,54 @@ export default function Editor({
     setBubbleMenuOptions(null)
     setBubbleMenuPosition(null)
   }
+
+  // 로깅 시스템 검증을 위한 디버깅 함수
+  const debugLoggingState = useCallback(() => {
+    if (!editor) return
+    
+    const editorElement = editor.view.dom as HTMLElement
+    const aiElements = editorElement.querySelectorAll('mark[ai-text]')
+    
+    console.log('🔍 로깅 시스템 상태:', {
+      totalContentLength: editor.state.doc.textContent.length,
+      aiElementsCount: aiElements.length,
+      augmentsCount: augments.length,
+      canLog,
+      canLogState,
+      entryId
+    })
+    
+    // AI 텍스트가 있을 때만 상세 정보 출력
+    if (aiElements.length > 0) {
+      const aiTextDetails = Array.from(aiElements).map((element, index) => {
+        const htmlElement = element as HTMLElement
+        return {
+          index,
+          text: element.textContent?.substring(0, 30) + '...',
+          originalText: htmlElement.getAttribute('data-original')?.substring(0, 30) + '...',
+          requestId: htmlElement.getAttribute('request-id'),
+          category: htmlElement.getAttribute('category'),
+          editRatio: htmlElement.getAttribute('edit-ratio')
+        }
+      })
+      
+      console.log('📝 AI 텍스트 상세 정보:', aiTextDetails)
+    }
+  }, [editor, augments.length, canLog, canLogState, entryId])
+
+  // 개발자 도구에서 로깅 상태 확인용 전역 함수
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).debugEditorLogging = debugLoggingState
+      // console.log('🔧 개발자 도구에서 `debugEditorLogging()` 함수를 사용하여 로깅 상태를 확인할 수 있습니다.')
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).debugEditorLogging
+      }
+    }
+  }, [debugLoggingState])
 
   return (
     <div className="flex flex-row h-full w-full overflow-hidden">
@@ -588,14 +605,6 @@ export default function Editor({
                 <div className="flex items-center gap-0.5 rounded-lg bg-black shadow-xl border border-gray-700 p-1">
                   <button
                     onClick={() => {
-                      // 의미찾기 버튼 클릭 시 trigger_ai 로그
-                      if (canLog && entryId && editor) {
-                        const { from, to } = editor.state.selection;
-                        const selectedText = editor.state.doc.textBetween(from, to).trim();
-                        if (selectedText) {
-                          logAITrigger(entryId, selectedText);
-                        }
-                      }
                       handleBubbleMenuAugment();
                     }}
                     disabled={bubbleMenuLoading}

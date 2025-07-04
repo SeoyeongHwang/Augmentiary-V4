@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
-import { User } from '@supabase/supabase-js'
 import { ArrowLeftIcon } from "@heroicons/react/24/outline"
 import { TiptapEditor, Button, ESMModal } from '../components'
 import ConfirmModal from '../components/ConfirmModal'
@@ -12,10 +11,11 @@ import type { CreateEntryData } from '../types/entry'
 import { getCurrentKST } from '../lib/time'
 import { getParticipantCode } from '../lib/auth'
 import { useInteractionLog } from '../hooks/useInteractionLog'
+import { useSession } from '../hooks/useSession'
 import { generateEntryId } from '../utils/entry'
 
 export default function Write() {
-  const [user, setUser] = useState<User | null>(null)
+  const { user } = useSession()
   const [participantCode, setParticipantCode] = useState<string | null>(null)
   const [entryId, setEntryId] = useState<string | null>(null)
   const [title, setTitle] = useState('')
@@ -30,26 +30,25 @@ export default function Write() {
     logEntrySave, 
     logESMSubmit,
     logTriggerESM,
-    canLog 
+    canLog
   } = useInteractionLog()
 
   useEffect(() => {
-    const fetchSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (!session) {
+    const fetchParticipantCode = async () => {
+      if (!user) {
         router.push('/login')
-      } else {
-        setUser(session.user)
-        // participant_code 가져오기
-        const code = await getParticipantCode(session.user.id)
-        setParticipantCode(code)
+        return
       }
+      
+      // participant_code 가져오기
+      const code = await getParticipantCode(user.id)
+      setParticipantCode(code)
     }
-    fetchSession()
-  }, [router])
+    
+    if (user) {
+      fetchParticipantCode()
+    }
+  }, [user, router])
 
   // entry_id를 메모리에서만 생성 (participantCode 준비 후)
   useEffect(() => {
@@ -67,16 +66,6 @@ export default function Write() {
   }, [canLog, entryId])
 
   const handleSave = async () => {
-    console.log('=== ESM 모달 표시 프로세스 시작 ===')
-    console.log('ESM 모달 표시 시도:', { 
-      user: !!user, 
-      participantCode, 
-      entryId, 
-      title: title.trim(), 
-      contentLength: content.length,
-      showESM: showESM
-    })
-    
     if (!user || !participantCode || !entryId) {
       console.error('ESM 모달 표시 실패: 사용자 정보 부족', { user: !!user, participantCode, entryId })
       alert('사용자 정보를 확인할 수 없습니다. 페이지를 새로고침해주세요.')
@@ -84,32 +73,23 @@ export default function Write() {
     }
 
     if (!title.trim() || !content.trim()) {
-      console.log('제목 또는 내용이 비어있음')
       alert('제목과 내용을 모두 입력해주세요.')
       return
     }
 
     // ESM 트리거 로그 (ESM 모달 표시)
     if (canLog) {
-      console.log('ESM 트리거 로그 기록')
       logTriggerESM(entryId)
     }
 
-    console.log('ESM 모달 표시')
     setShowESM(true)
   }
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleESMSubmit = async (esmData: ESMData) => {
-    console.log('=== ESM 제출 및 저장 프로세스 시작 ===')
-    console.log('ESM 데이터:', esmData)
-    console.log('현재 상태:', { participantCode, entryId, title, contentLength: content.length })
-    console.log('이미 제출 중인지:', isSubmitting)
-    
     // 중복 제출 방지
     if (isSubmitting) {
-      console.log('이미 제출 중입니다. 중복 제출 방지')
       return
     }
     
@@ -120,28 +100,20 @@ export default function Write() {
     }
 
     setIsSubmitting(true)
-    console.log('제출 상태를 true로 설정')
 
     // 저장 로그 기록 (실제 저장 시점)
     if (canLog) {
-      console.log('저장 로그 기록')
-      logEntrySave(entryId)
+      try {
+        logEntrySave(entryId)
+      } catch (error) {
+        console.error('저장 로그 기록 실패:', error)
+      }
     }
 
-    let success = false
-    
+    // 데이터베이스 저장 시도 (타임아웃 설정)
     try {
-      console.log('데이터베이스에 저장 시도...')
-      console.log('저장할 데이터:', {
-        id: entryId,
-        participant_code: participantCode,
-        title: title.trim(),
-        content_html: content.substring(0, 100) + '...', // 내용 일부만 로그
-        shared: esmData.consent
-      })
-      
       // 1. entry 저장 (최초 저장)
-      const { data: entryData, error: entryError } = await supabase
+      const insertPromise = supabase
         .from('entries')
         .insert({
           id: entryId,
@@ -152,14 +124,16 @@ export default function Write() {
         })
         .select()
 
-      console.log('entry 저장 결과:', { data: entryData, error: entryError })
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('데이터 삽입 타임아웃 (10초)')), 10000)
+      })
+
+      const { data: entryData, error: entryError } = await Promise.race([insertPromise, timeoutPromise]) as any
 
       if (entryError) {
         console.error('entry 저장 실패:', entryError)
         throw entryError
       }
-
-      console.log('entry 저장 성공')
 
       // 2. ESM 응답 저장
       const esmDataToInsert: CreateESMResponseData = {
@@ -182,29 +156,28 @@ export default function Write() {
         throw esmError
       }
 
-      console.log('ESM 응답 저장 성공')
-
       // ESM 제출 로그
       if (canLog) {
-        console.log('ESM 제출 로그 기록')
-        logESMSubmit(entryId, esmData.consent)
+        try {
+          logESMSubmit(entryId, esmData.consent)
+        } catch (error) {
+          console.error('ESM 제출 로그 기록 실패:', error)
+        }
       }
 
-      console.log('모든 저장 완료!')
-      success = true
+      // 성공 시 처리
+      setIsSubmitting(false)
+      setShowESM(false)
+      router.push('/')
+      
     } catch (error) {
       console.error('저장 중 오류:', error)
-      alert(`저장 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
-    } finally {
-      // 제출 상태를 항상 false로 리셋
-      setIsSubmitting(false)
-      console.log('제출 상태를 false로 리셋')
       
-      // 성공했을 때만 모달 닫고 홈으로 이동
-      if (success) {
-        setShowESM(false)
-        router.push('/')
-      }
+      // 실패 시 처리
+      setIsSubmitting(false)
+      
+      // 에러 메시지 표시
+      alert(`저장 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
     }
   }
 
@@ -251,7 +224,7 @@ export default function Write() {
       {/* 메인 콘텐츠 */}
       <main className="flex-1 overflow-hidden">
         <TiptapEditor 
-          userId={user.id}
+          userId={user?.id || ''}
           entryId={entryId}
           onTitleChange={setTitle}
           onContentChange={setContent}
