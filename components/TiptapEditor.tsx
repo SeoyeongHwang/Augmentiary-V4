@@ -4,7 +4,7 @@ import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { AIHighlight } from '../utils/tiptapExtensions'
 import { Button, Heading, Card, Textarea, TextInput } from './index'
-import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ArchiveBoxIcon, DocumentTextIcon, SparklesIcon, BoldIcon, ItalicIcon, CommandLineIcon, LinkIcon } from "@heroicons/react/24/outline";
+import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ArchiveBoxIcon, DocumentTextIcon, SparklesIcon, BoldIcon, ItalicIcon, CommandLineIcon, LinkIcon, LightBulbIcon, CheckIcon, PlusIcon } from "@heroicons/react/24/outline";
 import CircleIconButton from './CircleIconButton';
 import { Nanum_Myeongjo } from 'next/font/google'
 import { 
@@ -75,6 +75,7 @@ export default function Editor({
   const [bubbleMenuLoading, setBubbleMenuLoading] = useState(false)
   const [bubbleMenuOptions, setBubbleMenuOptions] = useState<string[] | null>(null)
   const [bubbleMenuPosition, setBubbleMenuPosition] = useState<{ from: number; to: number } | null>(null)
+  const [augmentVisible, setAugmentVisible] = useState(true);
   
   // 디바운스용 ref
   const aiTextEditTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -531,6 +532,12 @@ export default function Editor({
     }
   }, [debugLoggingState])
 
+  useEffect(() => {
+    if (bubbleMenuOptions || augmentOptions) {
+      setAugmentVisible(true);
+    }
+  }, [bubbleMenuOptions, augmentOptions]);
+
   return (
     <div className="flex flex-row h-full w-full overflow-hidden">
       {/* 왼쪽 버튼 패널 */}
@@ -653,40 +660,76 @@ export default function Editor({
             {loading ? '고민하는 중...' : '의미 찾기'}
           </Button> */}
           {/* 증강 옵션 */}
-          {(bubbleMenuOptions || augmentOptions) && (
-            <Card>
-              <Heading level={4}>어떤 문장을 추가할까요?</Heading>
-              <ul className="space-y-2">
-                {(bubbleMenuOptions || augmentOptions)?.map((option, idx) => (
-                  <li key={idx}>
-                    <button
-                      onClick={() => {
-                        applyAugmentation(option);
-                      }}
-                      className="text-left bg-white border px-4 py-2 rounded hover:bg-indigo-100 w-full"
-                    >
-                      {option}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </Card>
+          {(bubbleMenuOptions || augmentOptions) && augmentVisible && (
+            <div id='augment-result' className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 mb-4 relative">
+              <button
+                type="button"
+                aria-label="닫기"
+                className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl font-bold focus:outline-none"
+                onClick={() => setAugmentVisible(false)}
+              >
+                ×
+              </button>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xl">💡</span>
+                <span className="font-bold text-l text-gray-900">가장 와닿는 내용을 골라보세요</span>
+              </div>
+              <div className="text-gray-500 text-sm mb-3">
+                어떻게 생각해볼까요?
+              </div>
+              {(bubbleMenuOptions || augmentOptions)?.map((option, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => applyAugmentation(option)}
+                  className="w-full text-left bg-white border border-gray-100 rounded-lg p-4 mb-2 hover:bg-gray-50 transition"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-l">❇️</span>
+                    <span className="font-bold text-l text-gray-900">생각 {idx+1}</span>
+                  </div>
+                  <div className="text-gray-800 text-[15px] leading-relaxed">
+                    {option}
+                  </div>
+                </button>
+              ))}
+            </div>
           )}
           {/* 추가된 문장 */}
           {augments.length > 0 && (
-            <div className="mt-4 text-sm text-gray-700">
-              <strong>추가된 문장:</strong>
-              {augments.map((a, i) => (
-                <div key={i} className="mt-2 p-2 border rounded bg-gray-50">
-                  <p className="text-blue-700 italic">{a.inserted}</p>
-                  <div className="mt-1 text-xs text-gray-500">
-                    <span className="inline-block px-2 py-1 bg-blue-100 rounded mr-2">
-                      {a.category}
-                    </span>
-                    <span className="text-gray-400">ID: {a.requestId.slice(-8)}</span>
-                  </div>
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <CheckIcon className="h-4 w-4 text-gray-600" />
+                  <h3 className="text-gray-800 font-medium text-sm">추가된 표현</h3>
+                  <span className="ml-auto bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md">
+                    {augments.length}개
+                  </span>
                 </div>
-              ))}
+              </div>
+              <div className="p-3 space-y-2">
+                {augments.map((a, i) => (
+                  <div key={i} className="bg-gray-50 border border-gray-200 rounded-md p-3 hover:bg-white transition-colors duration-150">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-400 flex items-center justify-center text-white text-xs font-medium">
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-gray-700 text-sm leading-relaxed italic">
+                          {a.inserted}
+                        </p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-200 text-gray-700">
+                            {a.category}
+                          </span>
+                          <span className="text-xs text-gray-400 font-mono">
+                            {a.requestId.slice(-6)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
