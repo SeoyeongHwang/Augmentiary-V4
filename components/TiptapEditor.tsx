@@ -18,6 +18,8 @@ import {
 import { calculateEditRatio } from '../utils/diff'
 import type { AICategory } from '../types/ai'
 import { useInteractionLog } from '../hooks/useInteractionLog'
+import { useSession } from '../hooks/useSession'
+import { saveAIPrompt } from '../lib/augmentAgents'
 
 const namum = Nanum_Myeongjo({
     subsets: ['latin'],
@@ -48,6 +50,9 @@ export default function Editor({
     logAITextInsert, 
     canLog 
   } = useInteractionLog()
+
+  // 세션 정보 가져오기
+  const { user } = useSession()
 
   // 로깅 상태 확인
   const canLogState = canLog && entryId
@@ -133,6 +138,10 @@ export default function Editor({
 
   // BubbleMenu용 AI API 호출 함수 (useCallback으로 메모이제이션)
   const handleBubbleMenuAugment = useCallback(async () => {
+    if (!user || !user.participant_code) {
+      alert('로그인 정보가 없거나 참가자 코드가 없습니다. 다시 로그인 해주세요.');
+      return;
+    }
     if (bubbleMenuLoading || !editor) return
 
     const { from, to } = editor.state.selection
@@ -162,20 +171,47 @@ export default function Editor({
           userProfile: beliefSummary,
         }),
       })
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`)
+      }
+      
       const data = await res.json()
       if (data.interpretiveAgentResult) {
-        setBubbleMenuOptions([
-          data.interpretiveAgentResult.option1,
-          data.interpretiveAgentResult.option2,
-          data.interpretiveAgentResult.option3,
+        const aiSuggestions = {
+          option1: data.interpretiveAgentResult.option1,
+          option2: data.interpretiveAgentResult.option2,
+          option3: data.interpretiveAgentResult.option3,
+        };
+
+        // receive_ai 로그 기록
+        logAIReceive(entryId, [
+          aiSuggestions.option1,
+          aiSuggestions.option2,
+          aiSuggestions.option3,
+        ]);
+
+        // AI 응답을 ai_prompts 테이블에 1번만 저장 (JSON)
+        if (user?.participant_code && selectedText) {
+          saveAIPrompt(entryId, selectedText, aiSuggestions, user.participant_code);
+        } else {
+          console.log('saveAIPrompt 조건 불충족(일반 augment):', { entryId, selectedText, user });
+        }
+
+        setAugmentOptions([
+          aiSuggestions.option1,
+          aiSuggestions.option2,
+          aiSuggestions.option3,
         ])
+        setSelectionRange(prev => prev ? { ...prev, requestId: data.requestId } : null)
       }
     } catch (error) {
-      console.error('Error fetching bubble menu augment options:', error)
+      console.error('Error fetching augment options:', error)
+      alert('AI 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
     } finally {
       setBubbleMenuLoading(false)
     }
-  }, [bubbleMenuLoading, editor, beliefSummary, canLogState, entryId, logAITrigger])
+  }, [bubbleMenuLoading, editor, beliefSummary, canLogState, entryId, logAITrigger, user])
 
   // AI 텍스트 편집 감지 및 투명도 업데이트 (로깅 제거됨)
   const handleAITextEdit = useCallback(() => {
@@ -305,6 +341,10 @@ export default function Editor({
   }
 
   const handleAugment = async () => {
+    if (!user || !user.participant_code) {
+      alert('로그인 정보가 없거나 참가자 코드가 없습니다. 다시 로그인 해주세요.');
+      return;
+    }
     if (loading || !editor) return
 
     const { from, to } = editor.state.selection
@@ -334,19 +374,41 @@ export default function Editor({
           userProfile: beliefSummary,
         }),
       })
-              const data = await res.json()
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`)
+      }
+      
+      const data = await res.json()
         if (data.interpretiveAgentResult) {
-          // API 응답에서 request ID 저장
-          setAugmentOptions([
+          const suggestions = [
             data.interpretiveAgentResult.option1,
             data.interpretiveAgentResult.option2,
             data.interpretiveAgentResult.option3,
-          ])
-          // Request ID를 selectionRange에 저장 (나중에 사용)
+          ]
+
+          // 진단 로그 추가
+          console.log('AI 응답 수신(일반 augment):', { entryId, selectedText, suggestions, user });
+
+          // AI 응답을 ai_prompts 테이블에 저장 (비동기로 처리)
+          if (user?.participant_code && selectedText) {
+            Promise.all(
+              suggestions
+                .filter(suggestion => suggestion && suggestion.trim())
+                .map(suggestion => saveAIPrompt(entryId, selectedText, suggestion, user.participant_code))
+            ).catch(error => {
+              console.error('AI 프롬프트 저장 중 오류:', error)
+            })
+          } else {
+            console.log('saveAIPrompt 조건 불충족(일반 augment):', { entryId, selectedText, user });
+          }
+
+          setAugmentOptions(suggestions)
           setSelectionRange(prev => prev ? { ...prev, requestId: data.requestId } : null)
         }
     } catch (error) {
       console.error('Error fetching augment options:', error)
+      alert('AI 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
     } finally {
       setLoading(false)
     }

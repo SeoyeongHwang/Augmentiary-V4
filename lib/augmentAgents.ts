@@ -1,5 +1,37 @@
 // lib/augmentAgents.ts
 
+import { supabase } from './supabase'
+import { getCurrentKST } from './time'
+
+// AI 프롬프트를 Supabase에 저장하는 함수
+export async function saveAIPrompt(
+  entryId: string,
+  selectedText: string,
+  aiSuggestions: { option1: string; option2: string; option3: string },
+  participantCode: string
+): Promise<void> {
+  try {
+    const createdAt = getCurrentKST();
+    const { error } = await supabase
+      .from('ai_prompts')
+      .insert({
+        entry_id: entryId,
+        selected_text: selectedText,
+        ai_suggestion: JSON.stringify(aiSuggestions),
+        participant_code: participantCode,
+        created_at: createdAt
+      })
+
+    if (error) {
+      console.error('AI 프롬프트 저장 실패:', error)
+    } else {
+      console.log('✅ AI 프롬프트 저장 완료')
+    }
+  } catch (error) {
+    console.error('AI 프롬프트 저장 중 오류:', error)
+  }
+}
+
 export async function callNarrativeAgent(diaryEntry: string): Promise<{ strategy: string; justification: string; raw?: string }> {
     // OpenAI API 호출 예시
     const prompt = `
@@ -116,17 +148,53 @@ Guidelines:
     try {
         const jsonStart = textResult.indexOf('{');
         const jsonEnd = textResult.lastIndexOf('}');
-        const jsonString = textResult.substring(jsonStart, jsonEnd + 1);
+        
+        if (jsonStart === -1 || jsonEnd === -1) {
+          console.error('JSON brackets not found in response');
+          return { option1: '', option2: '', option3: '' };
+        }
+        
+        let jsonString = textResult.substring(jsonStart, jsonEnd + 1);
         
         // JSON 문자열 정리 (불필요한 공백 제거)
         const cleanedJson = jsonString.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
         
-        const parsedResult = JSON.parse(cleanedJson);
-        return parsedResult;
+        // JSON이 완전하지 않은 경우 수정 시도
+        let finalJson = cleanedJson;
+        if (!cleanedJson.endsWith('}')) {
+          // 마지막 쉼표나 불완전한 문자열 제거 후 닫는 괄호 추가
+          finalJson = cleanedJson.replace(/,\s*$/, '') + '}';
+        }
+        
+        // JSON 파싱 시도
+        const parsedResult = JSON.parse(finalJson);
+        
+        // 필수 필드 확인 및 기본값 설정
+        return {
+          option1: parsedResult.option1 || '',
+          option2: parsedResult.option2 || '',
+          option3: parsedResult.option3 || ''
+        };
+        
       } catch (err) {
         console.error('Error parsing Interpretive Agent JSON:', err);
         console.error('Raw response:', textResult);
-        return { option1: '', option2: '', option3: ''};
+        
+        // JSON 파싱 실패 시 텍스트에서 직접 추출 시도
+        try {
+          const option1Match = textResult.match(/"option1":\s*"([^"]*)"/);
+          const option2Match = textResult.match(/"option2":\s*"([^"]*)"/);
+          const option3Match = textResult.match(/"option3":\s*"([^"]*)"/);
+          
+          return {
+            option1: option1Match ? option1Match[1] : '',
+            option2: option2Match ? option2Match[1] : '',
+            option3: option3Match ? option3Match[1] : ''
+          };
+        } catch (fallbackErr) {
+          console.error('Fallback parsing also failed:', fallbackErr);
+          return { option1: '', option2: '', option3: '' };
+        }
       }
   }
   

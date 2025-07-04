@@ -1,13 +1,14 @@
 // pages/api/feedback.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { saveAIPrompt } from '../../lib/augmentAgents'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: '허용되지 않은 메서드' })
   }
 
-  const { selected, before, after, belief } = req.body
+  const { selected, before, after, belief, entryId, participantCode } = req.body
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 
   if (!OPENAI_API_KEY) {
@@ -51,6 +52,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (lines.length < 1) {
       return res.status(500).json({ error: '3가지 문장을 분리할 수 없습니다.', raw })
+    }
+
+    // AI 응답을 ai_prompts 테이블에 저장 (비동기로 처리)
+    if (entryId && selected && participantCode) {
+      // 저장을 비동기로 처리하여 응답 지연 방지
+      Promise.all(
+        lines
+          .filter((suggestion: string) => suggestion && suggestion.trim())
+          .map((suggestion: string) => 
+            saveAIPrompt(entryId, selected, suggestion, participantCode)
+          )
+      ).catch(error => {
+        console.error('AI 프롬프트 저장 중 오류:', error)
+      })
     }
 
     res.status(200).json({ options: lines })
