@@ -69,7 +69,6 @@ export default function Editor({
   const [augments, setAugments] = useState<{ start: number; end: number; inserted: string; requestId: string; category: AICategory; originalText: string }[]>([])
   const [beliefSummary, setBeliefSummary] = useState('')
   const [augmentOptions, setAugmentOptions] = useState<string[] | null>(null)
-  const [selectionRange, setSelectionRange] = useState<{ start: number; end: number; requestId?: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [fontMenuOpen, setFontMenuOpen] = useState(false)
   const [colorMenuOpen, setColorMenuOpen] = useState(false)
@@ -212,7 +211,6 @@ export default function Editor({
           aiSuggestions.option2,
           aiSuggestions.option3,
         ])
-        setSelectionRange(prev => prev ? { ...prev, requestId: data.requestId } : null)
       }
     } catch (error) {
       console.error('Error fetching augment options:', error)
@@ -374,7 +372,6 @@ export default function Editor({
     }
 
     setLoading(true)
-    setSelectionRange({ start: from, end: to })
     
     const fullText = editor.state.doc.textContent
     const diaryEntryMarked = fullText.slice(0, to) + ' <<INSERT HERE>> ' + fullText.slice(to)
@@ -425,7 +422,6 @@ export default function Editor({
           }
 
           setAugmentOptions(suggestions)
-          setSelectionRange(prev => prev ? { ...prev, requestId: data.requestId } : null)
         }
     } catch (error) {
       console.error('Error fetching augment options:', error)
@@ -435,85 +431,18 @@ export default function Editor({
     }
   }
 
+  // AI 응답 삽입 함수: 항상 editor.state.selection을 사용
   const applyAugmentation = (inserted: string) => {
-    if (!selectionRange || !editor) return
-    const { end, requestId } = selectionRange
-
-    // API에서 받은 request ID 사용, 없으면 새로 생성
-    const finalRequestId = requestId || generateRequestId()
-    const category: AICategory = 'interpretive'
+    if (!editor) return;
+    const { to } = editor.state.selection;
+    const finalRequestId = generateRequestId();
+    const category: AICategory = 'interpretive';
 
     // AI 텍스트 삽입 로그
     if (canLogState) {
-      logAITextInsert(entryId, inserted)
+      logAITextInsert(entryId, inserted);
     }
 
-    // 텍스트 삽입 전 현재 선택 범위 저장
-    const currentSelection = editor.state.selection
-
-    // 하나의 트랜잭션으로 텍스트 삽입과 마크 적용을 동시에 실행
-    editor.chain()
-      .focus()
-      .setTextSelection(end)
-      .insertContent(inserted)
-      .setTextSelection({ from: end, to: end + inserted.length })
-      .setMark('aiHighlight', {
-        requestId: finalRequestId,
-        category,
-        dataOriginal: inserted,
-        editRatio: '0'
-      })
-      .run()
-    
-    // DOM 속성 설정 (히스토리에 영향을 주지 않음)
-    setTimeout(() => {
-      const editorElement = editor.view.dom as HTMLElement
-      const aiElements = editorElement.querySelectorAll('mark[ai-text]')
-      const lastElement = aiElements[aiElements.length - 1] as HTMLElement
-      
-      if (lastElement) {
-        const dataOriginal = lastElement.getAttribute('data-original')
-        
-        // data-original이 없으면 수동으로 설정
-        if (!dataOriginal) {
-          lastElement.setAttribute('data-original', inserted)
-          lastElement.setAttribute('request-id', finalRequestId)
-          lastElement.setAttribute('category', category)
-        }
-      }
-    }, 50)
-
-    // 상태 업데이트
-    setAugments((prev) => [...prev, { 
-      start: end, 
-      end: end + inserted.length, 
-      inserted,
-      requestId: finalRequestId,
-      category,
-      originalText: inserted
-    }])
-    setAugmentOptions(null)
-    setSelectionRange(null)
-    
-    // 에디터 포커스 복원
-    editor.chain().focus().setTextSelection(currentSelection).run()
-  }
-
-  // BubbleMenu용 증강 적용 함수 (AI 삽입 로그 보장)
-  const applyBubbleMenuAugmentation = (inserted: string) => {
-    if (!bubbleMenuPosition || !editor) return
-    const { to } = bubbleMenuPosition
-    const finalRequestId = generateRequestId()
-    const category: AICategory = 'interpretive'
-    
-    // AI 텍스트 삽입 로그 (BubbleMenu 경로에서도 보장)
-    if (canLogState) {
-      logAITextInsert(entryId, inserted)
-    }
-    
-    // 텍스트 삽입 전 현재 선택 범위 저장
-    const currentSelection = editor.state.selection
-    
     // 하나의 트랜잭션으로 텍스트 삽입과 마크 적용을 동시에 실행
     editor.chain()
       .focus()
@@ -526,40 +455,33 @@ export default function Editor({
         dataOriginal: inserted,
         editRatio: '0'
       })
-      .run()
-    
+      .run();
+
     // DOM 속성 설정 (히스토리에 영향을 주지 않음)
     setTimeout(() => {
-      const editorElement = editor.view.dom as HTMLElement
-      const aiElements = editorElement.querySelectorAll('mark[ai-text]')
-      const lastElement = aiElements[aiElements.length - 1] as HTMLElement
-      
+      const editorElement = editor.view.dom as HTMLElement;
+      const aiElements = editorElement.querySelectorAll('mark[ai-text]');
+      const lastElement = aiElements[aiElements.length - 1] as HTMLElement;
       if (lastElement) {
-        const dataOriginal = lastElement.getAttribute('data-original')
-        
+        const dataOriginal = lastElement.getAttribute('data-original');
         if (!dataOriginal) {
-          lastElement.setAttribute('data-original', inserted)
-          lastElement.setAttribute('request-id', finalRequestId)
-          lastElement.setAttribute('category', category)
+          lastElement.setAttribute('data-original', inserted);
+          lastElement.setAttribute('request-id', finalRequestId);
+          lastElement.setAttribute('category', category);
         }
       }
-    }, 50)
+    }, 50);
 
-    // 상태 업데이트
-    setAugments((prev) => [...prev, { 
-      start: to, 
-      end: to + inserted.length, 
+    setAugments((prev) => [...prev, {
+      start: to,
+      end: to + inserted.length,
       inserted,
       requestId: finalRequestId,
       category,
       originalText: inserted
-    }])
-    setBubbleMenuOptions(null)
-    setBubbleMenuPosition(null)
-    
-    // 에디터 포커스 복원
-    editor.chain().focus().setTextSelection(currentSelection).run()
-  }
+    }]);
+    setAugmentOptions(null);
+  };
 
   // 로깅 시스템 검증을 위한 디버깅 함수
   const debugLoggingState = useCallback(() => {
@@ -739,10 +661,7 @@ export default function Editor({
                   <li key={idx}>
                     <button
                       onClick={() => {
-                        // 실제 적용 함수에서 로깅하므로 여기서는 제거
-                        bubbleMenuOptions
-                          ? applyBubbleMenuAugmentation(option)
-                          : applyAugmentation(option);
+                        applyAugmentation(option);
                       }}
                       className="text-left bg-white border px-4 py-2 rounded hover:bg-indigo-100 w-full"
                     >
