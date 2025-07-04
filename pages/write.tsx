@@ -13,6 +13,7 @@ import { getParticipantCode } from '../lib/auth'
 import { useInteractionLog } from '../hooks/useInteractionLog'
 import { useSession } from '../hooks/useSession'
 import { generateEntryId } from '../utils/entry'
+import { flushLogsAfterEntrySave } from '../lib/logger'
 
 export default function Write() {
   const { user } = useSession()
@@ -184,6 +185,13 @@ export default function Write() {
         } catch (error) {
           console.error('ESM 제출 로그 기록 실패:', error)
         }
+      }
+
+      // Entry 저장 후 로그 플러시 (entry가 DB에 저장된 후에 로그 저장)
+      try {
+        await flushLogsAfterEntrySave()
+      } catch (error) {
+        console.error('로그 플러시 실패:', error)
       }
 
       // 성공 시 처리

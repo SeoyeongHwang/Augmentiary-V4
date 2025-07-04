@@ -20,6 +20,7 @@ import type { AICategory } from '../types/ai'
 import { useInteractionLog } from '../hooks/useInteractionLog'
 import { useSession } from '../hooks/useSession'
 import { saveAIPrompt } from '../lib/augmentAgents'
+import Placeholder from '@tiptap/extension-placeholder'
 
 const namum = Nanum_Myeongjo({
     subsets: ['latin'],
@@ -95,6 +96,10 @@ export default function Editor({
     extensions: [
       StarterKit,
       AIHighlight,
+      Placeholder.configure({
+        placeholder: '무엇이든 자유롭게 적어보세요',
+        emptyEditorClass: 'is-editor-empty',
+      }),
     ],
     editorProps: {
       attributes: {
@@ -108,11 +113,18 @@ export default function Editor({
         onContentChange(content)
       }
       
-      setPreviousContent(content)
+      // AI 텍스트 편집 감지 (디바운스 적용)
+      if (aiTextEditTimeoutRef.current) {
+        clearTimeout(aiTextEditTimeoutRef.current)
+      }
+      aiTextEditTimeoutRef.current = setTimeout(() => {
+        handleAITextEdit()
+      }, 100)
     },
     onSelectionUpdate: ({ editor }: { editor: any }) => {
       // 텍스트 선택 로깅 제거됨
     },
+    
   })
 
   // 사용자 프로필 가져오기
@@ -221,37 +233,34 @@ export default function Editor({
     }
   }, [bubbleMenuLoading, editor, beliefSummary, canLogState, entryId, logAITrigger, user])
 
-  // AI 텍스트 편집 감지 및 투명도 업데이트 (로깅 제거됨)
+  // AI 텍스트 편집 감지 및 투명도 업데이트 (직접 스타일 적용)
   const handleAITextEdit = useCallback(() => {
-    if (!editor) return false
+    if (!editor) return
+
+    // DOM에서 모든 AI 텍스트 요소 찾기
     const editorElement = editor.view.dom as HTMLElement
     const aiElements = editorElement.querySelectorAll('mark[ai-text]')
     
-    // AI 텍스트 수정 추적을 위한 상태
-    let hasAITextChanges = false
-    
-    // DOM의 AI 요소들과 비교하여 변경사항 감지 (로깅 없이)
-    aiElements.forEach((element) => {
+    // 각 AI 요소에 대해 수정 정도 계산 및 직접 스타일 적용
+    aiElements.forEach((element, index) => {
       const currentText = element.textContent || ''
-      const originalText = element.getAttribute('data-original')
-      const requestId = element.getAttribute('request-id')
+      const originalText = element.getAttribute('data-original') // DOM에서는 하이픈 사용
+      const requestId = element.getAttribute('request-id') // DOM에서는 하이픈 사용
       
-      if (originalText && requestId) {
+      // data-original이 있는 경우에만 투명도 계산 (AI 텍스트만)
+      if (originalText) {
         const editRatio = calculateEditRatio(originalText, currentText)
-        
-        // AI 텍스트 편집 감지 (로깅 제거됨)
-        if (originalText !== currentText) {
-          hasAITextChanges = true
-        }
         
         // Tiptap 명령어를 사용하여 editRatio 속성 업데이트
         const htmlElement = element as HTMLElement
-        const category = htmlElement.getAttribute('category') as AICategory || 'interpretive'
+        const requestId = htmlElement.getAttribute('request-id') // DOM에서는 하이픈 사용
+        const category = htmlElement.getAttribute('category') as AICategory || 'interpretive' // DOM에서는 하이픈 사용
         
         // 현재 선택 범위를 저장
         const currentSelection = editor.state.selection
         
         // 해당 요소를 찾아서 마크 업데이트
+        const { from, to } = editor.state.selection
         const doc = editor.state.doc
         
         // 문서 전체를 순회하면서 해당 텍스트를 찾아 마크 업데이트
@@ -279,20 +288,11 @@ export default function Editor({
             }
           }
         })
+      } else {
+        console.log(`❌ 원본 텍스트가 없음: data-original 속성 확인 필요`)
       }
     })
-    
-    // AI 텍스트가 완전히 삭제되었는지 확인
-    const previousAITextCount = augments.length
-    const currentAITextCount = aiElements.length
-    
-    if (previousAITextCount > currentAITextCount) {
-      hasAITextChanges = true
-    }
-    
-    // AI 텍스트 변경이 있었는지 반환
-    return hasAITextChanges
-  }, [editor, augments.length])
+  }, [editor])
 
   const applyFontSize = (value: string) => {
     const sizeMap: Record<string, string> = {
@@ -309,16 +309,16 @@ export default function Editor({
   // AI 하이라이트 색상 옵션들
   const highlightColors = [
     { name: 'blue', color: '#3B82F6', bgColor: 'rgba(219, 234, 254, 1)' },
-    { name: 'green', color: '#10B981', bgColor: 'rgba(209, 250, 229, 1)' },
+    { name: 'green', color: '#8DFFA0', bgColor: 'rgba(141, 255, 160, 1)' },
     { name: 'purple', color: '#8B5CF6', bgColor: 'rgba(237, 233, 254, 1)' },
-    { name: 'pink', color: '#EC4899', bgColor: 'rgba(252, 231, 243, 1)' },
-    { name: 'yellow', color: '#EAB308', bgColor: 'rgba(254, 249, 195, 1)' },
+    { name: 'pink', color: '#FFA7EF', bgColor: 'rgba(252, 231, 243, 1)' },
+    { name: 'yellow', color: '#FFEA00', bgColor: 'rgba(255, 234, 0, 1)' },
   ]
 
   const applyHighlightColor = (colorName: string) => {
     const selectedColor = highlightColors.find(c => c.name === colorName)
     if (selectedColor) {
-      // CSS 변수로 배경색 설정 (AIHighlight 확장에서 사용)
+      // CSS 변수로 배경색 설정
       document.documentElement.style.setProperty('--ai-highlight-bg', selectedColor.bgColor)
       
       // 기존 AI 텍스트들의 배경색 업데이트 (투명도 유지)
@@ -328,7 +328,7 @@ export default function Editor({
         aiElements.forEach((element) => {
           const htmlElement = element as HTMLElement
           const editRatio = parseFloat(htmlElement.getAttribute('edit-ratio') || '0')
-          const opacity = Math.max(0, 1 - editRatio) // 수정이 많을수록 투명도가 낮아짐
+          const opacity = Math.max(0, 1 - editRatio)
           
           // 투명도 적용된 배경색 계산
           const backgroundColor = opacity > 0 
@@ -518,25 +518,44 @@ export default function Editor({
     }
   }, [editor, augments.length, canLog, canLogState, entryId])
 
-  // 개발자 도구에서 로깅 상태 확인용 전역 함수
+  // 개발자 도구에서 디버깅용 전역 함수들
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as any).debugEditorLogging = debugLoggingState
-      // console.log('🔧 개발자 도구에서 `debugEditorLogging()` 함수를 사용하여 로깅 상태를 확인할 수 있습니다.')
+      ;(window as any).testAITextEdit = () => {
+        console.log('🧪 AI 텍스트 편집 테스트 시작')
+        handleAITextEdit()
+      }
+      ;(window as any).testEditRatio = (original: string, current: string) => {
+        const ratio = calculateEditRatio(original, current)
+        console.log('🧪 편집 비율 테스트:', { original, current, ratio })
+        return ratio
+      }
     }
     
     return () => {
       if (typeof window !== 'undefined') {
         delete (window as any).debugEditorLogging
+        delete (window as any).testAITextEdit
+        delete (window as any).testEditRatio
       }
     }
-  }, [debugLoggingState])
+  }, [debugLoggingState, handleAITextEdit])
 
   useEffect(() => {
     if (bubbleMenuOptions || augmentOptions) {
       setAugmentVisible(true);
     }
   }, [bubbleMenuOptions, augmentOptions]);
+
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (aiTextEditTimeoutRef.current) {
+        clearTimeout(aiTextEditTimeoutRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div className="flex flex-row h-full w-full overflow-hidden">
@@ -603,16 +622,16 @@ export default function Editor({
         </CircleIconButton>
       </div>
       {/* 에디터: 중앙 고정, 최대 너비 제한 */}
-      <div className="w-full max-w-3xl mx-auto flex flex-col items-center justify-start overflow-y-auto p-4">
+      <div className="w-full max-w-2xl mx-auto flex flex-col items-center justify-start overflow-y-auto p-4">
         <div className="w-full flex flex-col">
           <TextInput 
             type='text' 
-            className='w-full pt-0 text-4xl font-extrabold text-center border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
+            className='w-full pt-4 text-4xl font-extrabold text-center border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
             placeholder='제목' 
             value={title} 
             onChange={setTitle} 
           />
-          <div className={`editor-wrapper w-full h-fit p-6 min-h-[60vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none relative`} style={{marginBottom: '30px' }}>
+          <div className={`tiptap editor-wrapper w-full h-fit p-6 min-h-[60vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none relative`} style={{marginBottom: '30px' }}>
             <EditorContent editor={editor} />
             
             {/* BubbleMenu - 공식 React 컴포넌트 사용 */}

@@ -25,13 +25,14 @@ class LogQueue {
   private queue: (CreateInteractionLogData & { timestamp: string })[] = []
   private isProcessing = false
   private batchSize = 10
-  private flushInterval = 5000 // 5초마다 플러시
+  // 자동 flush 비활성화 - entry 저장 후 수동으로 flush
+  // private flushInterval = 5000 // 5초마다 플러시
 
   constructor() {
-    // 주기적으로 큐를 플러시
-    setInterval(() => {
-      this.flush()
-    }, this.flushInterval)
+    // 자동 flush 비활성화 - entry 저장 후 수동으로 flush
+    // setInterval(() => {
+    //   this.flush()
+    // }, this.flushInterval)
   }
 
   add(data: CreateInteractionLogData): void {
@@ -41,13 +42,13 @@ class LogQueue {
       timestamp: getCurrentKST(),
     })
     
-    // 배치 크기에 도달하면 즉시 플러시
-    if (this.queue.length >= this.batchSize) {
-      this.flush()
-    }
+    // 자동 flush 비활성화 - entry 저장 후 수동으로 flush
+    // if (this.queue.length >= this.batchSize) {
+    //   this.flush()
+    // }
   }
 
-  private async flush(): Promise<void> {
+  async flush(): Promise<void> {
     if (this.isProcessing || this.queue.length === 0) {
       return
     }
@@ -84,7 +85,7 @@ class LogQueue {
 }
 
 // 전역 로그 큐 인스턴스
-const logQueue = new LogQueue()
+export const logQueue = new LogQueue()
 
 /**
  * 비동기 로그 기록 (큐 사용)
@@ -108,11 +109,20 @@ export function flushLogs(): void {
   logQueue.flushAll()
 }
 
-// 페이지 언로드 시 로그 플러시
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', flushLogs)
-  window.addEventListener('pagehide', flushLogs)
+/**
+ * entry 저장 후 로그를 수동으로 플러시 (entry 저장 성공 후 호출)
+ */
+export async function flushLogsAfterEntrySave(): Promise<void> {
+  console.log('📝 Entry 저장 후 로그 플러시 시작')
+  await logQueue.flush()
+  console.log('✅ 로그 플러시 완료')
 }
+
+// 페이지 언로드 시 로그 플러시 비활성화 - entry 저장 후 수동으로만 flush
+// if (typeof window !== 'undefined') {
+//   window.addEventListener('beforeunload', flushLogs)
+//   window.addEventListener('pagehide', flushLogs)
+// }
 
 function generateEntryId(participantCode: string): string {
   const now = new Date();
