@@ -7,7 +7,8 @@ export enum ActionType {
   INSERT_AI_TEXT = 'insert_ai_text',
   EDIT_AI_TEXT = 'edit_ai_text',
   EDIT_MANUAL_TEXT = 'edit_manual_text',
-  CLICK_SAVE = 'click_save',
+  ENTRY_SAVE = 'entry_save',
+  TRIGGER_ESM = 'trigger_esm',
   ESM_SUBMIT = 'esm_submit',
   LOGOUT = 'logout'
 }

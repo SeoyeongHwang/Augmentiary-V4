@@ -112,10 +112,17 @@ export function useInteractionLog() {
   }, [logAsync])
 
   /**
-   * 저장 버튼 클릭 로그
+   * 엔트리 저장 로그
    */
-  const logSaveClick = useCallback((entryId: string) => {
-    logAsync(ActionType.CLICK_SAVE, undefined, entryId)
+  const logEntrySave = useCallback((entryId: string) => {
+    logAsync(ActionType.ENTRY_SAVE, undefined, entryId)
+  }, [logAsync])
+
+  /**
+   * ESM 트리거 로그 (ESM 모달 표시)
+   */
+  const logTriggerESM = useCallback((entryId: string) => {
+    logAsync(ActionType.TRIGGER_ESM, undefined, entryId)
   }, [logAsync])
 
   /**
@@ -152,7 +159,8 @@ export function useInteractionLog() {
     logAITextInsert,
     logAITextEdit,
     logManualTextEdit,
-    logSaveClick,
+    logEntrySave,
+    logTriggerESM,
     logESMSubmit,
     logStartWriting,
     logLogout,

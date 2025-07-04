@@ -34,7 +34,8 @@ AI 기반의 해석 제안을 통해 사용자의 자기 성찰과 의미 생성
 | `insert_ai_text` | AI 제안 텍스트 삽입 |
 | `edit_ai_text` | AI 제안 텍스트 수정 |
 | `edit_manual_text` | 일반 텍스트 수정 |
-| `click_save` | 저장 버튼 클릭 |
+| `entry_save` | 엔트리 저장 |
+| `trigger_esm` | ESM 모달 표시 |
 | `esm_submit` | ESM 응답 제출 |
 | `logout` | 로그아웃 |
 
@@ -69,7 +70,8 @@ function WritingPage() {
     logTextSelection,
     logAITrigger,
     logAITextInsert,
-    logSaveClick
+    logEntrySave,
+    logTriggerESM
   } = useInteractionLog()
 
   useEffect(() => {
@@ -86,8 +88,13 @@ function WritingPage() {
   }
 
   const handleSave = () => {
-    logSaveClick(entryId)
+    logEntrySave(entryId)
     // 저장 로직...
+  }
+
+  const handleESMTrigger = () => {
+    logTriggerESM(entryId)
+    // ESM 모달 표시 로직...
   }
 }
 ```

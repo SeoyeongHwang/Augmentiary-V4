@@ -27,8 +27,9 @@ export default function Write() {
   // 인터랙션 로그 훅 사용
   const { 
     logStartWriting, 
-    logSaveClick, 
+    logEntrySave, 
     logESMSubmit,
+    logTriggerESM,
     canLog 
   } = useInteractionLog()
 
@@ -66,44 +67,101 @@ export default function Write() {
   }, [canLog, entryId])
 
   const handleSave = async () => {
+    console.log('=== ESM 모달 표시 프로세스 시작 ===')
+    console.log('ESM 모달 표시 시도:', { 
+      user: !!user, 
+      participantCode, 
+      entryId, 
+      title: title.trim(), 
+      contentLength: content.length,
+      showESM: showESM
+    })
+    
     if (!user || !participantCode || !entryId) {
-      alert('사용자 정보를 확인할 수 없습니다.')
+      console.error('ESM 모달 표시 실패: 사용자 정보 부족', { user: !!user, participantCode, entryId })
+      alert('사용자 정보를 확인할 수 없습니다. 페이지를 새로고침해주세요.')
       return
     }
 
     if (!title.trim() || !content.trim()) {
+      console.log('제목 또는 내용이 비어있음')
       alert('제목과 내용을 모두 입력해주세요.')
       return
     }
 
-    // 저장 버튼 클릭 로그
+    // ESM 트리거 로그 (ESM 모달 표시)
     if (canLog) {
-      logSaveClick(entryId)
+      console.log('ESM 트리거 로그 기록')
+      logTriggerESM(entryId)
     }
 
-    // entry_id를 PK로 사용하여 insert (최초 저장 시에만)
-    await supabase
-      .from('entries')
-      .insert({
-        id: entryId,
-        participant_code: participantCode,
-        title: title.trim(),
-        content_html: content,
-        shared: false
-      })
-
-    // ESM 모달 표시
+    console.log('ESM 모달 표시')
     setShowESM(true)
   }
 
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   const handleESMSubmit = async (esmData: ESMData) => {
+    console.log('=== ESM 제출 및 저장 프로세스 시작 ===')
+    console.log('ESM 데이터:', esmData)
+    console.log('현재 상태:', { participantCode, entryId, title, contentLength: content.length })
+    console.log('이미 제출 중인지:', isSubmitting)
+    
+    // 중복 제출 방지
+    if (isSubmitting) {
+      console.log('이미 제출 중입니다. 중복 제출 방지')
+      return
+    }
+    
     if (!participantCode || !entryId) {
+      console.error('ESM 제출 실패: 참가자 정보 부족', { participantCode, entryId })
       alert('참가자 코드 또는 entry_id를 확인할 수 없습니다.')
       return
     }
 
+    setIsSubmitting(true)
+    console.log('제출 상태를 true로 설정')
+
+    // 저장 로그 기록 (실제 저장 시점)
+    if (canLog) {
+      console.log('저장 로그 기록')
+      logEntrySave(entryId)
+    }
+
+    let success = false
+    
     try {
-      // 1. ESM 응답 저장 (entry_id 포함)
+      console.log('데이터베이스에 저장 시도...')
+      console.log('저장할 데이터:', {
+        id: entryId,
+        participant_code: participantCode,
+        title: title.trim(),
+        content_html: content.substring(0, 100) + '...', // 내용 일부만 로그
+        shared: esmData.consent
+      })
+      
+      // 1. entry 저장 (최초 저장)
+      const { data: entryData, error: entryError } = await supabase
+        .from('entries')
+        .insert({
+          id: entryId,
+          participant_code: participantCode,
+          title: title.trim(),
+          content_html: content,
+          shared: esmData.consent
+        })
+        .select()
+
+      console.log('entry 저장 결과:', { data: entryData, error: entryError })
+
+      if (entryError) {
+        console.error('entry 저장 실패:', entryError)
+        throw entryError
+      }
+
+      console.log('entry 저장 성공')
+
+      // 2. ESM 응답 저장
       const esmDataToInsert: CreateESMResponseData = {
         participant_code: participantCode,
         entry_id: entryId,
@@ -114,34 +172,39 @@ export default function Write() {
         q4: esmData.q4,
         q5: esmData.q5
       }
+      
       const { error: esmError } = await supabase
         .from('esm_responses')
         .insert(esmDataToInsert)
+        
       if (esmError) {
         console.error('ESM 저장 실패:', esmError)
         throw esmError
       }
 
-      // 2. ESM 응답에 따라 entry의 shared 필드 업데이트
-      const { error: updateError } = await supabase
-        .from('entries')
-        .update({ shared: esmData.consent })
-        .eq('id', entryId)
-      if (updateError) {
-        console.error('entry 업데이트 실패:', updateError)
-        throw updateError
-      }
+      console.log('ESM 응답 저장 성공')
 
       // ESM 제출 로그
       if (canLog) {
+        console.log('ESM 제출 로그 기록')
         logESMSubmit(entryId, esmData.consent)
       }
 
-      setShowESM(false)
-      router.push('/')
+      console.log('모든 저장 완료!')
+      success = true
     } catch (error) {
       console.error('저장 중 오류:', error)
-      alert('저장 중 오류가 발생했습니다.')
+      alert(`저장 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+    } finally {
+      // 제출 상태를 항상 false로 리셋
+      setIsSubmitting(false)
+      console.log('제출 상태를 false로 리셋')
+      
+      // 성공했을 때만 모달 닫고 홈으로 이동
+      if (success) {
+        setShowESM(false)
+        router.push('/')
+      }
     }
   }
 
@@ -192,6 +255,7 @@ export default function Write() {
           entryId={entryId}
           onTitleChange={setTitle}
           onContentChange={setContent}
+          onSave={handleSave}
         />
       </main>
 
@@ -200,6 +264,7 @@ export default function Write() {
         isOpen={showESM}
         onSubmit={handleESMSubmit}
         onClose={() => setShowESM(false)}
+        isSubmitting={isSubmitting}
       />
 
       {/* 확인 모달 */}

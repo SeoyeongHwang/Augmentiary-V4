@@ -28,12 +28,14 @@ export default function Editor({
   userId, 
   entryId,
   onTitleChange, 
-  onContentChange 
+  onContentChange,
+  onSave
 }: { 
   userId: string
   entryId: string
   onTitleChange?: (title: string) => void
   onContentChange?: (content: string) => void
+  onSave?: () => void
 }) {
   const [editorContent, setEditorContent] = useState('');
   const [title, setTitle] = useState('')
@@ -42,7 +44,6 @@ export default function Editor({
   // 인터랙션 로그 훅 사용
   const { 
     logTextSelection, 
-    logTextDeselection, 
     logAITrigger, 
     logAIReceive, 
     logAITextInsert, 
@@ -73,6 +74,7 @@ export default function Editor({
 
   const debouncedAIEditLog = useRef(debounce((entryId: string, original: string, edited: string) => {
     if (canLog && entryId && original !== edited && (lastAIEdit.current.original !== original || lastAIEdit.current.edited !== edited)) {
+      console.log('AI 텍스트 편집 로그:', { original, edited, editRatio: calculateEditRatio(original, edited) })
       logAITextEdit(entryId, original, edited)
       lastAIEdit.current = {original, edited}
     }
@@ -98,15 +100,16 @@ export default function Editor({
   // 디바운스용 ref
   const aiTextEditTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // receive_ai 로그: 옵션이 처음 세팅될 때 1회만 기록
+  // receive_ai 로그: AI API 응답을 받아올 때 기록
   const lastReceiveAI = useRef<string>('')
   useEffect(() => {
     const options = bubbleMenuOptions || augmentOptions
     if (options && options.length > 0 && canLog && entryId) {
       // 같은 옵션이 반복적으로 세팅될 때 중복 기록 방지
-      if (lastReceiveAI.current !== options[0]) {
-        logAIReceive(entryId, options[0])
-        lastReceiveAI.current = options[0]
+      const firstOption = options[0]
+      if (lastReceiveAI.current !== firstOption) {
+        logAIReceive(entryId, firstOption)
+        lastReceiveAI.current = firstOption
       }
     }
   }, [bubbleMenuOptions, augmentOptions, canLog, entryId, logAIReceive])
@@ -222,11 +225,16 @@ export default function Editor({
     if (!editor) return
     const editorElement = editor.view.dom as HTMLElement
     const aiElements = editorElement.querySelectorAll('mark[ai-text]')
+    
+    console.log('AI 텍스트 편집 감지 시작:', { aiElementsCount: aiElements.length })
+    
     aiElements.forEach((element) => {
       const currentText = element.textContent || ''
       const originalText = element.getAttribute('data-original')
       if (originalText) {
         const editRatio = calculateEditRatio(originalText, currentText)
+        console.log('AI 텍스트 편집 감지:', { originalText, currentText, editRatio })
+        
         // AI 텍스트 편집 로그 (실제 변화 + debounce)
         debouncedAIEditLog(entryId, originalText, currentText)
         
@@ -320,6 +328,13 @@ export default function Editor({
     }
   }
 
+  // 저장 함수 (부모 컴포넌트에 위임)
+  const handleSave = () => {
+    if (onSave) {
+      onSave()
+    }
+  }
+
   const handleAugment = async () => {
     if (loading || !editor) return
 
@@ -350,22 +365,17 @@ export default function Editor({
           userProfile: beliefSummary,
         }),
       })
-      const data = await res.json()
-      if (data.interpretiveAgentResult) {
-        // AI 응답 수신 로그
-        if (canLog && entryId) {
-          logAIReceive(entryId, data.interpretiveAgentResult.option1)
+              const data = await res.json()
+        if (data.interpretiveAgentResult) {
+          // API 응답에서 request ID 저장
+          setAugmentOptions([
+            data.interpretiveAgentResult.option1,
+            data.interpretiveAgentResult.option2,
+            data.interpretiveAgentResult.option3,
+          ])
+          // Request ID를 selectionRange에 저장 (나중에 사용)
+          setSelectionRange(prev => prev ? { ...prev, requestId: data.requestId } : null)
         }
-        
-        // API 응답에서 request ID 저장
-        setAugmentOptions([
-          data.interpretiveAgentResult.option1,
-          data.interpretiveAgentResult.option2,
-          data.interpretiveAgentResult.option3,
-        ])
-        // Request ID를 selectionRange에 저장 (나중에 사용)
-        setSelectionRange(prev => prev ? { ...prev, requestId: data.requestId } : null)
-      }
     } catch (error) {
       console.error('Error fetching augment options:', error)
     } finally {
@@ -541,7 +551,10 @@ export default function Editor({
         <CircleIconButton onClick={() => editor?.chain().focus().redo().run()} aria-label="다시하기" >
           <ArrowUturnRightIcon className="h-5 w-5 text-gray-700" />
         </CircleIconButton>
-        <CircleIconButton onClick={() => {}} aria-label="저장하기" >
+        <CircleIconButton 
+          onClick={handleSave} 
+          aria-label="저장하기" 
+        >
           <ArchiveBoxIcon className="h-5 w-5 text-gray-700" />
         </CircleIconButton>
       </div>
@@ -618,10 +631,7 @@ export default function Editor({
                   <li key={idx}>
                     <button
                       onClick={() => {
-                        // 옵션 클릭 시 insert_ai_text 로그
-                        if (canLog && entryId) {
-                          logAITextInsert(entryId, option);
-                        }
+                        // 실제 적용 함수에서 로깅하므로 여기서는 제거
                         bubbleMenuOptions
                           ? applyBubbleMenuAugmentation(option)
                           : applyAugmentation(option);

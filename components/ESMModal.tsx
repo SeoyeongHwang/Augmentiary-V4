@@ -5,6 +5,7 @@ type ESMModalProps = {
   isOpen: boolean
   onSubmit: (data: ESMData) => void
   onClose: () => void
+  isSubmitting?: boolean
 }
 
 import type { CreateESMResponseData } from '../types/esm'
@@ -18,7 +19,7 @@ export type ESMData = {
   q5: number
 }
 
-export default function ESMModal({ isOpen, onSubmit, onClose }: ESMModalProps) {
+export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = false }: ESMModalProps) {
   const [formData, setFormData] = useState<ESMData>({
     consent: false,
     q1: 4,
@@ -28,10 +29,26 @@ export default function ESMModal({ isOpen, onSubmit, onClose }: ESMModalProps) {
     q5: 4
   })
 
+  console.log('ESMModal 렌더링:', { isOpen, formData })
+
   if (!isOpen) return null
 
   const handleSubmit = () => {
-    onSubmit(formData)
+    console.log('ESM 제출 버튼 클릭:', formData)
+    console.log('onSubmit 함수 존재 여부:', !!onSubmit)
+    console.log('제출 중인지:', isSubmitting)
+    
+    if (isSubmitting) {
+      console.log('이미 제출 중입니다. 버튼 클릭 무시')
+      return
+    }
+    
+    try {
+      onSubmit(formData)
+      console.log('onSubmit 호출 완료')
+    } catch (error) {
+      console.error('onSubmit 호출 중 오류:', error)
+    }
   }
 
   const questions = [
@@ -43,7 +60,7 @@ export default function ESMModal({ isOpen, onSubmit, onClose }: ESMModalProps) {
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
       {/* 배경 오버레이 */}
       <div 
         className="absolute inset-0 bg-black bg-opacity-50"
@@ -51,9 +68,9 @@ export default function ESMModal({ isOpen, onSubmit, onClose }: ESMModalProps) {
       />
       
       {/* 모달 내용 */}
-      <div className="relative w-full max-w-md mx-4">
-        <Card className="relative">
-          <div className="space-y-6">
+      <div className="relative w-full max-w-md h-[90vh] flex flex-col">
+        <Card className="flex flex-col p-0 h-full">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">연구 참여 동의</h2>
               <p className="text-sm text-gray-600">이 일기를 연구 목적으로 사용해도 괜찮으신가요?</p>
@@ -105,7 +122,9 @@ export default function ESMModal({ isOpen, onSubmit, onClose }: ESMModalProps) {
               ))}
             </div>
 
-            {/* 버튼 */}
+          </div>
+          {/* 고정된 버튼 영역 */}
+          <div className="flex-shrink-0 p-6 pt-4 border-t border-gray-200 bg-white">
             <div className="flex space-x-3">
               <Button
                 onClick={onClose}
@@ -116,8 +135,9 @@ export default function ESMModal({ isOpen, onSubmit, onClose }: ESMModalProps) {
               <Button
                 onClick={handleSubmit}
                 className="flex-1"
+                disabled={isSubmitting}
               >
-                저장하고 완료하기
+                {isSubmitting ? '저장 중...' : '저장하고 완료하기'}
               </Button>
             </div>
           </div>
