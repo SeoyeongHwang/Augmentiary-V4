@@ -55,17 +55,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // AI 응답을 ai_prompts 테이블에 저장 (비동기로 처리)
-    if (entryId && selected && participantCode) {
+    if (entryId && selected && participantCode && lines.length >= 3) {
+      // 3개의 제안을 객체 형태로 변환
+      const aiSuggestions = {
+        option1: lines[0] || '',
+        option2: lines[1] || '',
+        option3: lines[2] || ''
+      }
+      
       // 저장을 비동기로 처리하여 응답 지연 방지
-      Promise.all(
-        lines
-          .filter((suggestion: string) => suggestion && suggestion.trim())
-          .map((suggestion: string) => 
-            saveAIPrompt(entryId, selected, suggestion, participantCode)
-          )
-      ).catch(error => {
-        console.error('AI 프롬프트 저장 중 오류:', error)
-      })
+      saveAIPrompt(entryId, selected, aiSuggestions, participantCode)
+        .catch(error => {
+          console.error('AI 프롬프트 저장 중 오류:', error)
+        })
     }
 
     res.status(200).json({ options: lines })

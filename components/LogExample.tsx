@@ -10,16 +10,13 @@ export function LogExample() {
   const [selectedText, setSelectedText] = useState('')
   const { 
     logStartWriting,
-    logTextSelection,
-    logTextDeselection,
     logAITrigger,
     logAIReceive,
     logAITextInsert,
-    logAITextEdit,
-    logManualTextEdit,
-    logSaveClick,
+    logEntrySave,
     logESMSubmit,
     logLogout,
+    logAsync,
     canLog
   } = useInteractionLog()
 
@@ -29,22 +26,24 @@ export function LogExample() {
     
     if (selection) {
       setSelectedText(selection)
-      logTextSelection(selection)
+      // 텍스트 선택 로그 (entryId가 필요하므로 임시로 사용)
+      logAsync(ActionType.SELECT_TEXT, { selectedText: selection }, 'example-entry-id')
     } else {
       setSelectedText('')
-      logTextDeselection()
+      // 텍스트 선택 해제 로그
+      logAsync(ActionType.DESELECT_TEXT, undefined, 'example-entry-id')
     }
   }
 
   const handleAITrigger = () => {
     if (selectedText) {
-      logAITrigger(selectedText)
+      logAITrigger('example-entry-id', selectedText)
       
       // AI 응답 시뮬레이션
       setTimeout(() => {
         const aiSuggestion = `because ${selectedText} is important to me`
-        logAIReceive(aiSuggestion)
-        logAITextInsert(aiSuggestion)
+        logAIReceive('example-entry-id', [aiSuggestion])
+        logAITextInsert('example-entry-id', aiSuggestion)
         
         // AI 텍스트를 본문에 추가
         const newText = text + ' ' + aiSuggestion
@@ -58,14 +57,17 @@ export function LogExample() {
     if (text !== newText) {
       // 간단한 수정 감지 (실제로는 더 정교한 diff 알고리즘 사용)
       if (newText.length > text.length) {
-        logManualTextEdit(text, newText)
+        logAsync(ActionType.EDIT_MANUAL_TEXT, { 
+          originalText: text, 
+          newText 
+        }, 'example-entry-id')
       }
       setText(newText)
     }
   }
 
   const handleSave = () => {
-    logSaveClick('example-entry-id')
+    logEntrySave('example-entry-id')
     alert('저장되었습니다!')
   }
 
@@ -77,6 +79,11 @@ export function LogExample() {
   const handleLogout = () => {
     logLogout()
     alert('로그아웃되었습니다!')
+  }
+
+  const handleStartWriting = () => {
+    logStartWriting('example-entry-id')
+    alert('글쓰기를 시작합니다!')
   }
 
   if (!canLog) {
@@ -96,7 +103,7 @@ export function LogExample() {
         {/* 글쓰기 시작 */}
         <div>
           <button 
-            onClick={logStartWriting}
+            onClick={handleStartWriting}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
             글쓰기 시작
