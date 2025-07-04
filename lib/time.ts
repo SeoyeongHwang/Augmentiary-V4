@@ -11,7 +11,17 @@ export function getCurrentKST(): string {
   const kstOffset = 9 * 60 // UTC+9
   const utc = now.getTime() + (now.getTimezoneOffset() * 60000)
   const kst = new Date(utc + (kstOffset * 60000))
-  return kst.toISOString()
+  
+  // KST 시간을 ISO 문자열로 변환하되, 시간대 정보를 포함
+  const year = kst.getFullYear()
+  const month = String(kst.getMonth() + 1).padStart(2, '0')
+  const day = String(kst.getDate()).padStart(2, '0')
+  const hours = String(kst.getHours()).padStart(2, '0')
+  const minutes = String(kst.getMinutes()).padStart(2, '0')
+  const seconds = String(kst.getSeconds()).padStart(2, '0')
+  const milliseconds = String(kst.getMilliseconds()).padStart(3, '0')
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+09:00`
 }
 
 /**

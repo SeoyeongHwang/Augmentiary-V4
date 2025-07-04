@@ -12,6 +12,8 @@ export async function saveAIPrompt(
 ): Promise<void> {
   try {
     const createdAt = getCurrentKST();
+    console.log('🕐 KST 시간 생성:', createdAt);
+    
     const { error } = await supabase
       .from('ai_prompts')
       .insert({

@@ -41,7 +41,16 @@ export function useSession() {
             return
           }
 
-          setUser(userData)
+          if (userData) {
+            console.log('✅ 사용자 정보 로드 완료:', { 
+              id: userData.id, 
+              participant_code: userData.participant_code,
+              hasProfile: !!userData.profile 
+            })
+            setUser(userData)
+          } else {
+            console.error('사용자 데이터가 없습니다.')
+          }
         }
       } catch (error) {
         console.error('세션 처리 중 오류:', error)

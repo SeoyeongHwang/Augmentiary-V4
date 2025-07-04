@@ -2,7 +2,7 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-import { callNarrativeAgent, callInterpretiveAgent } from '../../lib/augmentAgents';
+import { callNarrativeAgent, callInterpretiveAgent, saveAIPrompt } from '../../lib/augmentAgents';
 
 // Request ID 생성 함수
 const generateRequestId = (): string => {
@@ -16,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { diaryEntry, diaryEntryMarked, userProfile } = req.body;
+    const { diaryEntry, diaryEntryMarked, userProfile, entryId, participantCode, selectedText } = req.body;
 
     console.log('Received Diary Entry: ', diaryEntry);
     console.log('Received Marked Entry: ', diaryEntryMarked);
@@ -36,6 +36,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
     
     console.log('Interpretive Agent Result: ', interpretiveAgentResult);
+
+    // AI 응답을 ai_prompts 테이블에 저장
+    if (entryId && selectedText && participantCode && interpretiveAgentResult) {
+      try {
+        await saveAIPrompt(entryId, selectedText, interpretiveAgentResult, participantCode);
+        console.log('✅ AI 프롬프트 저장 완료 (API 레벨)');
+      } catch (error) {
+        console.error('❌ AI 프롬프트 저장 실패 (API 레벨):', error);
+      }
+    } else {
+      console.log('⚠️ AI 프롬프트 저장 조건 불충족:', { 
+        hasEntryId: !!entryId, 
+        hasSelectedText: !!selectedText, 
+        hasParticipantCode: !!participantCode,
+        hasInterpretiveResult: !!interpretiveAgentResult 
+      });
+    }
 
     // 최종 결과 반환
     res.status(200).json({

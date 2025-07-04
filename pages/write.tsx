@@ -40,9 +40,22 @@ export default function Write() {
         return
       }
       
-      // participant_code 가져오기
-      const code = await getParticipantCode(user.id)
-      setParticipantCode(code)
+      try {
+        // participant_code 가져오기
+        const code = await getParticipantCode(user.id)
+        if (code) {
+          setParticipantCode(code)
+          console.log('✅ participant_code 설정 완료:', code)
+        } else {
+          console.error('❌ participant_code를 가져올 수 없습니다.')
+          alert('참가자 정보를 확인할 수 없습니다. 다시 로그인해주세요.')
+          router.push('/login')
+        }
+      } catch (error) {
+        console.error('participant_code 가져오기 실패:', error)
+        alert('참가자 정보를 가져오는 중 오류가 발생했습니다.')
+        router.push('/login')
+      }
     }
     
     if (user) {
@@ -112,6 +125,8 @@ export default function Write() {
 
     // 데이터베이스 저장 시도 (타임아웃 설정)
     try {
+      console.log('🔄 저장 시작:', { entryId, participantCode, title: title.trim(), contentLength: content.length })
+      
       // 1. entry 저장 (최초 저장)
       const insertPromise = supabase
         .from('entries')
@@ -125,7 +140,7 @@ export default function Write() {
         .select()
 
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('데이터 삽입 타임아웃 (10초)')), 10000)
+        setTimeout(() => reject(new Error('데이터 삽입 타임아웃 (30초)')), 30000)
       })
 
       const { data: entryData, error: entryError } = await Promise.race([insertPromise, timeoutPromise]) as any
@@ -134,6 +149,8 @@ export default function Write() {
         console.error('entry 저장 실패:', entryError)
         throw entryError
       }
+
+      console.log('✅ entry 저장 완료:', entryData)
 
       // 2. ESM 응답 저장
       const esmDataToInsert: CreateESMResponseData = {
@@ -147,6 +164,8 @@ export default function Write() {
         q5: esmData.q5
       }
       
+      console.log('🔄 ESM 응답 저장 시작:', esmDataToInsert)
+      
       const { error: esmError } = await supabase
         .from('esm_responses')
         .insert(esmDataToInsert)
@@ -155,6 +174,8 @@ export default function Write() {
         console.error('ESM 저장 실패:', esmError)
         throw esmError
       }
+
+      console.log('✅ ESM 응답 저장 완료')
 
       // ESM 제출 로그
       if (canLog) {

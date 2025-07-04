@@ -138,6 +138,12 @@ export default function Editor({
 
   // BubbleMenu용 AI API 호출 함수 (useCallback으로 메모이제이션)
   const handleBubbleMenuAugment = useCallback(async () => {
+    console.log('🔍 BubbleMenu AI 호출 - 사용자 정보:', { 
+      hasUser: !!user, 
+      participantCode: user?.participant_code,
+      userId: user?.id 
+    })
+    
     if (!user || !user.participant_code) {
       alert('로그인 정보가 없거나 참가자 코드가 없습니다. 다시 로그인 해주세요.');
       return;
@@ -169,6 +175,9 @@ export default function Editor({
           diaryEntry: fullText,
           diaryEntryMarked: diaryEntryMarked,
           userProfile: beliefSummary,
+          entryId: entryId,
+          participantCode: user.participant_code,
+          selectedText: selectedText,
         }),
       })
       
@@ -341,6 +350,12 @@ export default function Editor({
   }
 
   const handleAugment = async () => {
+    console.log('🔍 일반 AI 호출 - 사용자 정보:', { 
+      hasUser: !!user, 
+      participantCode: user?.participant_code,
+      userId: user?.id 
+    })
+    
     if (!user || !user.participant_code) {
       alert('로그인 정보가 없거나 참가자 코드가 없습니다. 다시 로그인 해주세요.');
       return;
@@ -372,6 +387,9 @@ export default function Editor({
           diaryEntry: fullText,
           diaryEntryMarked: diaryEntryMarked,
           userProfile: beliefSummary,
+          entryId: entryId,
+          participantCode: user.participant_code,
+          selectedText: selectedText,
         }),
       })
       
@@ -392,13 +410,16 @@ export default function Editor({
 
           // AI 응답을 ai_prompts 테이블에 저장 (비동기로 처리)
           if (user?.participant_code && selectedText) {
-            Promise.all(
-              suggestions
-                .filter(suggestion => suggestion && suggestion.trim())
-                .map(suggestion => saveAIPrompt(entryId, selectedText, suggestion, user.participant_code))
-            ).catch(error => {
-              console.error('AI 프롬프트 저장 중 오류:', error)
-            })
+            const aiSuggestions = {
+              option1: suggestions[0] || '',
+              option2: suggestions[1] || '',
+              option3: suggestions[2] || ''
+            }
+            
+            saveAIPrompt(entryId, selectedText, aiSuggestions, user.participant_code)
+              .catch(error => {
+                console.error('AI 프롬프트 저장 중 오류:', error)
+              })
           } else {
             console.log('saveAIPrompt 조건 불충족(일반 augment):', { entryId, selectedText, user });
           }
@@ -427,6 +448,9 @@ export default function Editor({
       logAITextInsert(entryId, inserted)
     }
 
+    // 텍스트 삽입 전 현재 선택 범위 저장
+    const currentSelection = editor.state.selection
+
     // 하나의 트랜잭션으로 텍스트 삽입과 마크 적용을 동시에 실행
     editor.chain()
       .focus()
@@ -448,17 +472,18 @@ export default function Editor({
       const lastElement = aiElements[aiElements.length - 1] as HTMLElement
       
       if (lastElement) {
-        const dataOriginal = lastElement.getAttribute('data-original') // DOM에서는 하이픈 사용
+        const dataOriginal = lastElement.getAttribute('data-original')
         
         // data-original이 없으면 수동으로 설정
         if (!dataOriginal) {
-          lastElement.setAttribute('data-original', inserted) // DOM에서는 하이픈 사용
-          lastElement.setAttribute('request-id', finalRequestId) // DOM에서는 하이픈 사용
-          lastElement.setAttribute('category', category) // DOM에서는 하이픈 사용
+          lastElement.setAttribute('data-original', inserted)
+          lastElement.setAttribute('request-id', finalRequestId)
+          lastElement.setAttribute('category', category)
         }
       }
     }, 50)
 
+    // 상태 업데이트
     setAugments((prev) => [...prev, { 
       start: end, 
       end: end + inserted.length, 
@@ -469,6 +494,9 @@ export default function Editor({
     }])
     setAugmentOptions(null)
     setSelectionRange(null)
+    
+    // 에디터 포커스 복원
+    editor.chain().focus().setTextSelection(currentSelection).run()
   }
 
   // BubbleMenu용 증강 적용 함수 (AI 삽입 로그 보장)
@@ -477,10 +505,15 @@ export default function Editor({
     const { to } = bubbleMenuPosition
     const finalRequestId = generateRequestId()
     const category: AICategory = 'interpretive'
+    
     // AI 텍스트 삽입 로그 (BubbleMenu 경로에서도 보장)
     if (canLogState) {
       logAITextInsert(entryId, inserted)
     }
+    
+    // 텍스트 삽입 전 현재 선택 범위 저장
+    const currentSelection = editor.state.selection
+    
     // 하나의 트랜잭션으로 텍스트 삽입과 마크 적용을 동시에 실행
     editor.chain()
       .focus()
@@ -512,6 +545,7 @@ export default function Editor({
       }
     }, 50)
 
+    // 상태 업데이트
     setAugments((prev) => [...prev, { 
       start: to, 
       end: to + inserted.length, 
@@ -522,6 +556,9 @@ export default function Editor({
     }])
     setBubbleMenuOptions(null)
     setBubbleMenuPosition(null)
+    
+    // 에디터 포커스 복원
+    editor.chain().focus().setTextSelection(currentSelection).run()
   }
 
   // 로깅 시스템 검증을 위한 디버깅 함수
