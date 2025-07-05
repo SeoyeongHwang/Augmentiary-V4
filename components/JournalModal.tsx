@@ -49,7 +49,7 @@ export default function JournalModal({ isOpen, onClose, title, content, createdA
           {/* 본문 영역 (스크롤 가능) */}
           <div className="flex-1 overflow-y-auto mt-4">
             <div 
-              className="prose prose-sm max-w-none"
+              className="prose prose-sm max-w-none leading-loose"
               dangerouslySetInnerHTML={{ __html: content }}
             />
           </div>

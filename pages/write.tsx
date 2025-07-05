@@ -153,6 +153,9 @@ export default function Write() {
 
       console.log('✅ entry 저장 완료:', entryData)
 
+      // Entry 저장 후 잠시 대기 (DB 트랜잭션 안정화)
+      await new Promise(resolve => setTimeout(resolve, 500))
+
       // 2. ESM 응답 저장
       const esmDataToInsert: CreateESMResponseData = {
         participant_code: participantCode,
@@ -177,6 +180,9 @@ export default function Write() {
       }
 
       console.log('✅ ESM 응답 저장 완료')
+
+      // ESM 저장 후 잠시 대기 (외래키 제약조건 검증 안정화)
+      await new Promise(resolve => setTimeout(resolve, 500))
 
       // ESM 제출 로그
       if (canLog) {
