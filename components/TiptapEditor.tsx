@@ -145,7 +145,7 @@ export default function Editor({
   // 기본 AI 하이라이트 색상 설정
   useEffect(() => {
     // 기본 파란색 배경으로 설정
-    document.documentElement.style.setProperty('--ai-highlight-bg', 'rgba(219, 234, 254, 1)')
+    document.documentElement.style.setProperty('--ai-highlight-bg', 'rgba(207, 255, 204, 1)')
   }, [])
 
   // BubbleMenu용 AI API 호출 함수 (useCallback으로 메모이제이션)
@@ -308,11 +308,11 @@ export default function Editor({
 
   // AI 하이라이트 색상 옵션들
   const highlightColors = [
-    { name: 'blue', color: '#3B82F6', bgColor: 'rgba(219, 234, 254, 1)' },
-    { name: 'green', color: '#8DFFA0', bgColor: 'rgba(141, 255, 160, 1)' },
-    { name: 'purple', color: '#8B5CF6', bgColor: 'rgba(237, 233, 254, 1)' },
-    { name: 'pink', color: '#FFA7EF', bgColor: 'rgba(252, 231, 243, 1)' },
-    { name: 'yellow', color: '#FFEA00', bgColor: 'rgba(255, 234, 0, 1)' },
+    { name: 'blue', color: '#D2FBFF', bgColor: 'rgba(210, 251, 255, 1)' },
+    { name: 'green', color: '#CFFFCC', bgColor: 'rgba(207, 255, 204, 1)' },
+    { name: 'purple', color: '#F2E7FF', bgColor: 'rgba(242, 231, 255, 1)' },
+    { name: 'pink', color: '#FFE7EF', bgColor: 'rgba(255, 231, 239, 1)' },
+    { name: 'yellow', color: '#FFFEA7', bgColor: 'rgba(255, 254,167, 1)' },
   ]
 
   const applyHighlightColor = (colorName: string) => {
