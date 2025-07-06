@@ -205,13 +205,6 @@ export default function Editor({
           option3: data.interpretiveAgentResult.option3,
         };
 
-        // receive_ai 로그 기록
-        logAIReceive(entryId, [
-          aiSuggestions.option1,
-          aiSuggestions.option2,
-          aiSuggestions.option3,
-        ]);
-
         // AI 응답을 ai_prompts 테이블에 1번만 저장 (JSON)
         if (user?.participant_code && selectedText) {
           saveAIPrompt(entryId, selectedText, aiSuggestions, user.participant_code);
