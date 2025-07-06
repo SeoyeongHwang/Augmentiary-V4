@@ -616,7 +616,7 @@ export default function Editor({
         </CircleIconButton>
       </div>
       {/* 에디터: 중앙 고정, 최대 너비 제한 */}
-      <div className="tiptap-scrollbar w-full max-w-2xl my-4 pr-4 flex flex-col items-center justify-start overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth scroll-p-4">
+      <div className="tiptap-scrollbar w-full max-w-3xl my-4 pr-4 flex flex-col items-center justify-start overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth scroll-p-4">
         <div className="w-full flex flex-col">
           <TextInput 
             type='text' 
