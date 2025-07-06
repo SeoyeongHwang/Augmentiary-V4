@@ -136,14 +136,14 @@ export default function Home() {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto p-6">
         {/* 인사말 */}
-        <div className="mb-8 text-center">
+        <div className="mt-16 mb-8 text-center">
           <h1 className="text-4xl font-bold text-gray-900">
             <span className="font-bold">{user.name}님</span>, {getGreeting()}.
           </h1>
         </div>
 
         {/* 작성하러 가기 버튼 */}
-        <div className="mb-8 text-center">
+        <div className="mb-16 text-center">
           <Button
             onClick={() => router.push('/write')}
             className="px-8 py-4 text-lg font-semibold"
