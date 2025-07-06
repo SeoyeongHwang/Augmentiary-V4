@@ -203,9 +203,9 @@ export default function Editor({
       if (data.interpretiveAgentResult) {
         // API 응답에서 request ID 저장
         setAugmentOptions([
-          data.interpretiveAgentResult.option1,
-          data.interpretiveAgentResult.option2,
-          data.interpretiveAgentResult.option3,
+          data.interpretiveAgentResult.option1.text,
+          data.interpretiveAgentResult.option2.text,
+          data.interpretiveAgentResult.option3.text,
         ])
         // Request ID를 selectionRange에 저장 (나중에 사용)
         setSelectionRange(prev => prev ? { ...prev, requestId: data.requestId } : null)

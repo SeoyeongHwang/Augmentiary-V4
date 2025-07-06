@@ -41,12 +41,28 @@ export function LogExample() {
       
       // AI 응답 시뮬레이션
       setTimeout(() => {
-        const aiSuggestion = `because ${selectedText} is important to me`
-        logAIReceive('example-entry-id', [aiSuggestion])
-        logAITextInsert('example-entry-id', aiSuggestion)
+        const aiSuggestions = {
+          option1: {
+            strategy: "Exploratory insight generation",
+            title: "깊이 있는 탐색",
+            text: `because ${selectedText} is important to me`
+          },
+          option2: {
+            strategy: "Positive reframing and redemption",
+            title: "긍정적 재해석",
+            text: `perhaps ${selectedText} shows my growth`
+          },
+          option3: {
+            strategy: "Action-oriented behavioral guidance",
+            title: "행동 지향적 안내",
+            text: `I could use ${selectedText} to improve myself`
+          }
+        }
+        logAIReceive('example-entry-id', aiSuggestions)
+        logAITextInsert('example-entry-id', aiSuggestions.option1)
         
         // AI 텍스트를 본문에 추가
-        const newText = text + ' ' + aiSuggestion
+        const newText = text + ' ' + aiSuggestions.option1.text
         setText(newText)
       }, 1000)
     }

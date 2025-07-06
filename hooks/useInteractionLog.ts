@@ -64,7 +64,7 @@ export function useInteractionLog() {
   /**
    * AI 응답 수신 로그
    */
-  const logAIReceive = useCallback((entryId: string, aiSuggestions: string[]) => {
+  const logAIReceive = useCallback((entryId: string, aiSuggestions: any) => {
     logAsync(ActionType.RECEIVE_AI, { 
       aiSuggestions,
       // optionCount: aiSuggestions.length 
@@ -74,9 +74,9 @@ export function useInteractionLog() {
   /**
    * AI 텍스트 삽입 로그
    */
-  const logAITextInsert = useCallback((entryId: string, selectedSuggestion: string) => {
+  const logAITextInsert = useCallback((entryId: string, selectedOption: any) => {
     logAsync(ActionType.INSERT_AI_TEXT, { 
-      selectedSuggestion
+      selectedOption
     }, entryId)
   }, [logAsync])
 

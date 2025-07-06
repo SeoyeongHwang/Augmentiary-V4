@@ -2,12 +2,13 @@
 
 import { supabase } from './supabase'
 import { getCurrentKST } from './time'
+import { AIAgentResult, AIOption } from '../types/ai'
 
 // AI 프롬프트를 Supabase에 저장하는 함수
 export async function saveAIPrompt(
   entryId: string,
   selectedText: string,
-  aiSuggestions: { option1: string; option2: string; option3: string },
+  aiSuggestions: AIAgentResult,
   participantCode: string
 ): Promise<void> {
   try {
@@ -94,7 +95,7 @@ export async function callInterpretiveAgent(
     diaryEntryMarked: string,
     userProfile: string,
     narrativeStrategy: string
-  ): Promise<{ option1: string; option2: string; option3: string; }> {
+  ): Promise<AIAgentResult> {
     // 마찬가지로 OpenAI API 호출 구현
     // 예시 생략 가능, 위 구조 동일
     const prompt = `
@@ -105,7 +106,12 @@ You will receive:
 - The user's profile (core values, life themes, identity cues)
 - The suggested narrative strategy to apply
 
-Your task is to generate THREE interpretive sentences that will be inserted in place of <<INSERT HERE>> in the diary to encourage deeper reflection and meaning-making.
+Your task is to generate THREE interpretive options that will be inserted in place of <<INSERT HERE>> in the diary to encourage deeper reflection and meaning-making.
+
+For each option, provide:
+1. strategy: A brief description of the narrative approach being used
+2. title: A short, engaging title for this interpretive option
+3. text: The actual interpretive sentence to be inserted
 
 Guidelines:
 - Align with the suggested narrative strategy
@@ -113,7 +119,7 @@ Guidelines:
 - Be phrased as if written by the user (first-person voice) in fluent Korean.
 - Avoid generic or clichéd phrasing
 - Vary across the three versions (each offering a slightly different lens)
-- The sentence should maintain an open stance. Avoid overly prescriptive phrasing such as "I will do X", "I must Y". Instead, favor phrases that open up possibilities (could, might, perhaps, I am starting to see...).
+- The text should maintain an open stance. Avoid overly prescriptive phrasing such as "I will do X", "I must Y". Instead, favor phrases that open up possibilities (could, might, perhaps, I am starting to see...).
 - End the generated text with an open-ended clause that begins with a contextually appropriate (such as 'because ...', 'so that ...', or similar), encouraging the user to reflect and continue writing.
     `
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -134,9 +140,21 @@ Guidelines:
           \n\n
           Please output the result in the following JSON format:
           {
-          "option1": "<<<TEXT>>>",
-          "option2": "<<<TEXT>>>",
-          "option3": "<<<TEXT>>>"
+          "option1": {
+            "strategy": "<<<STRATEGY>>>",
+            "title": "<<<TITLE>>>",
+            "text": "<<<TEXT>>>"
+          },
+          "option2": {
+            "strategy": "<<<STRATEGY>>>",
+            "title": "<<<TITLE>>>",
+            "text": "<<<TEXT>>>"
+          },
+          "option3": {
+            "strategy": "<<<STRATEGY>>>",
+            "title": "<<<TITLE>>>",
+            "text": "<<<TEXT>>>"
+          }
           }
           ` },
         ],
@@ -153,7 +171,7 @@ Guidelines:
         
         if (jsonStart === -1 || jsonEnd === -1) {
           console.error('JSON brackets not found in response');
-          return { option1: '', option2: '', option3: '' };
+          return createDefaultAIAgentResult();
         }
         
         let jsonString = textResult.substring(jsonStart, jsonEnd + 1);
@@ -173,9 +191,9 @@ Guidelines:
         
         // 필수 필드 확인 및 기본값 설정
         return {
-          option1: parsedResult.option1 || '',
-          option2: parsedResult.option2 || '',
-          option3: parsedResult.option3 || ''
+          option1: createAIOption(parsedResult.option1),
+          option2: createAIOption(parsedResult.option2),
+          option3: createAIOption(parsedResult.option3)
         };
         
       } catch (err) {
@@ -184,21 +202,59 @@ Guidelines:
         
         // JSON 파싱 실패 시 텍스트에서 직접 추출 시도
         try {
-          const option1Match = textResult.match(/"option1":\s*"([^"]*)"/);
-          const option2Match = textResult.match(/"option2":\s*"([^"]*)"/);
-          const option3Match = textResult.match(/"option3":\s*"([^"]*)"/);
+          const option1Match = textResult.match(/"option1":\s*\{([^}]*)\}/);
+          const option2Match = textResult.match(/"option2":\s*\{([^}]*)\}/);
+          const option3Match = textResult.match(/"option3":\s*\{([^}]*)\}/);
           
           return {
-            option1: option1Match ? option1Match[1] : '',
-            option2: option2Match ? option2Match[1] : '',
-            option3: option3Match ? option3Match[1] : ''
+            option1: parseAIOptionFromMatch(option1Match),
+            option2: parseAIOptionFromMatch(option2Match),
+            option3: parseAIOptionFromMatch(option3Match)
           };
         } catch (fallbackErr) {
           console.error('Fallback parsing also failed:', fallbackErr);
-          return { option1: '', option2: '', option3: '' };
+          return createDefaultAIAgentResult();
         }
       }
   }
+
+// 헬퍼 함수들
+function createAIOption(option: any): AIOption {
+  return {
+    strategy: option?.strategy || '',
+    title: option?.title || '',
+    text: option?.text || ''
+  };
+}
+
+function parseAIOptionFromMatch(match: RegExpMatchArray | null): AIOption {
+  if (!match) return createAIOption({});
+  
+  const optionText = match[1];
+  const strategyMatch = optionText.match(/"strategy":\s*"([^"]*)"/);
+  const titleMatch = optionText.match(/"title":\s*"([^"]*)"/);
+  const textMatch = optionText.match(/"text":\s*"([^"]*)"/);
+  
+  return {
+    strategy: strategyMatch ? strategyMatch[1] : '',
+    title: titleMatch ? titleMatch[1] : '',
+    text: textMatch ? textMatch[1] : ''
+  };
+}
+
+function createDefaultAIAgentResult(): AIAgentResult {
+  const defaultOption: AIOption = {
+    strategy: '',
+    title: '',
+    text: ''
+  };
+  
+  return {
+    option1: defaultOption,
+    option2: defaultOption,
+    option3: defaultOption
+  };
+}
   
 //   export async function callCausalAgent(
 //     diaryEntry: string,

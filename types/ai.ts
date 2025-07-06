@@ -14,6 +14,19 @@ export interface CreateAIPromptData {
   user_edit?: string
 }
 
+// 새로운 AI 옵션 타입
+export interface AIOption {
+  strategy: string
+  title: string
+  text: string
+}
+
+export interface AIAgentResult {
+  option1: AIOption
+  option2: AIOption
+  option3: AIOption
+}
+
 // AI 텍스트 투명도 협상 관련 타입들
 export interface AITextRequest {
   id: string

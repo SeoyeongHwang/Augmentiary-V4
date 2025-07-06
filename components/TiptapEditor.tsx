@@ -16,11 +16,12 @@ import {
   debounce
 } from '../utils/editorHelpers'
 import { calculateEditRatio } from '../utils/diff'
-import type { AICategory } from '../types/ai'
+import type { AICategory, AIAgentResult } from '../types/ai'
 import { useInteractionLog } from '../hooks/useInteractionLog'
 import { useSession } from '../hooks/useSession'
 import { saveAIPrompt } from '../lib/augmentAgents'
 import Placeholder from '@tiptap/extension-placeholder'
+import { addAIPromptToQueue } from '../utils/aiPromptQueue'
 
 const namum = Nanum_Myeongjo({
     subsets: ['latin'],
@@ -69,12 +70,12 @@ export default function Editor({
   }, [title, onTitleChange])
   const [augments, setAugments] = useState<{ start: number; end: number; inserted: string; requestId: string; category: AICategory; originalText: string }[]>([])
   const [beliefSummary, setBeliefSummary] = useState('')
-  const [augmentOptions, setAugmentOptions] = useState<string[] | null>(null)
+  const [augmentOptions, setAugmentOptions] = useState<AIAgentResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [fontMenuOpen, setFontMenuOpen] = useState(false)
   const [colorMenuOpen, setColorMenuOpen] = useState(false)
   const [bubbleMenuLoading, setBubbleMenuLoading] = useState(false)
-  const [bubbleMenuOptions, setBubbleMenuOptions] = useState<string[] | null>(null)
+  const [bubbleMenuOptions, setBubbleMenuOptions] = useState<AIAgentResult | null>(null)
   const [bubbleMenuPosition, setBubbleMenuPosition] = useState<{ from: number; to: number } | null>(null)
   const [augmentVisible, setAugmentVisible] = useState(true);
   
@@ -82,9 +83,9 @@ export default function Editor({
   const aiTextEditTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   useEffect(() => {
     const options = bubbleMenuOptions || augmentOptions
-    if (options && options.length > 0 && canLogState) {
-      // 모든 옵션을 문자열로 변환하여 중복 체크
-      const optionsString = options.join('|')
+    if (options && canLogState) {
+      // 중복 체크를 위한 문자열 생성
+      const optionsString = JSON.stringify(options)
       if (lastReceiveAI.current !== optionsString) {
         logAIReceive(entryId, options)
         lastReceiveAI.current = optionsString
@@ -199,24 +200,21 @@ export default function Editor({
       
       const data = await res.json()
       if (data.interpretiveAgentResult) {
-        const aiSuggestions = {
-          option1: data.interpretiveAgentResult.option1,
-          option2: data.interpretiveAgentResult.option2,
-          option3: data.interpretiveAgentResult.option3,
-        };
+        const aiSuggestions = data.interpretiveAgentResult;
 
-        // AI 응답을 ai_prompts 테이블에 1번만 저장 (JSON)
+        // AI 응답을 ai_prompts 테이블에 저장
         if (user?.participant_code && selectedText) {
-          saveAIPrompt(entryId, selectedText, aiSuggestions, user.participant_code);
+          addAIPromptToQueue({
+            entry_id: entryId,
+            selected_text: selectedText,
+            ai_suggestion: aiSuggestions,
+            participant_code: user.participant_code,
+          });
         } else {
-          console.log('saveAIPrompt 조건 불충족(일반 augment):', { entryId, selectedText, user });
+          console.log('addAIPromptToQueue 조건 불충족(일반 augment):', { entryId, selectedText, user });
         }
 
-        setAugmentOptions([
-          aiSuggestions.option1,
-          aiSuggestions.option2,
-          aiSuggestions.option3,
-        ])
+        setAugmentOptions(aiSuggestions)
       }
     } catch (error) {
       console.error('Error fetching augment options:', error)
@@ -390,32 +388,29 @@ export default function Editor({
       
       const data = await res.json()
         if (data.interpretiveAgentResult) {
+          const aiSuggestions = data.interpretiveAgentResult;
           const suggestions = [
-            data.interpretiveAgentResult.option1,
-            data.interpretiveAgentResult.option2,
-            data.interpretiveAgentResult.option3,
+            aiSuggestions.option1.text,
+            aiSuggestions.option2.text,
+            aiSuggestions.option3.text,
           ]
 
           // 진단 로그 추가
           console.log('AI 응답 수신(일반 augment):', { entryId, selectedText, suggestions, user });
 
-          // AI 응답을 ai_prompts 테이블에 저장 (비동기로 처리)
+          // AI 응답을 ai_prompts 테이블에 저장
           if (user?.participant_code && selectedText) {
-            const aiSuggestions = {
-              option1: suggestions[0] || '',
-              option2: suggestions[1] || '',
-              option3: suggestions[2] || ''
-            }
-            
-            saveAIPrompt(entryId, selectedText, aiSuggestions, user.participant_code)
-              .catch(error => {
-                console.error('AI 프롬프트 저장 중 오류:', error)
-              })
+            addAIPromptToQueue({
+              entry_id: entryId,
+              selected_text: selectedText,
+              ai_suggestion: aiSuggestions,
+              participant_code: user.participant_code,
+            });
           } else {
-            console.log('saveAIPrompt 조건 불충족(일반 augment):', { entryId, selectedText, user });
+            console.log('addAIPromptToQueue 조건 불충족(일반 augment):', { entryId, selectedText, user });
           }
 
-          setAugmentOptions(suggestions)
+          setAugmentOptions(aiSuggestions)
         }
     } catch (error) {
       console.error('Error fetching augment options:', error)
@@ -426,7 +421,7 @@ export default function Editor({
   }
 
   // AI 응답 삽입 함수: 항상 editor.state.selection을 사용
-  const applyAugmentation = (inserted: string) => {
+  const applyAugmentation = (inserted: string, selectedOption?: any) => {
     if (!editor) return;
     const { to } = editor.state.selection;
     const finalRequestId = generateRequestId();
@@ -434,7 +429,7 @@ export default function Editor({
 
     // AI 텍스트 삽입 로그
     if (canLogState) {
-      logAITextInsert(entryId, inserted);
+      logAITextInsert(entryId, selectedOption || inserted);
     }
 
     // 하나의 트랜잭션으로 텍스트 삽입과 마크 적용을 동시에 실행
@@ -484,53 +479,46 @@ export default function Editor({
     const editorElement = editor.view.dom as HTMLElement
     const aiElements = editorElement.querySelectorAll('mark[ai-text]')
     
-    console.log('🔍 로깅 시스템 상태:', {
-      totalContentLength: editor.state.doc.textContent.length,
-      aiElementsCount: aiElements.length,
-      augmentsCount: augments.length,
-      canLog,
-      canLogState,
-      entryId
-    })
-    
+    console.log('로깅 시스템 상태 확인')
     // AI 텍스트가 있을 때만 상세 정보 출력
     if (aiElements.length > 0) {
-      const aiTextDetails = Array.from(aiElements).map((element, index) => {
-        const htmlElement = element as HTMLElement
-        return {
-          index,
-          text: element.textContent?.substring(0, 30) + '...',
-          originalText: htmlElement.getAttribute('data-original')?.substring(0, 30) + '...',
-          requestId: htmlElement.getAttribute('request-id'),
-          category: htmlElement.getAttribute('category'),
-          editRatio: htmlElement.getAttribute('edit-ratio')
-        }
-      })
-      
-      console.log('📝 AI 텍스트 상세 정보:', aiTextDetails)
+      // 상세 정보는 개발자 도구에서만 확인하도록 주석 처리
+      // const aiTextDetails = Array.from(aiElements).map((element, index) => {
+      //   const htmlElement = element as HTMLElement
+      //   return {
+      //     index,
+      //     text: element.textContent?.substring(0, 30) + '...',
+      //     originalText: htmlElement.getAttribute('data-original')?.substring(0, 30) + '...',
+      //     requestId: htmlElement.getAttribute('request-id'),
+      //     category: htmlElement.getAttribute('category'),
+      //     editRatio: htmlElement.getAttribute('edit-ratio')
+      //   }
+      // })
+      // console.log('📝 AI 텍스트 상세 정보:', aiTextDetails)
+      console.log('AI 텍스트 존재')
     }
-  }, [editor, augments.length, canLog, canLogState, entryId])
+  }, [editor])
 
   // 개발자 도구에서 디버깅용 전역 함수들
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).debugEditorLogging = debugLoggingState
-      ;(window as any).testAITextEdit = () => {
-        console.log('🧪 AI 텍스트 편집 테스트 시작')
-        handleAITextEdit()
-      }
-      ;(window as any).testEditRatio = (original: string, current: string) => {
-        const ratio = calculateEditRatio(original, current)
-        console.log('🧪 편집 비율 테스트:', { original, current, ratio })
-        return ratio
-      }
+      // (window as any).debugEditorLogging = debugLoggingState
+      // ;(window as any).testAITextEdit = () => {
+      //   console.log('🧪 AI 텍스트 편집 테스트 시작')
+      //   handleAITextEdit()
+      // }
+      // ;(window as any).testEditRatio = (original: string, current: string) => {
+      //   const ratio = calculateEditRatio(original, current)
+      //   console.log('🧪 편집 비율 테스트:', { original, current, ratio })
+      //   return ratio
+      // }
     }
     
     return () => {
       if (typeof window !== 'undefined') {
-        delete (window as any).debugEditorLogging
-        delete (window as any).testAITextEdit
-        delete (window as any).testEditRatio
+        // delete (window as any).debugEditorLogging
+        // delete (window as any).testAITextEdit
+        // delete (window as any).testEditRatio
       }
     }
   }, [debugLoggingState, handleAITextEdit])
@@ -689,21 +677,37 @@ export default function Editor({
               <div className="text-gray-500 text-sm mb-3">
                 어떻게 생각해볼까요?
               </div>
-              {(bubbleMenuOptions || augmentOptions)?.map((option, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => applyAugmentation(option)}
-                  className="w-full text-left bg-white border border-gray-100 rounded-lg p-4 mb-2 hover:bg-gray-50 transition"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-l">❇️</span>
-                    <span className="font-bold text-l text-gray-900">생각 {idx+1}</span>
-                  </div>
-                  <div className="text-gray-800 text-[15px] leading-relaxed">
-                    {option}
-                  </div>
-                </button>
-              ))}
+              {(bubbleMenuOptions || augmentOptions) && (() => {
+                const options = bubbleMenuOptions || augmentOptions;
+                if (!options) return null;
+                
+                const optionsArray = [
+                  { ...options.option1, index: 0 },
+                  { ...options.option2, index: 1 },
+                  { ...options.option3, index: 2 }
+                ];
+                
+                return optionsArray.map((option) => (
+                  <button
+                    key={option.index}
+                    onClick={() => applyAugmentation(option.text, option)}
+                    className="w-full text-left bg-white border border-gray-100 rounded-lg p-4 mb-2 hover:bg-gray-50 transition"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-l">❇️</span>
+                      <span className="font-bold text-l text-gray-900">{option.title || `생각 ${option.index + 1}`}</span>
+                    </div>
+                    {option.strategy && (
+                      <div className="text-gray-500 text-xs mb-2 italic">
+                        {option.strategy}
+                      </div>
+                    )}
+                    <div className="text-gray-800 text-[15px] leading-relaxed">
+                      {option.text}
+                    </div>
+                  </button>
+                ));
+              })()}
             </div>
           )}
           {/* 추가된 문장 */}

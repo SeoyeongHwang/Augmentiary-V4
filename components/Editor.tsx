@@ -53,9 +53,9 @@ export default function Editor({ userId }: { userId: string }) {
       const data = await res.json()
       if (data.interpretiveAgentResult) {
         setAugmentOptions([
-          data.interpretiveAgentResult.option1,
-          data.interpretiveAgentResult.option2,
-          data.interpretiveAgentResult.option3,
+          data.interpretiveAgentResult.option1.text,
+          data.interpretiveAgentResult.option2.text,
+          data.interpretiveAgentResult.option3.text,
         ])
       }
     } catch (error) {

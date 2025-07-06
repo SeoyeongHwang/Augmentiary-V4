@@ -3,6 +3,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 import { callNarrativeAgent, callInterpretiveAgent, saveAIPrompt } from '../../lib/augmentAgents';
+import { AIAgentResult } from '../../types/ai';
 
 // Request ID 생성 함수
 const generateRequestId = (): string => {
@@ -29,30 +30,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('Received Narrative Strategy: ', narrativeAgentResult.strategy+'. '+narrativeAgentResult.justification);
 
     // Step 2: Interpretive Agent
-    const interpretiveAgentResult = await callInterpretiveAgent(
+    const interpretiveAgentResult: AIAgentResult = await callInterpretiveAgent(
       diaryEntryMarked,
       userProfile,
       narrativeAgentResult.strategy+' '+narrativeAgentResult.justification
     );
     
     console.log('Interpretive Agent Result: ', interpretiveAgentResult);
-
-    // AI 응답을 ai_prompts 테이블에 저장
-    if (entryId && selectedText && participantCode && interpretiveAgentResult) {
-      try {
-        await saveAIPrompt(entryId, selectedText, interpretiveAgentResult, participantCode);
-        console.log('✅ AI 프롬프트 저장 완료 (API 레벨)');
-      } catch (error) {
-        console.error('❌ AI 프롬프트 저장 실패 (API 레벨):', error);
-      }
-    } else {
-      console.log('⚠️ AI 프롬프트 저장 조건 불충족:', { 
-        hasEntryId: !!entryId, 
-        hasSelectedText: !!selectedText, 
-        hasParticipantCode: !!participantCode,
-        hasInterpretiveResult: !!interpretiveAgentResult 
-      });
-    }
+    console.log('Option 1:', interpretiveAgentResult.option1);
+    console.log('Option 2:', interpretiveAgentResult.option2);
+    console.log('Option 3:', interpretiveAgentResult.option3);
 
     // 최종 결과 반환
     res.status(200).json({
@@ -64,4 +51,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('Error in augmentation pipeline:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
+}
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb', // 4메가바이트까지 허용
+    },
+  },
 }
