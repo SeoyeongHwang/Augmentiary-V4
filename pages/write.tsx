@@ -127,15 +127,8 @@ export default function Write() {
     // 데이터베이스 저장 시도 (타임아웃 설정)
     try {
       console.log('🔄 저장 시작:', { entryId, participantCode, title: title.trim(), contentLength: content.length })
-      console.log('📊 저장 데이터 크기:', { 
-        titleSize: title.trim().length,
-        contentSize: content.length,
-        totalSize: title.trim().length + content.length
-      })
       
       // 1. entry 저장 (최초 저장) - 타임아웃 없이 직접 시도
-      console.log('⏱️ 저장 요청 시작 - 타임아웃 없음')
-      
       const { data: entryData, error: entryError } = await supabase
         .from('entries')
         .insert({
@@ -152,7 +145,6 @@ export default function Write() {
         throw entryError
       }
 
-      console.log('✅ entry 저장 완료:', entryData)
       console.log('🎉 Entry 저장 성공! - 사용자:', participantCode, 'Entry ID:', entryId)
 
       // Entry 저장 후 잠시 대기 (DB 트랜잭션 안정화)
