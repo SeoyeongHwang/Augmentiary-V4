@@ -143,19 +143,15 @@ export default function Editor({
     if (userId) fetchBelief()
   }, [userId])
 
-  // 기본 AI 하이라이트 색상 설정
-  useEffect(() => {
-    // 기본 파란색 배경으로 설정
-    document.documentElement.style.setProperty('--ai-highlight-bg', 'rgba(207, 255, 204, 1)')
-  }, [])
+  // 기본 AI 하이라이트 색상 설정 - 제거 (저장된 색상 유지)
+  // useEffect(() => {
+  //   // 기본 파란색 배경으로 설정
+  //   document.documentElement.style.setProperty('--ai-highlight-bg', 'rgba(207, 255, 204, 1)')
+  // }, [])
 
   // BubbleMenu용 AI API 호출 함수 (useCallback으로 메모이제이션)
   const handleBubbleMenuAugment = useCallback(async () => {
-    console.log('🔍 BubbleMenu AI 호출 - 사용자 정보:', { 
-      hasUser: !!user, 
-      participantCode: user?.participant_code,
-      userId: user?.id 
-    })
+    console.log('BubbleMenu AI 호출')
     
     if (!user || !user.participant_code) {
       alert('로그인 정보가 없거나 참가자 코드가 없습니다. 다시 로그인 해주세요.');
@@ -211,7 +207,7 @@ export default function Editor({
             participant_code: user.participant_code,
           });
         } else {
-          console.log('addAIPromptToQueue 조건 불충족(일반 augment):', { entryId, selectedText, user });
+          console.log('addAIPromptToQueue 조건 불충족')
         }
 
         setAugmentOptions(aiSuggestions)
@@ -340,11 +336,7 @@ export default function Editor({
   }
 
   const handleAugment = async () => {
-    console.log('🔍 일반 AI 호출 - 사용자 정보:', { 
-      hasUser: !!user, 
-      participantCode: user?.participant_code,
-      userId: user?.id 
-    })
+    console.log('일반 AI 호출')
     
     if (!user || !user.participant_code) {
       alert('로그인 정보가 없거나 참가자 코드가 없습니다. 다시 로그인 해주세요.');
@@ -396,7 +388,7 @@ export default function Editor({
           ]
 
           // 진단 로그 추가
-          console.log('AI 응답 수신(일반 augment):', { entryId, selectedText, suggestions, user });
+          console.log('AI 응답 수신')
 
           // AI 응답을 ai_prompts 테이블에 저장
           if (user?.participant_code && selectedText) {
@@ -407,7 +399,7 @@ export default function Editor({
               participant_code: user.participant_code,
             });
           } else {
-            console.log('addAIPromptToQueue 조건 불충족(일반 augment):', { entryId, selectedText, user });
+            console.log('addAIPromptToQueue 조건 불충족')
           }
 
           setAugmentOptions(aiSuggestions)

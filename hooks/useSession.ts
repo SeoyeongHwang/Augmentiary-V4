@@ -20,14 +20,14 @@ export function useSession() {
     // 현재 세션 가져오기 (재시도 로직 포함)
     const getSession = async (retryCount = 0) => {
       try {
-        console.log(`🔍 세션 확인 시도 ${retryCount + 1}/3...`)
+        console.log(`세션 확인 시도 ${retryCount + 1}/3`)
         
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
-          console.error('세션 가져오기 실패:', error)
+          console.error('세션 가져오기 실패')
           if (retryCount < 2) {
-            console.log(`🔄 세션 재시도 중... (${retryCount + 1}/3)`)
+            console.log(`세션 재시도 중 (${retryCount + 1}/3)`)
             setTimeout(() => getSession(retryCount + 1), 1000)
             return
           }
@@ -36,11 +36,7 @@ export function useSession() {
         }
 
         if (session?.user) {
-          console.log('✅ Supabase 세션 확인됨:', {
-            userId: session.user.id,
-            email: session.user.email,
-            expiresAt: session.expires_at
-          })
+          console.log('Supabase 세션 확인됨')
           
           // 사용자 정보를 DB에서 가져오기
           const { data: userData, error: userError } = await supabase
@@ -50,9 +46,9 @@ export function useSession() {
             .single()
 
           if (userError) {
-            console.error('사용자 정보 가져오기 실패:', userError)
+            console.error('사용자 정보 가져오기 실패')
             if (retryCount < 2) {
-              console.log(`🔄 사용자 정보 재시도 중... (${retryCount + 1}/3)`)
+              console.log(`사용자 정보 재시도 중 (${retryCount + 1}/3)`)
               setTimeout(() => getSession(retryCount + 1), 1000)
               return
             }
@@ -61,23 +57,19 @@ export function useSession() {
           }
 
           if (userData) {
-            console.log('✅ 사용자 정보 로드 완료:', { 
-              id: userData.id, 
-              participant_code: userData.participant_code,
-              hasProfile: !!userData.profile 
-            })
+            console.log('사용자 정보 로드 완료')
             setUser(userData)
             setSessionRetryCount(0) // 성공 시 재시도 카운트 리셋
           } else {
-            console.error('사용자 데이터가 없습니다.')
+            console.error('사용자 데이터 없음')
           }
         } else {
-          console.warn('⚠️ 세션이 없습니다.')
+          console.warn('세션 없음')
         }
       } catch (error) {
-        console.error('세션 처리 중 오류:', error)
+        console.error('세션 처리 중 오류')
         if (retryCount < 2) {
-          console.log(`🔄 세션 처리 재시도 중... (${retryCount + 1}/3)`)
+          console.log(`세션 처리 재시도 중 (${retryCount + 1}/3)`)
           setTimeout(() => getSession(retryCount + 1), 1000)
           return
         }
@@ -93,13 +85,13 @@ export function useSession() {
     // 인증 상태 변경 감지
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: any) => {
-        console.log('🔄 인증 상태 변경 감지:', event)
+        console.log('인증 상태 변경 감지')
         
         if (event === 'SIGNED_IN' && session?.user) {
-          console.log('✅ 로그인 감지됨')
+          console.log('로그인 감지됨')
           // 이미 사용자 정보가 있으면 중복 로드 방지
           if (user && user.id === session.user.id) {
-            console.log('⏭️ 이미 로드된 사용자 정보, 건너뜀')
+            console.log('이미 로드된 사용자 정보, 건너뜀')
             return
           }
           
@@ -111,14 +103,14 @@ export function useSession() {
             .single()
 
           if (!error && userData) {
-            console.log('✅ 로그인 후 사용자 정보 로드 완료')
+            console.log('로그인 후 사용자 정보 로드 완료')
             setUser(userData)
           }
         } else if (event === 'SIGNED_OUT') {
-          console.log('🚪 로그아웃 감지됨')
+          console.log('로그아웃 감지됨')
           setUser(null)
         } else if (event === 'TOKEN_REFRESHED') {
-          console.log('🔄 토큰 갱신 감지됨')
+          console.log('토큰 갱신 감지됨')
           // 토큰 갱신 시 세션 재확인 (무한 루프 방지)
           if (!user) {
             getSession()
@@ -134,23 +126,23 @@ export function useSession() {
     try {
       const { error } = await supabase.auth.signOut()
       if (error) {
-        console.error('로그아웃 실패:', error)
+        console.error('로그아웃 실패')
       }
     } catch (error) {
-      console.error('로그아웃 중 오류:', error)
+      console.error('로그아웃 중 오류')
     }
   }
 
   const refreshSession = async () => {
-    console.log('🔄 세션 수동 갱신 시도...')
+    console.log('세션 수동 갱신 시도')
     try {
       const { data: { session }, error } = await supabase.auth.refreshSession()
       if (error) {
-        console.error('세션 갱신 실패:', error)
+        console.error('세션 갱신 실패')
         return false
       }
       if (session) {
-        console.log('✅ 세션 갱신 성공')
+        console.log('세션 갱신 성공')
         // 갱신된 세션으로 사용자 정보 다시 로드
         const { data: userData, error: userError } = await supabase
           .from('users')
@@ -165,7 +157,7 @@ export function useSession() {
       }
       return false
     } catch (error) {
-      console.error('세션 갱신 중 오류:', error)
+      console.error('세션 갱신 중 오류')
       return false
     }
   }
