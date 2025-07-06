@@ -91,3 +91,19 @@ a:hover {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* tiptap 에디터용 스크롤바 커스텀 */
+.tiptap-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.tiptap-scrollbar::-webkit-scrollbar-track {
+  background: #f3f4f6; /* gray-100 */
+  border-radius: 1rem;
+  margin: 8px;
+}
+.tiptap-scrollbar::-webkit-scrollbar-thumb {
+  background: #d1d5db; /* gray-300 */
+  border-radius: 1rem;
+  min-height: 40px;
+  margin: 8px;
+}

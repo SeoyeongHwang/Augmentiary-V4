@@ -103,7 +103,7 @@ export default function Editor({
     ],
     editorProps: {
       attributes: {
-        class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none leading-loose',
+        class: 'prose prose-sm mx-auto focus:outline-none leading-loose',
       },
     },
     onUpdate: ({ editor }: { editor: any }) => {
@@ -551,9 +551,16 @@ export default function Editor({
   }, [])
 
   return (
-    <div className="flex flex-row h-full w-full overflow-hidden">
+    <div className="flex flex-row h-full w-full overflow-hidden bg-gray-50">
       {/* 왼쪽 패널: 남는 공간을 차지 */}
-      <div className="flex-1 min-w-0 hidden md:flex flex-col justify-start p-4 items-end space-y-4 border-r">
+      <div className="flex-1 min-w-0 hidden md:flex flex-col justify-start p-4 items-end space-y-4">
+      <CircleIconButton onClick={() => editor?.chain().focus().undo().run()} aria-label="되돌리기" >
+          <ArrowUturnLeftIcon className="h-5 w-5 text-gray-700" />
+        </CircleIconButton>
+        <CircleIconButton onClick={() => editor?.chain().focus().redo().run()} aria-label="다시하기" >
+          <ArrowUturnRightIcon className="h-5 w-5 text-gray-700" />
+        </CircleIconButton>
+
         <div className="relative" onMouseEnter={() => setFontMenuOpen(true)} onMouseLeave={() => setFontMenuOpen(false)}>
           <CircleIconButton aria-label="글자 크기 조절">
             <span className="font-normal font-sans" style={{ fontSize: '1.25rem' }}>T</span>
@@ -567,7 +574,7 @@ export default function Editor({
                     applyFontSize(size)
                     setFontMenuOpen(false)
                 }}
-                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white hover:outline hover:outline-offset-2 hover:outline-gray-400"
                 >
                   <span className="font-normal font-sans" style={{ fontSize: size === 'small' ? '0.75rem' : size === 'normal' ? '1rem' : size === 'large' ? '1.25rem' : '1.5rem' }}>T</span>
                 </CircleIconButton>
@@ -589,7 +596,7 @@ export default function Editor({
                     applyHighlightColor(color.name)
                     setColorMenuOpen(false)
                   }}
-                  className="w-8 h-8 rounded-full flex items-center justify-center border-2 border-gray-200 hover:border-gray-300"
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white hover:outline hover:outline-offset-2 hover:outline-gray-400"
                 >
                   <div 
                     className="w-4 h-4 rounded-full" 
@@ -601,12 +608,6 @@ export default function Editor({
           )}
         </div>
         
-        <CircleIconButton onClick={() => editor?.chain().focus().undo().run()} aria-label="되돌리기" >
-          <ArrowUturnLeftIcon className="h-5 w-5 text-gray-700" />
-        </CircleIconButton>
-        <CircleIconButton onClick={() => editor?.chain().focus().redo().run()} aria-label="다시하기" >
-          <ArrowUturnRightIcon className="h-5 w-5 text-gray-700" />
-        </CircleIconButton>
         <CircleIconButton 
           onClick={handleSave} 
           aria-label="저장하기" 
@@ -615,7 +616,7 @@ export default function Editor({
         </CircleIconButton>
       </div>
       {/* 에디터: 중앙 고정, 최대 너비 제한 */}
-      <div className="w-full max-w-2xl mx-auto flex flex-col items-center justify-start overflow-y-auto p-4">
+      <div className="tiptap-scrollbar w-full max-w-2xl my-4 pr-4 flex flex-col items-center justify-start overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth scroll-p-4">
         <div className="w-full flex flex-col">
           <TextInput 
             type='text' 
@@ -648,7 +649,7 @@ export default function Editor({
                     }}
                     disabled={bubbleMenuLoading}
                     className="flex items-center justify-center px-3 py-1.5 rounded-md hover:bg-gray-800 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold text-white hover:text-gray-300"
-                    title={bubbleMenuLoading ? "AI가 분석 중..." : "AI로 의미 찾기"}
+                    title={bubbleMenuLoading ? "생각 중..." : "의미 찾기"}
                   >
                     {bubbleMenuLoading ? (
                       <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
@@ -665,7 +666,7 @@ export default function Editor({
         </div>
       </div>
       {/* 오른쪽 패널: 남는 공간을 차지 */}
-      <aside className="flex-1 min-w-0 hidden md:flex flex-col border-l p-4 overflow-y-auto">
+      <aside className="flex-1 min-w-0 hidden md:flex flex-col p-4 overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-track]:bg-neutral-700 dark:[&::-webkit-scrollbar-thumb]:bg-neutral-500 [scrollbar-gutter:stable]">
         <div className="flex flex-col space-y-4">
           {/* <Button onClick={handleAugment} disabled={loading} className="px-4 py-2 rounded">
             {loading ? '고민하는 중...' : '의미 찾기'}

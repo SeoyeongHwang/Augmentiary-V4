@@ -84,7 +84,7 @@ export function useInteractionLog() {
    * 엔트리 저장 로그
    */
   const logEntrySave = useCallback((entryId: string) => {
-    logAsync(ActionType.ENTRY_SAVE, undefined, entryId)
+    logAsync(ActionType.SAVE_ENTRY, undefined, entryId)
   }, [logAsync])
 
   /**
@@ -98,7 +98,7 @@ export function useInteractionLog() {
    * ESM 제출 로그
    */
   const logESMSubmit = useCallback((entryId: string, consent: boolean) => {
-    logAsync(ActionType.ESM_SUBMIT, { consent }, entryId)
+    logAsync(ActionType.SUBMIT_ESM, { consent }, entryId)
   }, [logAsync])
 
   /**

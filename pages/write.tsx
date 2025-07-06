@@ -228,10 +228,10 @@ export default function Write() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-gray-50">
       {/* 헤더 */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
+      <header className="bg-transparent px-6 py-4 flex-shrink-0">
+        <div className="bg-transparent flex items-center justify-between">
           <button
             onClick={handleBack}
             className="flex items-center text-gray-600 hover:text-gray-900"
@@ -274,9 +274,9 @@ export default function Write() {
         isOpen={showConfirmModal}
         onConfirm={handleConfirmBack}
         onCancel={handleCancelBack}
-        title="저장되지 않은 정보"
-        message="저장되지 않은 정보는 사라집니다. 뒤로가시겠습니까?"
-        confirmText="뒤로가기"
+        title="메인 화면으로 나가기"
+        message="저장되지 않은 정보는 사라집니다. 나가시겠습니까?"
+        confirmText="나가기"
         cancelText="취소"
       />
 
