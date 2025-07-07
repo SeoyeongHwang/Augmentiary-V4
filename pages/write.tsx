@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { createClient } from '../utils/supabase/client'
 import { ArrowLeftIcon } from "@heroicons/react/24/outline"
-import { TiptapEditor, Button, ESMModal } from '../components'
+import { TiptapEditor2, Button, ESMModal } from '../components'
 import ConfirmModal from '../components/ConfirmModal'
 import { LogStatus } from '../components/LogStatus'
 import type { ESMData } from '../components/ESMModal'
@@ -300,7 +300,7 @@ export default function Write() {
 
       {/* 메인 콘텐츠 */}
       <main className="flex-1 overflow-hidden">
-        <TiptapEditor 
+        <TiptapEditor2 
           userId={user?.id || ''}
           entryId={entryId}
           onTitleChange={setTitle}

@@ -16,6 +16,7 @@ export default function Home() {
   const [user, setUser] = useState<AppUser | null>(null)
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
+  const [userLoading, setUserLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [hideTitle, setHideTitle] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null)
@@ -25,16 +26,21 @@ export default function Home() {
 
   useEffect(() => {
     const fetchSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
-      if (!session) {
+        if (!session) {
+          router.push('/login')
+        } else {
+          setAuthUser(session.user)
+          await fetchUserData(session.user.id)
+          await fetchEntries(session.user.id)
+        }
+      } catch (error) {
+        console.error('세션 가져오기 실패:', error)
         router.push('/login')
-      } else {
-        setAuthUser(session.user)
-        await fetchUserData(session.user.id)
-        await fetchEntries(session.user.id)
       }
     }
     fetchSession()
@@ -42,6 +48,7 @@ export default function Home() {
 
   const fetchUserData = async (userId: string) => {
     try {
+      setUserLoading(true)
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -50,11 +57,33 @@ export default function Home() {
 
       if (error) {
         console.error('사용자 정보 불러오기 실패:', error)
+        // 에러가 발생해도 authUser가 있으면 기본 정보로 진행
+        if (authUser) {
+          setUser({
+            id: authUser.id,
+            name: authUser.user_metadata?.name || authUser.email || 'User',
+            email: authUser.email || '',
+            participant_code: '',
+            created_at: new Date().toISOString()
+          })
+        }
       } else {
         setUser(data)
       }
     } catch (error) {
       console.error('사용자 정보 불러오기 오류:', error)
+      // 에러가 발생해도 authUser가 있으면 기본 정보로 진행
+      if (authUser) {
+        setUser({
+          id: authUser.id,
+          name: authUser.user_metadata?.name || authUser.email || 'User',
+          email: authUser.email || '',
+          participant_code: '',
+          created_at: new Date().toISOString()
+        })
+      }
+    } finally {
+      setUserLoading(false)
     }
   }
 
@@ -111,8 +140,18 @@ export default function Home() {
     return '좋은 저녁입니다'
   }
 
-  if (!authUser || !user) {
-    return <div>로딩 중...</div>
+  // 로딩 조건 개선: authUser만 있으면 기본 화면 표시
+  if (!authUser || userLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="text-lg text-gray-600">로딩 중...</div>
+          <div className="text-sm text-gray-400 mt-2">
+            {!authUser ? '세션 확인 중' : '사용자 정보 불러오는 중'}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -139,7 +178,7 @@ export default function Home() {
         {/* 인사말 */}
         <div className="mt-16 mb-8 text-center">
           <h1 className="text-4xl font-bold text-gray-900">
-            <span className="font-bold">{user.name}님</span>, {getGreeting()}.
+            <span className="font-bold">{user?.name || authUser?.user_metadata?.name || authUser?.email || 'User'}님</span>, {getGreeting()}.
           </h1>
         </div>
 

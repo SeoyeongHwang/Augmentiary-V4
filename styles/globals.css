@@ -5,7 +5,7 @@
 /* AI 텍스트 기본 스타일 */
 mark[ai-text="true"] {
   border-radius: 4px;
-  padding: 1px 2px;
+  padding: 4px 1px;
   margin: 0 1px;
   transition: background-color 0.3s ease;
   color: inherit !important; /* 부모 요소의 텍스트 색상 상속 */
