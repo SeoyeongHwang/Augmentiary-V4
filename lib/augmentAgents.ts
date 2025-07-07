@@ -13,7 +13,7 @@ export async function saveAIPrompt(
 ): Promise<void> {
   try {
     const createdAt = getCurrentKST();
-    console.log('🕐 KST 시간 생성:', createdAt);
+  
     
     const { error } = await supabase
       .from('ai_prompts')
@@ -28,7 +28,7 @@ export async function saveAIPrompt(
     if (error) {
       console.error('AI 프롬프트 저장 실패:', error)
     } else {
-      console.log('✅ AI 프롬프트 저장 완료')
+
     }
   } catch (error) {
     console.error('AI 프롬프트 저장 중 오류:', error)

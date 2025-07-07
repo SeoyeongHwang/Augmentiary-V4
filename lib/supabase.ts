@@ -16,9 +16,26 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 let supabase: any
 
 try {
-  console.log('🔧 Supabase 클라이언트 생성 시도...')
-  supabase = createClient(supabaseUrl, supabaseAnonKey)
-  console.log('✅ Supabase 클라이언트 생성 성공')
+  supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    },
+    db: {
+      schema: 'public'
+    },
+    global: {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10
+      }
+    }
+  })
 } catch (error) {
   console.error('❌ Supabase 클라이언트 생성 실패:', error)
   throw error

@@ -107,11 +107,20 @@ export default function Editor({
         class: 'prose prose-sm mx-auto focus:outline-none leading-loose',
       },
     },
+    immediatelyRender: false,
     onUpdate: ({ editor }: { editor: any }) => {
       const content = editor.getHTML()
-      setEditorContent(content)
+      
+      // HTML 최적화 (불필요한 태그 제거)
+      const optimizedContent = content
+        .replace(/<p><br><\/p>/g, '') // 빈 단락 제거
+        .replace(/<p>\s*<\/p>/g, '') // 빈 내용의 단락 제거
+        .replace(/\s+/g, ' ') // 연속된 공백을 하나로
+        .trim()
+      
+      setEditorContent(optimizedContent)
       if (onContentChange) {
-        onContentChange(content)
+        onContentChange(optimizedContent)
       }
       
       // AI 텍스트 편집 감지 (디바운스 적용)
@@ -151,7 +160,7 @@ export default function Editor({
 
   // BubbleMenu용 AI API 호출 함수 (useCallback으로 메모이제이션)
   const handleBubbleMenuAugment = useCallback(async () => {
-    console.log('BubbleMenu AI 호출')
+    
     
     if (!user || !user.participant_code) {
       alert('로그인 정보가 없거나 참가자 코드가 없습니다. 다시 로그인 해주세요.');
@@ -206,8 +215,6 @@ export default function Editor({
             ai_suggestion: aiSuggestions,
             participant_code: user.participant_code,
           });
-        } else {
-          console.log('addAIPromptToQueue 조건 불충족')
         }
 
         setAugmentOptions(aiSuggestions)
@@ -275,8 +282,6 @@ export default function Editor({
             }
           }
         })
-      } else {
-        console.log(`❌ 원본 텍스트가 없음: data-original 속성 확인 필요`)
       }
     })
   }, [editor])
@@ -336,8 +341,6 @@ export default function Editor({
   }
 
   const handleAugment = async () => {
-    console.log('일반 AI 호출')
-    
     if (!user || !user.participant_code) {
       alert('로그인 정보가 없거나 참가자 코드가 없습니다. 다시 로그인 해주세요.');
       return;
@@ -387,9 +390,6 @@ export default function Editor({
             aiSuggestions.option3.text,
           ]
 
-          // 진단 로그 추가
-          console.log('AI 응답 수신')
-
           // AI 응답을 ai_prompts 테이블에 저장
           if (user?.participant_code && selectedText) {
             addAIPromptToQueue({
@@ -398,8 +398,6 @@ export default function Editor({
               ai_suggestion: aiSuggestions,
               participant_code: user.participant_code,
             });
-          } else {
-            console.log('addAIPromptToQueue 조건 불충족')
           }
 
           setAugmentOptions(aiSuggestions)
@@ -471,7 +469,6 @@ export default function Editor({
     const editorElement = editor.view.dom as HTMLElement
     const aiElements = editorElement.querySelectorAll('mark[ai-text]')
     
-    console.log('로깅 시스템 상태 확인')
     // AI 텍스트가 있을 때만 상세 정보 출력
     if (aiElements.length > 0) {
       // 상세 정보는 개발자 도구에서만 확인하도록 주석 처리
@@ -487,7 +484,6 @@ export default function Editor({
       //   }
       // })
       // console.log('📝 AI 텍스트 상세 정보:', aiTextDetails)
-      console.log('AI 텍스트 존재')
     }
   }, [editor])
 

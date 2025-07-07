@@ -89,7 +89,7 @@ export default function Editor({ userId }: { userId: string }) {
 
   const handleRedo = () => {
     // Redo 기능은 복잡하므로 여기서는 간단히 구현하지 않음
-    console.log('Redo functionality would go here')
+
   }
 
   return (

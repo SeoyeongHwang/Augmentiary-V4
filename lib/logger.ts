@@ -96,6 +96,13 @@ class LogQueue {
       await this.flush()
     }
   }
+
+  // 큐에 있는 데이터를 반환하고 큐를 비움 (서버 사이드 저장용)
+  getQueuedLogs(): (CreateInteractionLogData & { timestamp: string })[] {
+    const logs = [...this.queue]
+    this.queue = []
+    return logs
+  }
 }
 
 // 전역 로그 큐 인스턴스
@@ -138,6 +145,13 @@ export async function flushLogsAfterEntrySave(): Promise<void> {
     console.error('로그 플러시 실패')
     throw error
   }
+}
+
+/**
+ * 큐에 있는 로그 데이터를 가져와서 반환 (서버 사이드 저장용)
+ */
+export function getQueuedLogsForServerSide(): (CreateInteractionLogData & { timestamp: string })[] {
+  return logQueue.getQueuedLogs()
 }
 
 // 페이지 언로드 시 로그 플러시 비활성화 - entry 저장 후 수동으로만 flush

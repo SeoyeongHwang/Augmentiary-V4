@@ -1,7 +1,7 @@
 // pages/index.tsx
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import { supabase } from '../lib/supabase'
+import { createClient } from '../utils/supabase/client'
 import { User } from '@supabase/supabase-js'
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline"
 import { Button, Heading, JournalCard, JournalModal } from '../components'
@@ -21,6 +21,7 @@ export default function Home() {
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null)
   const [showModal, setShowModal] = useState(false)
   const router = useRouter()
+  const supabase = createClient()
 
   useEffect(() => {
     const fetchSession = async () => {

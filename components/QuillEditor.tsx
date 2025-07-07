@@ -113,7 +113,7 @@ export default function Editor({
     const range = quill.getSelection()
     if (!range) return
 
-    console.log('🔍 AI 텍스트 편집 감지 시작')
+    
 
     // 선택 영역이 있는 경우
     if (range.length > 0) {
@@ -125,11 +125,11 @@ export default function Editor({
       const endAIText = findAITextElement(endNode, editorElement)
       
       if (startAIText) {
-        console.log('✅ AI 텍스트 편집 감지 (시작점):', startAIText.textContent)
+
         updateAITextOpacity(startAIText)
       }
       if (endAIText && endAIText !== startAIText) {
-        console.log('✅ AI 텍스트 편집 감지 (끝점):', endAIText.textContent)
+
         updateAITextOpacity(endAIText)
       }
     } else {
@@ -138,10 +138,10 @@ export default function Editor({
       const aiTextElement = findAITextElement(currentNode, editorElement)
       
       if (aiTextElement) {
-        console.log('✅ AI 텍스트 편집 감지 (커서):', aiTextElement.textContent)
+
         updateAITextOpacity(aiTextElement)
       } else {
-        console.log('ℹ️ AI 텍스트 요소를 찾을 수 없음')
+
       }
     }
   }
@@ -231,7 +231,7 @@ export default function Editor({
     const aiTextAttributes = createAITextAttributes(finalRequestId, category, inserted)
     quill.insertText(end, inserted, aiTextAttributes)
     
-    console.log('✅ AI 텍스트 삽입 완료:', inserted, aiTextAttributes)
+    
 
     setAugments((prev) => [...prev, { 
       start: end, 

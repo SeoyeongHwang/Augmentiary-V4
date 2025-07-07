@@ -1,7 +1,7 @@
 // pages/login.tsx
 import { useState } from 'react'
 import { useRouter } from 'next/router'
-import { supabase } from '../lib/supabase'
+import { createClient } from '../utils/supabase/client'
 import { Button, TextInput, Heading, Section } from '../components'
 import type { CreateUserData } from '../types/user'
 
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [name, setName] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const router = useRouter()
+  const supabase = createClient()
 
   const handleAuth = async () => {
     if (isSignUp) {

@@ -19,15 +19,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { diaryEntry, diaryEntryMarked, userProfile, entryId, participantCode, selectedText } = req.body;
 
-    console.log('Received Diary Entry: ', diaryEntry);
-    console.log('Received Marked Entry: ', diaryEntryMarked);
-    console.log('Received User Profile: ', userProfile);
-
     // Step 1: Narrative Agent
     const narrativeAgentResult = await callNarrativeAgent(diaryEntry);
-    console.log('Narrative Agent Result: ', narrativeAgentResult);
-
-    console.log('Received Narrative Strategy: ', narrativeAgentResult.strategy+'. '+narrativeAgentResult.justification);
 
     // Step 2: Interpretive Agent
     const interpretiveAgentResult: AIAgentResult = await callInterpretiveAgent(
@@ -35,11 +28,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       userProfile,
       narrativeAgentResult.strategy+' '+narrativeAgentResult.justification
     );
-    
-    console.log('Interpretive Agent Result: ', interpretiveAgentResult);
-    console.log('Option 1:', interpretiveAgentResult.option1);
-    console.log('Option 2:', interpretiveAgentResult.option2);
-    console.log('Option 3:', interpretiveAgentResult.option3);
 
     // 최종 결과 반환
     res.status(200).json({

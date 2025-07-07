@@ -51,6 +51,13 @@ class AIPromptQueue {
       await this.flush()
     }
   }
+
+  // 큐에 있는 데이터를 반환하고 큐를 비움 (서버 사이드 저장용)
+  getQueuedPrompts(): QueuedAIPrompt[] {
+    const prompts = [...this.queue]
+    this.queue = []
+    return prompts
+  }
 }
 
 export const aiPromptQueue = new AIPromptQueue()
@@ -61,4 +68,11 @@ export function addAIPromptToQueue(prompt: Omit<QueuedAIPrompt, 'created_at'>) {
 
 export async function flushAIPromptsAfterEntrySave() {
   await aiPromptQueue.flushAll()
+}
+
+/**
+ * 큐에 있는 AI 프롬프트 데이터를 가져와서 반환 (서버 사이드 저장용)
+ */
+export function getQueuedAIPromptsForServerSide(): QueuedAIPrompt[] {
+  return aiPromptQueue.getQueuedPrompts()
 } 

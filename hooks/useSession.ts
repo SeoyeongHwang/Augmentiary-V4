@@ -17,15 +17,21 @@ export function useSession() {
   const [sessionRetryCount, setSessionRetryCount] = useState(0)
 
   useEffect(() => {
-    // 현재 세션 가져오기 (재시도 로직 포함)
+    // 현재 세션 가져오기 (재시도 로직 포함, 타임아웃 설정)
     const getSession = async (retryCount = 0) => {
       try {
         console.log(`세션 확인 시도 ${retryCount + 1}/3`)
         
-        const { data: { session }, error } = await supabase.auth.getSession()
+        // 타임아웃 설정 (5초)
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('세션 확인 타임아웃')), 5000)
+        )
+        
+        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any
         
         if (error) {
-          console.error('세션 가져오기 실패')
+          console.error('세션 가져오기 실패:', error)
           if (retryCount < 2) {
             console.log(`세션 재시도 중 (${retryCount + 1}/3)`)
             setTimeout(() => getSession(retryCount + 1), 1000)
@@ -38,15 +44,21 @@ export function useSession() {
         if (session?.user) {
           console.log('Supabase 세션 확인됨')
           
-          // 사용자 정보를 DB에서 가져오기
-          const { data: userData, error: userError } = await supabase
+          // 사용자 정보를 DB에서 가져오기 (타임아웃 설정)
+          const userPromise = supabase
             .from('users')
             .select('*')
             .eq('id', session.user.id)
             .single()
+          
+          const userTimeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('사용자 정보 조회 타임아웃')), 5000)
+          )
+          
+          const { data: userData, error: userError } = await Promise.race([userPromise, userTimeoutPromise]) as any
 
           if (userError) {
-            console.error('사용자 정보 가져오기 실패')
+            console.error('사용자 정보 가져오기 실패:', userError)
             if (retryCount < 2) {
               console.log(`사용자 정보 재시도 중 (${retryCount + 1}/3)`)
               setTimeout(() => getSession(retryCount + 1), 1000)
@@ -67,7 +79,7 @@ export function useSession() {
           console.warn('세션 없음')
         }
       } catch (error) {
-        console.error('세션 처리 중 오류')
+        console.error('세션 처리 중 오류:', error)
         if (retryCount < 2) {
           console.log(`세션 처리 재시도 중 (${retryCount + 1}/3)`)
           setTimeout(() => getSession(retryCount + 1), 1000)
@@ -136,19 +148,32 @@ export function useSession() {
   const refreshSession = async () => {
     console.log('세션 수동 갱신 시도')
     try {
-      const { data: { session }, error } = await supabase.auth.refreshSession()
+      // 타임아웃 설정 (5초)
+      const refreshPromise = supabase.auth.refreshSession()
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('세션 갱신 타임아웃')), 5000)
+      )
+      
+      const { data: { session }, error } = await Promise.race([refreshPromise, timeoutPromise]) as any
+      
       if (error) {
-        console.error('세션 갱신 실패')
+        console.error('세션 갱신 실패:', error)
         return false
       }
       if (session) {
         console.log('세션 갱신 성공')
-        // 갱신된 세션으로 사용자 정보 다시 로드
-        const { data: userData, error: userError } = await supabase
+        // 갱신된 세션으로 사용자 정보 다시 로드 (타임아웃 설정)
+        const userPromise = supabase
           .from('users')
           .select('*')
           .eq('id', session.user.id)
           .single()
+        
+        const userTimeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('사용자 정보 조회 타임아웃')), 5000)
+        )
+        
+        const { data: userData, error: userError } = await Promise.race([userPromise, userTimeoutPromise]) as any
         
         if (!userError && userData) {
           setUser(userData)
@@ -157,7 +182,7 @@ export function useSession() {
       }
       return false
     } catch (error) {
-      console.error('세션 갱신 중 오류')
+      console.error('세션 갱신 중 오류:', error)
       return false
     }
   }
