@@ -107,6 +107,7 @@ export default function Editor({
         class: 'prose prose-sm mx-auto focus:outline-none leading-loose',
       },
     },
+    editable: !loading && !bubbleMenuLoading, // AI 요청 중에는 편집 불가
     immediatelyRender: false,
     onUpdate: ({ editor }: { editor: any }) => {
       const content = editor.getHTML()
@@ -152,6 +153,13 @@ export default function Editor({
     // 기본 초록색 배경으로 설정
     document.documentElement.style.setProperty('--ai-highlight-bg', 'rgba(207, 255, 204, 1)')
   }, [])
+
+  // AI 요청 상태에 따라 에디터 편집 가능 상태 업데이트
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!loading && !bubbleMenuLoading)
+    }
+  }, [editor, loading, bubbleMenuLoading])
 
   // BubbleMenu용 AI API 호출 함수 (useCallback으로 메모이제이션)
   const handleBubbleMenuAugment = useCallback(async () => {
@@ -632,7 +640,7 @@ export default function Editor({
             value={title} 
             onChange={setTitle} 
           />
-          <div className={`tiptap editor-wrapper w-full h-fit p-6 min-h-[60vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none relative`} style={{marginBottom: '30px' }}>
+          <div className={`tiptap editor-wrapper w-full h-fit p-6 min-h-[60vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none relative ${(loading || bubbleMenuLoading) ? 'opacity-60 cursor-wait' : ''}`} style={{marginBottom: '30px' }}>
             <EditorContent editor={editor} />
             
             {/* BubbleMenu - 공식 React 컴포넌트 사용 */}
