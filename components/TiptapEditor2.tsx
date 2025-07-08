@@ -569,114 +569,144 @@ export default function Editor({
     <div className="flex flex-row h-full w-full overflow-hidden bg-gray-50">
       {/* 왼쪽 패널: 남는 공간을 차지 */}
       <div className="flex-1 min-w-0 hidden md:flex flex-col justify-start p-4 items-end space-y-4">
-      <CircleIconButton onClick={() => editor?.chain().focus().undo().run()} aria-label="되돌리기" >
-          <ArrowUturnLeftIcon className="h-5 w-5 text-gray-700" />
-        </CircleIconButton>
-        <CircleIconButton onClick={() => editor?.chain().focus().redo().run()} aria-label="다시하기" >
-          <ArrowUturnRightIcon className="h-5 w-5 text-gray-700" />
-        </CircleIconButton>
-
-        <div className="relative" onMouseEnter={() => setFontMenuOpen(true)} onMouseLeave={() => setFontMenuOpen(false)}>
-          <CircleIconButton aria-label="글자 크기 조절">
-            <span className="font-normal font-sans" style={{ fontSize: '1.25rem' }}>T</span>
-          </CircleIconButton>
-          {fontMenuOpen && (
-            <div className="absolute right-full top-1/2 -translate-y-1/2 flex gap-2 bg-transparent z-10 text-sm px-2 py-1">
-              {['small', 'normal', 'large', 'huge'].map((size) => (
-                <CircleIconButton
-                  key={size}
-                  onClick={() => {
-                    applyFontSize(size)
-                    setFontMenuOpen(false)
-                }}
-                  className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white hover:outline hover:outline-offset-2 hover:outline-gray-400"
-                >
-                  <span className="font-normal font-sans" style={{ fontSize: size === 'small' ? '0.75rem' : size === 'normal' ? '1rem' : size === 'large' ? '1.25rem' : '1.5rem' }}>T</span>
-                </CircleIconButton>
-              ))}
-            </div>
-          )}
-        </div>
-        
-        <div className="relative" onMouseEnter={() => setColorMenuOpen(true)} onMouseLeave={() => setColorMenuOpen(false)}>
-          <CircleIconButton aria-label="AI 하이라이트 색상 조절">
-            <SparklesIcon className="h-5 w-5 text-gray-700" />
-          </CircleIconButton>
-          {colorMenuOpen && (
-            <div className="absolute right-full top-1/2 -translate-y-1/2 flex gap-2 bg-transparent z-10 text-sm px-2 py-1">
-              {highlightColors.map((color) => (
-                <CircleIconButton
-                  key={color.name}
-                  onClick={() => {
-                    applyHighlightColor(color.name)
-                    setColorMenuOpen(false)
-                  }}
-                  className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white hover:outline hover:outline-offset-2 hover:outline-gray-400"
-                >
-                  <div 
-                    className="w-4 h-4 rounded-full" 
-                    style={{ backgroundColor: color.color }}
-                  ></div>
-                </CircleIconButton>
-              ))}
-            </div>
-          )}
-        </div>
-        
-        <CircleIconButton 
-          onClick={handleSave} 
-          aria-label="저장하기" 
-        >
-          <ArchiveBoxIcon className="h-5 w-5 text-gray-700" />
-        </CircleIconButton>
+      {/* 왼쪽 패널 내용 */}
       </div>
-      {/* 에디터: 중앙 고정, 최대 너비 제한 */}
-      <div className="tiptap-scrollbar w-full max-w-3xl my-4 pr-4 flex flex-col items-center justify-start overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth scroll-p-4">
-        <div className="w-full flex flex-col">
-          <TextInput 
-            type='text' 
-            className='w-full pt-4 text-4xl font-extrabold text-center border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
-            placeholder='제목' 
-            value={title} 
-            onChange={setTitle} 
-          />
-          <div className={`tiptap editor-wrapper w-full h-fit p-6 min-h-[60vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none relative ${(loading || bubbleMenuLoading) ? 'opacity-60 cursor-wait' : ''}`} style={{marginBottom: '30px' }}>
-            <EditorContent editor={editor} />
-            
-            {/* BubbleMenu - 공식 React 컴포넌트 사용 */}
-            {editor && (
-              <BubbleMenu 
-                editor={editor} 
-                tippyOptions={{ 
-                  duration: 200,
-                  placement: 'top',
-                }}
-                shouldShow={({ editor }) => {
-                  const { from, to } = editor.state.selection
-                  const selectedText = editor.state.doc.textBetween(from, to).trim()
-                  return from !== to && selectedText.length > 0 && selectedText.length < 500
-                }}
-              >
-                <div className="flex items-center gap-0.5 rounded-lg bg-black shadow-xl border border-gray-700 p-1">
-                  <button
-                    onClick={() => {
-                      handleBubbleMenuAugment();
-                    }}
-                    disabled={bubbleMenuLoading}
-                    className="flex items-center justify-center px-3 py-1.5 rounded-md hover:bg-gray-800 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold text-white hover:text-gray-300"
-                    title={bubbleMenuLoading ? "생각 중..." : "의미 찾기"}
-                  >
-                    {bubbleMenuLoading ? (
-                      <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
-                    ) : (
-                      "의미찾기"
-                    )}
-                  </button>
-                </div>
-              </BubbleMenu>
-            )}
-            
+      {/* 중앙 패널: 중앙 고정, 최대 너비 제한 */}
+      <div className="flex-1 min-w-0 hidden md:flex flex-row justify-center p-4 items-start space-y-4">
+        {/* 중앙 패널 내용용 */}
+        <div className="flex-1 w-40 p-0 hidden md:flex flex-col justify-start p-4 items-end space-y-4">
+          {/* 에디터 툴바 버튼들 */}
+          <CircleIconButton 
+            onClick={() => editor?.chain().focus().undo().run()} 
+            aria-label="되돌리기" 
+            className={`${loading || bubbleMenuLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+            title="되돌리기 (Ctrl+Z)"
+          >
+            <ArrowUturnLeftIcon className="h-5 w-5 text-gray-700" />
+          </CircleIconButton>
+          <CircleIconButton 
+            onClick={() => editor?.chain().focus().redo().run()} 
+            aria-label="다시하기" 
+            className={`${loading || bubbleMenuLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+            title="다시하기 (Ctrl+Y)"
+          >
+            <ArrowUturnRightIcon className="h-5 w-5 text-gray-700" />
+          </CircleIconButton>
 
+          <div className="relative" onMouseEnter={() => setFontMenuOpen(true)} onMouseLeave={() => setFontMenuOpen(false)}>
+            <CircleIconButton aria-label="글자 크기 조절" title="글자 크기 조절">
+              <span className="font-normal font-sans" style={{ fontSize: '1.25rem' }}>T</span>
+            </CircleIconButton>
+                                        {fontMenuOpen && (
+                <div className="absolute right-full top-0 pr-2">
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-2">
+                    <div className="flex flex-col gap-1">
+                      {['small', 'normal', 'large', 'huge'].map((size) => (
+                        <button
+                          key={size}
+                          onClick={() => {
+                            applyFontSize(size)
+                            setFontMenuOpen(false)
+                        }}
+                          className="px-3 py-1.5 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 flex items-center gap-2 rounded"
+                        >
+                          <span className="font-normal font-sans" style={{ fontSize: size === 'small' ? '0.75rem' : size === 'normal' ? '1rem' : size === 'large' ? '1.25rem' : '1.5rem' }}>T</span>
+                          <span className="capitalize">{size}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+          </div>
+          
+          <div className="relative" onMouseEnter={() => setColorMenuOpen(true)} onMouseLeave={() => setColorMenuOpen(false)}>
+            <CircleIconButton aria-label="AI 하이라이트 색상 조절" title="AI 하이라이트 색상 조절">
+              <SparklesIcon className="h-5 w-5 text-gray-700" />
+            </CircleIconButton>
+            {colorMenuOpen && (
+              <div className="absolute right-full top-0 pr-2">
+                <div className="bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-2">
+                  <div className="flex flex-col gap-1">
+                    {highlightColors.map((color) => (
+                      <button
+                        key={color.name}
+                        onClick={() => {
+                          applyHighlightColor(color.name)
+                          setColorMenuOpen(false)
+                        }}
+                        className="px-3 py-1.5 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 flex items-center gap-2 rounded"
+                      >
+                        <div 
+                          className="w-4 h-4 rounded-full" 
+                          style={{ backgroundColor: color.color }}
+                        ></div>
+                        <span className="capitalize">{color.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <CircleIconButton 
+            onClick={handleSave} 
+            aria-label="저장하기" 
+            title="저장하기 (Ctrl+S)"
+          >
+            <ArchiveBoxIcon className="h-5 w-5 text-gray-700" />
+          </CircleIconButton>
+        </div>
+        <div className="tiptap-scrollbar w-full max-w-3xl my-4 pr-4 flex flex-col items-center justify-start overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth scroll-p-4">
+          
+          
+          <div className="w-full flex flex-col">
+            <TextInput 
+              type='text' 
+              className='w-full pt-4 text-4xl font-extrabold text-center border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
+              placeholder='제목' 
+              value={title} 
+              onChange={setTitle} 
+            />
+            <div className={`tiptap editor-wrapper w-full h-fit p-6 min-h-[60vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none relative ${(loading || bubbleMenuLoading) ? 'opacity-60 cursor-wait' : ''}`} style={{marginBottom: '30px' }}>
+              <EditorContent editor={editor} />
+              
+              {/* BubbleMenu - 공식 React 컴포넌트 사용 */}
+              {editor && (
+                <BubbleMenu 
+                  editor={editor} 
+                  tippyOptions={{ 
+                    duration: 200,
+                    placement: 'top',
+                  }}
+                  shouldShow={({ editor }) => {
+                    const { from, to } = editor.state.selection
+                    const selectedText = editor.state.doc.textBetween(from, to).trim()
+                    return from !== to && selectedText.length > 0 && selectedText.length < 500
+                  }}
+                >
+                  <div className="flex items-center gap-0.5 rounded-lg bg-black shadow-xl border border-gray-700 p-1">
+                    <button
+                      onClick={() => {
+                        handleBubbleMenuAugment();
+                      }}
+                      disabled={bubbleMenuLoading}
+                      className="flex items-center justify-center px-3 py-1.5 rounded-md hover:bg-gray-800 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold text-white hover:text-gray-300"
+                      title={bubbleMenuLoading ? "생각 중..." : "의미 찾기"}
+                    >
+                      {bubbleMenuLoading ? (
+                        <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                      ) : (
+                        "의미찾기"
+                      )}
+                    </button>
+                  </div>
+                </BubbleMenu>
+              )}
+              
+
+            </div>
           </div>
         </div>
       </div>

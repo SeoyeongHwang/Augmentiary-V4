@@ -322,9 +322,6 @@ export default function Write() {
         confirmText="나가기"
         cancelText="취소"
       />
-
-      {/* 로그 상태 표시 (개발용) */}
-      <LogStatus />
     </div>
   )
 }
