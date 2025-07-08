@@ -137,26 +137,21 @@ export default function Editor({
     
   })
 
-  // 사용자 프로필 가져오기
+  // 사용자 프로필 가져오기 - 서버사이드 API 사용 대신 useSession의 user 데이터 활용
   useEffect(() => {
-    const fetchBelief = async () => {
-      const { data, error } = await supabase
-        .from('users')
-        .select('profile')
-        .eq('id', userId)
-        .single()
-      if (!error && data?.profile) {
-        setBeliefSummary(data.profile)
-      }
+    // user 객체에 profile이 있으면 사용, 없으면 빈 문자열
+    if (user?.profile) {
+      setBeliefSummary(user.profile)
+    } else {
+      setBeliefSummary('') // 기본값으로 빈 문자열 설정
     }
-    if (userId) fetchBelief()
-  }, [userId])
+  }, [user])
 
-  // 기본 AI 하이라이트 색상 설정 - 제거 (저장된 색상 유지)
-  // useEffect(() => {
-  //   // 기본 파란색 배경으로 설정
-  //   document.documentElement.style.setProperty('--ai-highlight-bg', 'rgba(207, 255, 204, 1)')
-  // }, [])
+  // 기본 AI 하이라이트 색상 설정 (기본 초록색으로 설정)
+  useEffect(() => {
+    // 기본 초록색 배경으로 설정
+    document.documentElement.style.setProperty('--ai-highlight-bg', 'rgba(207, 255, 204, 1)')
+  }, [])
 
   // BubbleMenu용 AI API 호출 함수 (useCallback으로 메모이제이션)
   const handleBubbleMenuAugment = useCallback(async () => {
@@ -284,6 +279,27 @@ export default function Editor({
         })
       }
     })
+
+    // 마크 업데이트 후 현재 선택된 색상 다시 적용
+    setTimeout(() => {
+      const currentBgColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg')
+      if (currentBgColor) {
+        const editorElement = editor.view.dom as HTMLElement
+        const aiElements = editorElement.querySelectorAll('mark[ai-text]')
+        aiElements.forEach((element) => {
+          const htmlElement = element as HTMLElement
+          const editRatio = parseFloat(htmlElement.getAttribute('edit-ratio') || '0')
+          const opacity = Math.max(0, 1 - editRatio)
+          
+          // 현재 선택된 색상으로 배경색 업데이트
+          const backgroundColor = opacity > 0 
+            ? currentBgColor.replace('1)', `${opacity})`) 
+            : 'transparent'
+          
+          htmlElement.style.backgroundColor = backgroundColor
+        })
+      }
+    }, 50)
   }, [editor])
 
   const applyFontSize = (value: string) => {
@@ -436,17 +452,32 @@ export default function Editor({
       })
       .run();
 
-    // DOM 속성 설정 (히스토리에 영향을 주지 않음)
+    // DOM 속성 설정 및 현재 선택된 색상 적용 (히스토리에 영향을 주지 않음)
     setTimeout(() => {
       const editorElement = editor.view.dom as HTMLElement;
       const aiElements = editorElement.querySelectorAll('mark[ai-text]');
       const lastElement = aiElements[aiElements.length - 1] as HTMLElement;
+      
       if (lastElement) {
         const dataOriginal = lastElement.getAttribute('data-original');
         if (!dataOriginal) {
           lastElement.setAttribute('data-original', inserted);
           lastElement.setAttribute('request-id', finalRequestId);
           lastElement.setAttribute('category', category);
+        }
+        
+        // 현재 선택된 색상 적용
+        const currentBgColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg')
+        if (currentBgColor) {
+          const editRatio = parseFloat(lastElement.getAttribute('edit-ratio') || '0')
+          const opacity = Math.max(0, 1 - editRatio)
+          
+          // 새로 삽입된 AI 텍스트에 현재 선택된 색상 적용
+          const backgroundColor = opacity > 0 
+            ? currentBgColor.replace('1)', `${opacity})`) 
+            : 'transparent'
+          
+          lastElement.style.backgroundColor = backgroundColor
         }
       }
     }, 50);

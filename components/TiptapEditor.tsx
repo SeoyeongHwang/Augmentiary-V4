@@ -137,20 +137,15 @@ export default function Editor({
     
   })
 
-  // 사용자 프로필 가져오기
+  // 사용자 프로필 가져오기 - 서버사이드 API 사용 대신 useSession의 user 데이터 활용
   useEffect(() => {
-    const fetchBelief = async () => {
-      const { data, error } = await supabase
-        .from('users')
-        .select('profile')
-        .eq('id', userId)
-        .single()
-      if (!error && data?.profile) {
-        setBeliefSummary(data.profile)
-      }
+    // user 객체에 profile이 있으면 사용, 없으면 빈 문자열
+    if (user?.profile) {
+      setBeliefSummary(user.profile)
+    } else {
+      setBeliefSummary('') // 기본값으로 빈 문자열 설정
     }
-    if (userId) fetchBelief()
-  }, [userId])
+  }, [user])
 
   // 기본 AI 하이라이트 색상 설정 - 제거 (저장된 색상 유지)
   // useEffect(() => {

@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
+import { callSummaryAgent, updateEntrySummary } from '../../lib/summaryAgent'
 
 // 서버 사이드에서 service_role 사용 (타임아웃 제한 없음)
 const supabase = createClient(
@@ -74,6 +75,38 @@ export default async function handler(
         console.error('❌ AI 프롬프트 저장 실패:', aiPromptsError)
         // AI 프롬프트 저장 실패는 전체 프로세스를 중단하지 않음
       }
+    }
+
+    // 5. 서머리 에이전트 호출 및 업데이트 (백그라운드 처리)
+    if (entryResult && entryResult.length > 0) {
+      const savedEntry = entryResult[0]
+      
+      // 서머리 에이전트를 백그라운드에서 실행
+      const runSummaryAgent = async () => {
+        try {
+          console.log('✅ 서머리 에이전트 호출 시작:', savedEntry.id)
+          
+          // 서머리 에이전트 호출
+          const summaryResult = await callSummaryAgent(
+            savedEntry.content_html,
+            savedEntry.id,
+            savedEntry.participant_code
+          )
+          
+          console.log('✅ 서머리 에이전트 결과:', summaryResult)
+          
+          // service_role을 사용하여 업데이트
+          await updateEntrySummary(savedEntry.id, summaryResult, supabase)
+          
+        } catch (error) {
+          console.error('❌ 서머리 에이전트 전체 프로세스 실패:', error)
+        }
+      }
+      
+      // setTimeout을 사용하여 백그라운드에서 실행
+      setTimeout(() => {
+        runSummaryAgent()
+      }, 0)
     }
 
     res.status(200).json({ 

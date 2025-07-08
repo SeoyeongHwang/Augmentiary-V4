@@ -9,7 +9,7 @@ import type { ESMData } from '../components/ESMModal'
 import type { CreateESMResponseData } from '../types/esm'
 import type { CreateEntryData } from '../types/entry'
 import { getCurrentKST } from '../lib/time'
-import { getParticipantCode } from '../lib/auth'
+
 import { useInteractionLog } from '../hooks/useInteractionLog'
 import { useSession } from '../hooks/useSession'
 import { generateEntryId } from '../utils/entry'
@@ -17,7 +17,7 @@ import { getQueuedLogsForServerSide } from '../lib/logger'
 import { getQueuedAIPromptsForServerSide } from '../utils/aiPromptQueue'
 
 export default function Write() {
-  const { user, refreshSession } = useSession()
+  const { user, loading, refreshSession } = useSession()
   const supabase = createClient()
   const [participantCode, setParticipantCode] = useState<string | null>(null)
   const [entryId, setEntryId] = useState<string | null>(null)
@@ -37,33 +37,27 @@ export default function Write() {
   } = useInteractionLog()
 
   useEffect(() => {
-    const fetchParticipantCode = async () => {
-      if (!user) {
-        router.push('/login')
-        return
-      }
-      
-      try {
-        // participant_code 가져오기
-        const code = await getParticipantCode(user.id)
-        if (code) {
-          setParticipantCode(code)
-        } else {
-          console.error('❌ participant_code를 가져올 수 없습니다.')
-          alert('참가자 정보를 확인할 수 없습니다. 다시 로그인해주세요.')
-          router.push('/login')
-        }
-      } catch (error) {
-        console.error('participant_code 가져오기 실패:', error)
-        alert('참가자 정보를 가져오는 중 오류가 발생했습니다.')
-        router.push('/login')
-      }
+    // 로딩 중이면 기다림
+    if (loading) {
+      return
     }
     
-    if (user) {
-      fetchParticipantCode()
+    // 로딩 완료 후 사용자 정보 없으면 로그인 페이지로 이동
+    if (!user) {
+      console.log('🔒 인증되지 않은 사용자 - 로그인 페이지로 이동')
+      router.push('/login')
+      return
     }
-  }, [user, router])
+    
+    // useSession에서 이미 participant_code를 포함한 user 정보를 가져오므로 직접 사용
+    if (user.participant_code) {
+      setParticipantCode(user.participant_code)
+    } else {
+      console.error('❌ participant_code가 없습니다.')
+      alert('참가자 정보를 확인할 수 없습니다. 다시 로그인해주세요.')
+      router.push('/login')
+    }
+  }, [user, loading, router])
 
   // entry_id를 메모리에서만 생성 (participantCode 준비 후)
   useEffect(() => {
@@ -262,13 +256,14 @@ export default function Write() {
     setShowConfirmModal(false)
   }
 
-  if (!user || !entryId) {
+  // 로딩 중이거나 사용자 정보가 없거나 entryId가 없으면 로딩 화면 표시
+  if (loading || !user || !entryId) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="text-lg text-gray-600">로딩 중...</div>
           <div className="text-sm text-gray-400 mt-2">
-            {!user ? '사용자 정보 확인 중' : '글쓰기 준비 중'}
+            {loading ? '사용자 세션 확인 중' : !user ? '사용자 정보 확인 중' : '글쓰기 준비 중'}
           </div>
         </div>
       </div>

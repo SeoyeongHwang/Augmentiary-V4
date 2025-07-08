@@ -2,21 +2,17 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { createClient } from '../utils/supabase/client'
-import { User } from '@supabase/supabase-js'
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline"
 import { Button, Heading, JournalCard, JournalModal } from '../components'
 import type { Entry } from '../types/entry'
 import { formatKST } from '../lib/time'
-import { getParticipantCode } from '../lib/auth'
 
-import type { User as AppUser } from '../types/user'
+import { useSession } from '../hooks/useSession'
 
 export default function Home() {
-  const [authUser, setAuthUser] = useState<User | null>(null)
-  const [user, setUser] = useState<AppUser | null>(null)
+  const { user, loading: sessionLoading, signOut } = useSession()
   const [entries, setEntries] = useState<Entry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [userLoading, setUserLoading] = useState(true)
+  const [entriesLoading, setEntriesLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [hideTitle, setHideTitle] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null)
@@ -24,94 +20,59 @@ export default function Home() {
   const router = useRouter()
   const supabase = createClient()
 
+  // 사용자가 로그인되어 있으면 일기 목록 가져오기
   useEffect(() => {
-    const fetchSession = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-
-        if (!session) {
-          router.push('/login')
-        } else {
-          setAuthUser(session.user)
-          await fetchUserData(session.user.id)
-          await fetchEntries(session.user.id)
-        }
-      } catch (error) {
-        console.error('세션 가져오기 실패:', error)
-        router.push('/login')
-      }
+    if (!sessionLoading && user) {
+      fetchEntries()
+    } else if (!sessionLoading && !user) {
+      router.push('/login')
     }
-    fetchSession()
-  }, [router])
+  }, [user, sessionLoading, router])
 
-  const fetchUserData = async (userId: string) => {
+  const fetchEntries = async () => {
     try {
-      setUserLoading(true)
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (error) {
-        console.error('사용자 정보 불러오기 실패:', error)
-        // 에러가 발생해도 authUser가 있으면 기본 정보로 진행
-        if (authUser) {
-          setUser({
-            id: authUser.id,
-            name: authUser.user_metadata?.name || authUser.email || 'User',
-            email: authUser.email || '',
-            participant_code: '',
-            created_at: new Date().toISOString()
-          })
-        }
-      } else {
-        setUser(data)
-      }
-    } catch (error) {
-      console.error('사용자 정보 불러오기 오류:', error)
-      // 에러가 발생해도 authUser가 있으면 기본 정보로 진행
-      if (authUser) {
-        setUser({
-          id: authUser.id,
-          name: authUser.user_metadata?.name || authUser.email || 'User',
-          email: authUser.email || '',
-          participant_code: '',
-          created_at: new Date().toISOString()
-        })
-      }
-    } finally {
-      setUserLoading(false)
-    }
-  }
-
-  const fetchEntries = async (userId: string) => {
-    try {
-      // participant_code 가져오기
-      const participantCode = await getParticipantCode(userId)
-      if (!participantCode) {
-        console.error('참가자 코드를 찾을 수 없습니다.')
+      setEntriesLoading(true)
+      
+      // localStorage에서 세션 정보 가져오기
+      const sessionData = localStorage.getItem('supabase_session')
+      if (!sessionData) {
+        console.error('세션 정보가 없습니다.')
         return
       }
 
-      const { data, error } = await supabase
-        .from('entries')
-        .select('*')
-        .eq('participant_code', participantCode)
-        .order('created_at', { ascending: false })
-        .limit(9) // 최대 9개 (3x3 그리드)
-
-      if (error) {
-        console.error('일기 목록 불러오기 실패:', error)
-      } else {
-        setEntries(data || [])
+      const session = JSON.parse(sessionData)
+      if (!session.access_token) {
+        console.error('액세스 토큰이 없습니다.')
+        return
       }
+
+      // 서버사이드 API로 일기 목록 조회
+      const response = await fetch('/api/entries/list?limit=9', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        console.error('일기 목록 조회 실패:', data.error)
+        if (response.status === 401) {
+          // 세션 만료된 경우 로그인 페이지로 이동
+          localStorage.removeItem('supabase_session')
+          router.push('/login')
+        }
+        return
+      }
+
+      console.log('✅ 일기 목록 조회 성공:', data.data.entries.length + '개')
+      setEntries(data.data.entries || [])
     } catch (error) {
       console.error('일기 목록 불러오기 오류:', error)
     } finally {
-      setLoading(false)
+      setEntriesLoading(false)
     }
   }
 
@@ -129,7 +90,7 @@ export default function Home() {
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await signOut()
     router.push('/login')
   }
 
@@ -140,15 +101,24 @@ export default function Home() {
     return '좋은 저녁입니다'
   }
 
-  // 로딩 조건 개선: authUser만 있으면 기본 화면 표시
-  if (!authUser || userLoading) {
+  // 세션 로딩 중이면 로딩 화면 표시
+  if (sessionLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="text-lg text-gray-600">로딩 중...</div>
-          <div className="text-sm text-gray-400 mt-2">
-            {!authUser ? '세션 확인 중' : '사용자 정보 불러오는 중'}
-          </div>
+          <div className="text-sm text-gray-400 mt-2">세션 확인 중</div>
+        </div>
+      </div>
+    )
+  }
+
+  // 로그인되지 않은 경우 (useEffect에서 리다이렉트 처리)
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="text-lg text-gray-600">로그인 페이지로 이동 중...</div>
         </div>
       </div>
     )
@@ -178,7 +148,7 @@ export default function Home() {
         {/* 인사말 */}
         <div className="mt-16 mb-8 text-center">
           <h1 className="text-4xl font-bold text-gray-900">
-            <span className="font-bold">{user?.name || authUser?.user_metadata?.name || authUser?.email || 'User'}님</span>, {getGreeting()}.
+            <span className="font-bold">{user.name}님</span>, {getGreeting()}.
           </h1>
         </div>
 
@@ -196,7 +166,7 @@ export default function Home() {
         <div className="mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-6 text-center">이전 일기</h2>
           
-          {loading ? (
+          {entriesLoading ? (
             <div className="text-center py-8">
               <p className="text-gray-500">불러오는 중...</p>
             </div>

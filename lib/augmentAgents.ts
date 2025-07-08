@@ -4,6 +4,8 @@ import { supabase } from './supabase'
 import { getCurrentKST } from './time'
 import { AIAgentResult, AIOption } from '../types/ai'
 
+
+
 // AI 프롬프트를 Supabase에 저장하는 함수
 export async function saveAIPrompt(
   entryId: string,
@@ -265,4 +267,3 @@ function createDefaultAIAgentResult(): AIAgentResult {
 //     // 예시 생략 가능, 위 구조 동일
 //     return 'Causal Connective Phrase (stub)';
 //   }
-  

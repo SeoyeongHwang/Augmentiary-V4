@@ -1,188 +1,154 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
-import { User } from '@supabase/supabase-js'
+import { useEffect, useState } from 'react'
+import type { User } from '../types/user'
 
-export interface SessionUser {
-  id: string
-  email: string
-  name: string
-  participant_code: string
-  created_at: string
-  profile?: string
-}
+type SessionUser = User
 
 export function useSession() {
   const [user, setUser] = useState<SessionUser | null>(null)
   const [loading, setLoading] = useState(true)
-  const [sessionRetryCount, setSessionRetryCount] = useState(0)
 
   useEffect(() => {
-    // 현재 세션 가져오기 (재시도 로직 포함, 타임아웃 설정)
-    const getSession = async (retryCount = 0) => {
+    // 서버사이드 API로 세션 확인
+    const checkSession = async () => {
       try {
-        console.log(`세션 확인 시도 ${retryCount + 1}/3`)
+        console.log('🔍 서버사이드 세션 확인 시작')
         
-        // 타임아웃 설정 (5초)
-        const sessionPromise = supabase.auth.getSession()
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('세션 확인 타임아웃')), 5000)
-        )
+        // localStorage에서 세션 정보 가져오기
+        const sessionData = localStorage.getItem('supabase_session')
         
-        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any
-        
-        if (error) {
-          console.error('세션 가져오기 실패:', error)
-          if (retryCount < 2) {
-            console.log(`세션 재시도 중 (${retryCount + 1}/3)`)
-            setTimeout(() => getSession(retryCount + 1), 1000)
-            return
-          }
+        if (!sessionData) {
+          console.log('❌ 로컬 세션 없음')
+          setUser(null)
           setLoading(false)
           return
         }
 
-        if (session?.user) {
-          console.log('Supabase 세션 확인됨')
-          
-          // 사용자 정보를 DB에서 가져오기 (타임아웃 설정)
-          const userPromise = supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          
-          const userTimeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('사용자 정보 조회 타임아웃')), 5000)
-          )
-          
-          const { data: userData, error: userError } = await Promise.race([userPromise, userTimeoutPromise]) as any
-
-          if (userError) {
-            console.error('사용자 정보 가져오기 실패:', userError)
-            if (retryCount < 2) {
-              console.log(`사용자 정보 재시도 중 (${retryCount + 1}/3)`)
-              setTimeout(() => getSession(retryCount + 1), 1000)
-              return
-            }
-            setLoading(false)
-            return
-          }
-
-          if (userData) {
-            console.log('사용자 정보 로드 완료')
-            setUser(userData)
-            setSessionRetryCount(0) // 성공 시 재시도 카운트 리셋
-          } else {
-            console.error('사용자 데이터 없음')
-          }
-        } else {
-          console.warn('세션 없음')
+        const session = JSON.parse(sessionData)
+        
+        if (!session.access_token) {
+          console.log('❌ 액세스 토큰 없음')
+          localStorage.removeItem('supabase_session')
+          setUser(null)
+          setLoading(false)
+          return
         }
+
+        // 서버사이드 API로 세션 검증
+        const response = await fetch('/api/auth/session', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        const data = await response.json()
+
+        if (!response.ok || !data.data?.isLoggedIn) {
+          console.log('❌ 서버 세션 검증 실패:', data.error)
+          localStorage.removeItem('supabase_session')
+          setUser(null)
+          setLoading(false)
+          return
+        }
+
+        console.log('✅ 서버 세션 검증 성공:', data.data.user.participant_code)
+        setUser(data.data.user)
+        setLoading(false)
+
       } catch (error) {
-        console.error('세션 처리 중 오류:', error)
-        if (retryCount < 2) {
-          console.log(`세션 처리 재시도 중 (${retryCount + 1}/3)`)
-          setTimeout(() => getSession(retryCount + 1), 1000)
-          return
-        }
-      } finally {
-        if (retryCount >= 2) {
-          setLoading(false)
-        }
+        console.error('❌ 세션 확인 중 오류:', error)
+        localStorage.removeItem('supabase_session')
+        setUser(null)
+        setLoading(false)
       }
     }
 
-    getSession()
-
-    // 인증 상태 변경 감지
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: string, session: any) => {
-        console.log('인증 상태 변경 감지')
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('로그인 감지됨')
-          // 이미 사용자 정보가 있으면 중복 로드 방지
-          if (user && user.id === session.user.id) {
-            console.log('이미 로드된 사용자 정보, 건너뜀')
-            return
-          }
-          
-          // 로그인 시 사용자 정보 가져오기
-          const { data: userData, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-
-          if (!error && userData) {
-            console.log('로그인 후 사용자 정보 로드 완료')
-            setUser(userData)
-          }
-        } else if (event === 'SIGNED_OUT') {
-          console.log('로그아웃 감지됨')
-          setUser(null)
-        } else if (event === 'TOKEN_REFRESHED') {
-          console.log('토큰 갱신 감지됨')
-          // 토큰 갱신 시 세션 재확인 (무한 루프 방지)
-          if (!user) {
-            getSession()
-          }
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
+    checkSession()
   }, [])
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) {
-        console.error('로그아웃 실패')
+      console.log('🚪 로그아웃 시작')
+      
+      const sessionData = localStorage.getItem('supabase_session')
+      let accessToken = null
+      
+      if (sessionData) {
+        const session = JSON.parse(sessionData)
+        accessToken = session.access_token
       }
+
+      // 서버사이드 API로 로그아웃
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ access_token: accessToken }),
+      })
+
+      // 로컬 세션 정리
+      localStorage.removeItem('supabase_session')
+      setUser(null)
+      
+      console.log('✅ 로그아웃 완료')
     } catch (error) {
-      console.error('로그아웃 중 오류')
+      console.error('❌ 로그아웃 중 오류:', error)
+      // 에러가 있어도 로컬 세션 정리
+      localStorage.removeItem('supabase_session')
+      setUser(null)
     }
   }
 
   const refreshSession = async () => {
-    console.log('세션 수동 갱신 시도')
+    console.log('🔄 세션 갱신 시도')
     try {
-      // 타임아웃 설정 (5초)
-      const refreshPromise = supabase.auth.refreshSession()
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('세션 갱신 타임아웃')), 5000)
-      )
+      const sessionData = localStorage.getItem('supabase_session')
       
-      const { data: { session }, error } = await Promise.race([refreshPromise, timeoutPromise]) as any
-      
-      if (error) {
-        console.error('세션 갱신 실패:', error)
+      if (!sessionData) {
+        console.log('❌ 갱신할 세션 없음')
         return false
       }
-      if (session) {
-        console.log('세션 갱신 성공')
-        // 갱신된 세션으로 사용자 정보 다시 로드 (타임아웃 설정)
-        const userPromise = supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-        
-        const userTimeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('사용자 정보 조회 타임아웃')), 5000)
-        )
-        
-        const { data: userData, error: userError } = await Promise.race([userPromise, userTimeoutPromise]) as any
-        
-        if (!userError && userData) {
-          setUser(userData)
-          return true
-        }
+
+      const session = JSON.parse(sessionData)
+      
+      if (!session.refresh_token) {
+        console.log('❌ 리프레시 토큰 없음')
+        return false
       }
-      return false
+
+      // 서버사이드 API로 토큰 갱신
+      const response = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          access_token: session.access_token,
+          refresh_token: session.refresh_token 
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.data?.isLoggedIn) {
+        console.log('❌ 토큰 갱신 실패:', data.error)
+        localStorage.removeItem('supabase_session')
+        setUser(null)
+        return false
+      }
+
+      // 새로운 세션 정보 저장
+      if (data.data.session) {
+        localStorage.setItem('supabase_session', JSON.stringify(data.data.session))
+        console.log('✅ 세션 갱신 성공')
+      }
+
+      setUser(data.data.user)
+      return true
     } catch (error) {
-      console.error('세션 갱신 중 오류:', error)
+      console.error('❌ 세션 갱신 중 오류:', error)
       return false
     }
   }

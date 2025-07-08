@@ -1,51 +1,78 @@
 // components/EntryList.tsx
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { formatKST } from '../lib/time'
-import { getParticipantCode } from '../lib/auth'
 
-type Props = {
-  userId: string
-}
-
-import type { Entry } from '../types/entry'
-
-type EntryWithFeedback = Entry & {
+type Entry = {
+  id: string
+  title: string
+  content_html: string
+  created_at: string
   feedback?: string
 }
 
-export default function EntryList({ userId }: Props) {
-  const [entries, setEntries] = useState<EntryWithFeedback[]>([])
+type Props = {
+  // 더 이상 userId가 필요하지 않음 - 세션에서 자동으로 처리
+}
+
+export default function EntryList({}: Props) {
+  const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
 
   // 일기 목록 불러오기
   useEffect(() => {
     const fetchEntries = async () => {
-      // participant_code 가져오기
-      const participantCode = await getParticipantCode(userId)
-      if (!participantCode) {
-        console.error('참가자 코드를 찾을 수 없습니다.')
+      try {
+        setLoading(true)
+        
+        // localStorage에서 세션 정보 가져오기
+        const sessionData = localStorage.getItem('supabase_session')
+        if (!sessionData) {
+          console.error('세션 정보가 없습니다.')
+          setLoading(false)
+          return
+        }
+
+        const session = JSON.parse(sessionData)
+        if (!session.access_token) {
+          console.error('액세스 토큰이 없습니다.')
+          setLoading(false)
+          return
+        }
+
+        // 서버사이드 API로 일기 목록 조회
+        const response = await fetch('/api/entries/list', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          console.error('일기 목록 조회 실패:', data.error)
+          if (response.status === 401) {
+            // 세션 만료된 경우
+            localStorage.removeItem('supabase_session')
+            console.log('세션이 만료되었습니다.')
+          }
+          setLoading(false)
+          return
+        }
+
+        console.log('✅ EntryList 일기 목록 조회 성공:', data.data.entries.length + '개')
+        setEntries(data.data.entries || [])
+      } catch (error) {
+        console.error('일기 목록 불러오기 오류:', error)
+      } finally {
         setLoading(false)
-        return
       }
-
-      const { data, error } = await supabase
-        .from('entries')
-        .select('*')
-        .eq('participant_code', participantCode)
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('불러오기 실패:', error)
-      } else {
-        setEntries(data)
-      }
-      setLoading(false)
     }
 
     fetchEntries()
-  }, [userId])
+  }, [])
 
   return (
     <div className="mt-8">
