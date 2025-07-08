@@ -5,8 +5,9 @@ import StarterKit from '@tiptap/starter-kit'
 import { AIHighlight } from '../utils/tiptapExtensions'
 import { Button, Heading, Card, Textarea, TextInput } from './index'
 import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ArchiveBoxIcon, DocumentTextIcon, SparklesIcon, BoldIcon, ItalicIcon, CommandLineIcon, LinkIcon, LightBulbIcon, CheckIcon, PlusIcon } from "@heroicons/react/24/outline";
-import { LoaderIcon, ArchiveIcon, SparkleIcon } from 'lucide-react'
+import { LoaderIcon, ArchiveIcon, SparkleIcon, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 import CircleIconButton from './CircleIconButton';
+import JournalModal from './JournalModal';
 import { Nanum_Myeongjo } from 'next/font/google'
 import { 
   generateRequestId, 
@@ -82,6 +83,17 @@ export default function Editor({
   const [experienceOptions, setExperienceOptions] = useState<any>(null)
   const [augmentVisible, setAugmentVisible] = useState(true);
   const [experienceVisible, setExperienceVisible] = useState(true);
+  const [experienceCollapsed, setExperienceCollapsed] = useState(false);
+  const [augmentCollapsed, setAugmentCollapsed] = useState(false);
+  
+  // 원본 일기 모달 상태
+  const [originalEntryModal, setOriginalEntryModal] = useState({
+    isOpen: false,
+    title: '',
+    content: '',
+    createdAt: '',
+    loading: false
+  })
   
   // 디바운스용 ref
   const aiTextEditTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -182,16 +194,27 @@ export default function Editor({
     setExperienceButtonLoading(true)
 
     try {
-      // TODO: 경험 관련 AI API 호출 구현
-      // 예시: const res = await fetch('/api/experience', { ... })
-      
-      // 임시 응답 구조
-      const experienceResult = {
-        selectedText: selectedText,
-        experiences: [] // 경험 관련 결과 배열
+      // 경험 관련 API 호출
+      const res = await fetch('/api/experience', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selectedText: selectedText,
+          currentEntryId: entryId,
+          participantCode: user.participant_code
+        })
+      })
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`)
       }
 
-      setExperienceOptions(experienceResult)
+      const data = await res.json()
+      
+      setExperienceOptions({
+        selectedText: selectedText,
+        experiences: data.data.experiences || []
+      })
     } catch (error) {
       console.error('Error fetching experience options:', error)
       alert('경험 관련 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
@@ -199,6 +222,67 @@ export default function Editor({
       setExperienceButtonLoading(false)
     }
   }, [experienceButtonLoading, editor, user])
+
+  // 원본 일기 가져오기 함수
+  const handleViewOriginalEntry = useCallback(async (entryId: string) => {
+    if (!user || !user.participant_code) {
+      alert('로그인 정보가 없습니다.')
+      return
+    }
+
+    // 모달을 열면서 데이터 초기화 및 로딩 상태로 설정
+    setOriginalEntryModal({
+      isOpen: true,
+      title: '',
+      content: '',
+      createdAt: '',
+      loading: true
+    })
+
+    try {
+      // localStorage에서 세션 정보 가져오기
+      const sessionData = localStorage.getItem('supabase_session')
+      if (!sessionData) {
+        throw new Error('세션 정보가 없습니다. 다시 로그인해주세요.')
+      }
+
+      const session = JSON.parse(sessionData)
+      if (!session.access_token) {
+        throw new Error('액세스 토큰이 없습니다. 다시 로그인해주세요.')
+      }
+
+      const response = await fetch('/api/entries/list', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error('일기 목록을 가져오는 데 실패했습니다.')
+      }
+
+      const data = await response.json()
+      const entry = data.data.entries.find((e: any) => e.id === entryId)
+      
+      if (!entry) {
+        throw new Error('해당 일기를 찾을 수 없습니다.')
+      }
+
+      setOriginalEntryModal({
+        isOpen: true,
+        title: entry.title || '무제',
+        content: entry.content_html || '',
+        createdAt: entry.created_at,
+        loading: false
+      })
+    } catch (error) {
+      console.error('원본 일기 조회 오류:', error)
+      alert(error instanceof Error ? error.message : '일기를 불러오는 데 실패했습니다.')
+      setOriginalEntryModal(prev => ({ ...prev, loading: false, isOpen: false }))
+    }
+  }, [user])
 
   // BubbleMenu용 AI API 호출 함수 (useCallback으로 메모이제이션)
   const handleMeaningAugment = useCallback(async () => {
@@ -610,51 +694,100 @@ export default function Editor({
   }, [])
 
   return (
-    <div className="flex flex-row h-full w-full overflow-hidden bg-gray-50">
-      {/* 왼쪽 패널: 남는 공간을 차지 */}
-      <div className="flex-1 min-w-0 mt-4 hidden md:flex flex-col justify-start p-0 items-end space-y-4">
+    <div className="flex flex-row h-screen w-full overflow-hidden bg-gray-50">
+      {/* 왼쪽 패널: 경험 떠올리기 결과 */}
+      <div className="flex-1 max-w-sm min-w-0 hidden md:flex flex-col h-full pb-20 overflow-hidden">
+        <div className="flex-1 overflow-y-auto px-4 space-y-4">
         {/* 경험 관련 결과 */}
         {experienceOptions && experienceVisible && (
-          <div className="w-full max-w-md bg-white border border-gray-200 rounded-lg shadow-sm p-4 mb-4 relative">
-            <button
-              type="button"
-              aria-label="닫기"
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl font-bold focus:outline-none"
-              onClick={() => setExperienceVisible(false)}
-            >
-              ×
-            </button>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xl">💭</span>
-              <span className="font-bold text-l text-gray-900">관련 경험</span>
-            </div>
-            <div className="text-gray-500 text-sm mb-3">
-              선택한 텍스트와 관련된 경험들
-            </div>
-            {experienceOptions && experienceOptions.experiences && experienceOptions.experiences.length > 0 ? (
-              experienceOptions.experiences.map((experience: any, index: number) => (
-                <div
-                  key={index}
-                  className="w-full bg-white border border-gray-100 rounded-lg p-4 mb-2"
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 mb-4 relative">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button 
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
+                  onClick={() => setExperienceCollapsed(!experienceCollapsed)}
+                  title={experienceCollapsed ? "펼치기" : "접기"}
                 >
-                  {/* TODO: 경험 관련 컨텐츠 구조 구현 */}
-                  <div className="text-gray-800 text-[15px] leading-relaxed">
-                    {experience.content || experience.text}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-gray-400 text-sm text-center py-4">
-                경험 관련 결과가 없습니다
+                  {experienceCollapsed ? (
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4 text-gray-500" />
+                  )}
+                </button>
+                <span className="font-bold text-l text-gray-900">관련 경험 살펴보기</span>
               </div>
-            )}
+              <button
+                type="button"
+                aria-label="닫기"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
+                onClick={() => setExperienceVisible(false)}
+              >
+                <span className="text-lg font-bold">×</span>
+              </button>
+            </div>
+            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+              experienceCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
+            }`}>
+              <div className="text-gray-500 text-sm mx-2 mb-3">
+                어떤 기억이 떠오르시나요?
+              </div>
+              {experienceOptions && experienceOptions.experiences && experienceOptions.experiences.length > 0 ? (
+                experienceOptions.experiences.map((experience: any, index: number) => (
+                  <div
+                    key={experience.id || index}
+                    className="w-full bg-white border border-gray-100 rounded-lg p-4 mx-2 mb-2"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-bold text-l text-gray-900">{experience.strategy || '과거 경험 떠올려보기'}</span>
+                    </div>
+                    <div className="text-gray-800 text-[15px] leading-relaxed mb-3">
+                      {experience.description || '관련된 과거 경험이 있습니다.'}
+                    </div>
+                    
+                    {/* 내면 상태와 인사이트 요약 */}
+                    {/* {(experience.sum_innerstate || experience.sum_insight) && (
+                      <div className="space-y-1">
+                        {experience.sum_innerstate && (
+                          <div className="text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded">
+                            💭 {experience.sum_innerstate.substring(0, 50)}{experience.sum_innerstate.length > 50 ? '...' : ''}
+                          </div>
+                        )}
+                        {experience.sum_insight && (
+                          <div className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
+                            💡 {experience.sum_insight.substring(0, 50)}{experience.sum_insight.length > 50 ? '...' : ''}
+                          </div>
+                        )}
+                      </div>
+                    )} */}
+                    
+                    {/* 원본 보기 버튼 */}
+                    <button
+                      onClick={() => {
+                        handleViewOriginalEntry(experience.id)
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 mt-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors duration-200"
+                    >
+                      <span className="text-sm font-medium text-gray-700 truncate">
+                        {experience.title || '무제'}
+                      </span>
+                      <ExternalLink className="w-4 h-4 text-gray-500 flex-shrink-0 ml-2" />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="text-gray-400 text-sm text-center py-4">
+                  경험 관련 결과가 없습니다
+                </div>
+              )}
+            </div>
           </div>
         )}
+        </div>
       </div>
-      {/* 중앙 패널: 중앙 고정, 최대 너비 제한 */}
-      <div className="flex-1 min-w-0 hidden md:flex flex-row justify-start p-4 items-start">
+      {/* 중앙 패널: 에디터 영역 */}
+      <div className="flex-1 min-w-0 hidden md:flex flex-row h-full">
         {/* 에디터 툴바 */}
-        <div className="flex-1 w-40 p-0 hidden md:flex flex-col justify-start p-4 items-end space-y-4">
+        <div className="flex-shrink-0 m-0 mr-4 p-0 flex flex-col items-center space-y-4">
           {/* 에디터 툴바 버튼들 */}
           <CircleIconButton 
             onClick={() => editor?.chain().focus().undo().run()} 
@@ -739,7 +872,8 @@ export default function Editor({
           </CircleIconButton>
         </div>
         {/* 에디터 영역 */}
-        <div className="tiptap-scrollbar w-full max-w-3xl max-h-[100vh] mb-4 pr-4 flex flex-col items-center justify-start overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth scroll-p-4">
+        <div className="flex-1 h-full overflow-hidden">
+          <div className="tiptap-scrollbar w-full h-full flex flex-col overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth">
           <div className="w-full flex flex-col">
             {/* 엔트리 타이틀 */}
             <TextInput 
@@ -757,29 +891,21 @@ export default function Editor({
                 <BubbleMenu 
                   editor={editor} 
                   tippyOptions={{ 
-                    duration: 200,
-                    placement: 'bottom',
-                    maxWidth: 'none',
-                    getReferenceClientRect: null,
-                    appendTo: () => document.body,
+                    duration: 100,
                     interactive: true,
-                    sticky: 'reference',
                   }}
-                  shouldShow={({ editor, view, state, oldState }) => {
-                    // 에디터가 포커스되지 않았으면 숨김
-                    if (!view.hasFocus()) return false
-                    
+                  shouldShow={({ state }) => {
                     const { from, to } = state.selection
                     const selectedText = state.doc.textBetween(from, to).trim()
                     
-                    // 텍스트가 선택되지 않았거나 너무 길면 숨김
+                    // 텍스트가 선택되었고 500자 이하일 때만 표시
                     return from !== to && selectedText.length > 0 && selectedText.length < 500
                   }}
                 >
-                  <div className="flex items-center gap-1 rounded-xl shadow-2xl border border-amber-700/50 bg-black backdrop-blur-sm p-1.5">
+                  <div className="flex items-center gap-1 rounded-xl shadow-2xl border border-stone-400 bg-black backdrop-blur-sm p-1.5">
                     {(experienceButtonLoading || bubbleMenuLoading) ? (
-                      <div className="flex items-center justify-center px-6 py-1.5 text-sm font-bold">
-                        <div className="w-4 h-4 border-2 border-amber-300 border-t-blue-400 rounded-full animate-spin mr-2"></div>
+                      <div className="flex items-center justify-center px-6 py-2 text-sm font-bold">
+                        <div className="w-4 h-4 border-2 border-amber-300 border-t-stone-400 rounded-full animate-spin mr-2"></div>
                         생각 중...
                       </div>
                     ) : (
@@ -788,7 +914,7 @@ export default function Editor({
                           onClick={() => {
                             handleExperienceRecall();
                           }}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-transparent hover:bg-gradient-to-r hover:from-amber-500/30 hover:to-orange-500/30 transition-all duration-300 text-base font-medium text-amber-100 hover:text-white hover:shadow-lg"
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-transparent hover:bg-gradient-to-r hover:from-amber-500/30 hover:to-orange-500/30 transition-all duration-300 text-base font-bold text-white hover:text-white hover:shadow-lg"
                           title="관련 경험 떠올리기"
                         >
                           <LoaderIcon className="w-4 h-4" />
@@ -798,7 +924,7 @@ export default function Editor({
                           onClick={() => {
                             handleMeaningAugment();
                           }}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-transparent hover:bg-gradient-to-r hover:from-amber-500/30 hover:to-orange-500/30 transition-all duration-300 text-base font-medium text-amber-100 hover:text-white hover:shadow-lg"
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-transparent hover:bg-gradient-to-r hover:from-amber-500/30 hover:to-orange-500/30 transition-all duration-300 text-base font-bold text-white hover:text-white hover:shadow-lg"
                           title="의미 찾기"
                         >
                           <SparkleIcon className="w-4 h-4" />
@@ -815,28 +941,44 @@ export default function Editor({
           </div>
         </div>
       </div>
-      {/* 오른쪽 패널: 남는 공간을 차지 */}
-      <aside className="flex-1 min-w-0 p-0 pl-4 mt-4 hidden md:flex flex-col overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-track]:bg-neutral-700 dark:[&::-webkit-scrollbar-thumb]:bg-neutral-500 [scrollbar-gutter:stable]">
-        <div className="flex max-w-md p-0 flex-col space-y-4">
+      </div>
+      {/* 오른쪽 패널: 의미찾기 결과 */}
+      <aside className="flex-1 max-w-sm min-w-0 hidden md:flex flex-col h-full pb-20 overflow-hidden">
+        <div className="flex-1 overflow-y-auto px-4 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
           {/* <Button onClick={handleAugment} disabled={loading} className="px-4 py-2 rounded">
             {loading ? '고민하는 중...' : '의미 찾기'}
           </Button> */}
           {/* 증강 옵션 */}
           {(bubbleMenuOptions || augmentOptions) && augmentVisible && (
-            <div id='augment-result' className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 mb-4 relative">
+            <div id='augment-result' className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 mb-4 relative">
+                          <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button 
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
+                  onClick={() => setAugmentCollapsed(!augmentCollapsed)}
+                  title={augmentCollapsed ? "펼치기" : "접기"}
+                >
+                  {augmentCollapsed ? (
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4 text-gray-500" />
+                  )}
+                </button>
+                <span className="font-bold text-l text-gray-900">의미 찾기</span>
+              </div>
               <button
                 type="button"
                 aria-label="닫기"
-                className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl font-bold focus:outline-none"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
                 onClick={() => setAugmentVisible(false)}
               >
-                ×
+                <span className="text-lg font-bold">×</span>
               </button>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xl">💬</span>
-                <span className="font-bold text-l text-gray-900">가장 와닿는 내용을 골라보세요</span>
-              </div>
-              <div className="text-gray-500 text-sm mb-3">
+            </div>
+            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+              augmentCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
+            }`}>
+              <div className="text-gray-500 text-sm mx-2 mb-3">
                 어떻게 생각해볼까요?
               </div>
               {(bubbleMenuOptions || augmentOptions) && (() => {
@@ -853,10 +995,9 @@ export default function Editor({
                   <button
                     key={option.index}
                     onClick={() => applyAugmentation(option.text, option)}
-                    className="w-full text-left bg-white border border-gray-100 rounded-lg p-4 mb-2 hover:bg-gray-50 transition"
+                    className="w-full text-left bg-white border border-gray-100 rounded-lg p-4 mx-2 mb-2 hover:bg-gray-50 transition"
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-l">❇️</span>
                       <span className="font-bold text-l text-gray-900">{option.title || `생각 ${option.index + 1}`}</span>
                     </div>
                     {option.strategy && (
@@ -871,8 +1012,10 @@ export default function Editor({
                 ));
               })()}
             </div>
+            </div>
           )}
           {/* 추가된 문장 */}
+          {/* 
           {augments.length > 0 && (
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100">
@@ -909,9 +1052,19 @@ export default function Editor({
                 ))}
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </aside>
+      
+      {/* 원본 일기 모달 */}
+      <JournalModal
+        isOpen={originalEntryModal.isOpen}
+        onClose={() => setOriginalEntryModal(prev => ({ ...prev, isOpen: false }))}
+        title={originalEntryModal.title}
+        content={originalEntryModal.content}
+        createdAt={originalEntryModal.createdAt}
+        loading={originalEntryModal.loading}
+      />
     </div>
   )
 }

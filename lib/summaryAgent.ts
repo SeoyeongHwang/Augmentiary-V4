@@ -15,18 +15,18 @@ export async function callSummaryAgent(
 ): Promise<SummaryAgentResult> {
   try {
     const prompt = `
-    당신은 개인 일기 분석 전문가입니다. 
+    You are a narrative analysis expert.
+    Please extract and concisely summarize the following three elements from the provided diary entry:
 
-    제공된 일기 내용을 다음 3가지 관점에서 간결하게 요약해주세요:
+    1. sum_event: What happened (objective facts such as situations, events, or activities)
+    2. sum_innerstate: Internal state (subjective experiences such as emotions, thoughts, or reactions)
+    3. sum_insight: Insights and realizations (what was learned, gained, or the meaning derived from the experience)
 
-    1. sum_event: 일어난 일 (상황, 사건, 활동 등의 객관적 사실)
-    2. sum_innerstate: 내적 상태 (감정, 생각, 반응 등의 주관적 경험)
-    3. sum_insight: 통찰과 깨달음 (경험을 통해 얻은 것, 배운 점, 의미 등)
+    Each summary should be 1–2 sentences long, maintaining the diary writer's perspective and tone.
+    Do not distort the facts, and base the summaries strictly on the content provided.
+    If there is no content relevant to a particular category, return an empty string for that category. Response in Korean.
 
-    각 요약은 1-2문장으로 간결하게 작성하되, 일기 작성자의 시점과 톤을 유지해주세요.
-    만약 특정 카테고리에 해당하는 내용이 없다면 빈 문자열을 반환해주세요.
-
-    JSON 형식으로 출력해주세요:
+    Output in JSON format:
     {
       "sum_event": "<<<TEXT>>>",
       "sum_innerstate": "<<<TEXT>>>",
@@ -44,7 +44,7 @@ export async function callSummaryAgent(
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: prompt },
-          { role: 'user', content: `일기 내용: \n${diaryContent}` },
+          { role: 'user', content: `Diary content: \n${diaryContent}` },
         ],
         temperature: 0.7,
       }),

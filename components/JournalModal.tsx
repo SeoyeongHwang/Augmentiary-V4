@@ -8,9 +8,10 @@ type JournalModalProps = {
   title: string
   content: string
   createdAt: string
+  loading?: boolean
 }
 
-export default function JournalModal({ isOpen, onClose, title, content, createdAt }: JournalModalProps) {
+export default function JournalModal({ isOpen, onClose, title, content, createdAt, loading = false }: JournalModalProps) {
   if (!isOpen) return null
 
   // 날짜 포맷팅 (KST 기준)
@@ -41,17 +42,35 @@ export default function JournalModal({ isOpen, onClose, title, content, createdA
             
             {/* 제목과 날짜 */}
             <div className="pr-12">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">{title}</h2>
-              <p className="text-sm text-gray-500">{formatDate(createdAt)}</p>
+              {loading ? (
+                <div className="animate-pulse">
+                  <div className="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{title || '무제'}</h2>
+                  <p className="text-sm text-gray-500">{formatDate(createdAt)}</p>
+                </>
+              )}
             </div>
           </div>
           
           {/* 본문 영역 (스크롤 가능) */}
           <div className="flex-1 overflow-y-auto mt-4">
-            <div 
-              className="prose prose-sm max-w-none leading-loose"
-              dangerouslySetInnerHTML={{ __html: content }}
-            />
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-gray-500 text-sm">일기를 불러오는 중...</p>
+                </div>
+              </div>
+            ) : (
+              <div 
+                className="prose prose-sm max-w-none leading-loose"
+                dangerouslySetInnerHTML={{ __html: content }}
+              />
+            )}
           </div>
         </Card>
       </div>

@@ -21,7 +21,7 @@ export type ESMData = {
 
 export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = false }: ESMModalProps) {
   const [formData, setFormData] = useState<ESMData>({
-    consent: false,
+    consent: true,
     q1: 4,
     q2: 4,
     q3: 4,
