@@ -52,6 +52,9 @@ export default function Editor({
     logAITrigger, 
     logAIReceive, 
     logAITextInsert, 
+    logRequestRecord,
+    logReceiveRecord,
+    logCheckRecord,
     canLog 
   } = useInteractionLog()
 
@@ -200,6 +203,11 @@ export default function Editor({
     const selectedText = editor.state.doc.textBetween(from, to).trim()
     if (!selectedText) return
 
+    // 경험 살펴보기 요청 로그 (REQUEST_RECORD)
+    if (canLogState) {
+      logRequestRecord(entryId, selectedText)
+    }
+
     setExperienceButtonLoading(true)
 
     try {
@@ -220,9 +228,16 @@ export default function Editor({
 
       const data = await res.json()
       
+      const experiences = data.data.experiences || []
+      
+      // 경험 살펴보기 응답 수신 로그 (RECEIVE_RECORD)
+      if (canLogState) {
+        logReceiveRecord(entryId, experiences)
+      }
+      
       setExperienceOptions({
         selectedText: selectedText,
-        experiences: data.data.experiences || []
+        experiences: experiences
       })
     } catch (error) {
       console.error('Error fetching experience options:', error)
@@ -230,10 +245,10 @@ export default function Editor({
     } finally {
       setExperienceButtonLoading(false)
     }
-  }, [experienceButtonLoading, editor, user])
+  }, [experienceButtonLoading, editor, user, canLogState, entryId, logRequestRecord, logReceiveRecord])
 
   // 원본 일기 가져오기 함수
-  const handleViewOriginalEntry = useCallback(async (entryId: string) => {
+  const handleViewOriginalEntry = useCallback(async (originalEntryId: string) => {
     if (!user || !user.participant_code) {
       setOriginalEntryModal({
         isOpen: true,
@@ -267,7 +282,7 @@ export default function Editor({
       }
 
       // 새로운 개별 일기 조회 API 사용
-      const response = await fetch(`/api/entries/${entryId}`, {
+      const response = await fetch(`/api/entries/${originalEntryId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -317,6 +332,11 @@ export default function Editor({
         return
       }
 
+      // 일기 열어보기 로그 (CHECK_RECORD)
+      if (canLogState) {
+        logCheckRecord(entryId, originalEntryId)
+      }
+
       setOriginalEntryModal({
         isOpen: true,
         title: entry.title || '무제',
@@ -337,7 +357,7 @@ export default function Editor({
         loading: false
       })
     }
-  }, [user])
+  }, [user, canLogState, entryId, logCheckRecord])
 
   // BubbleMenu용 AI API 호출 함수 (useCallback으로 메모이제이션)
   const handleMeaningAugment = useCallback(async () => {
@@ -774,7 +794,7 @@ export default function Editor({
         <div className="flex-1 overflow-y-auto px-3 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
         {/* 경험 관련 결과 */}
         {experienceOptions && experienceVisible && (
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-3 relative">
+          <div className="bg-[#f5f4ed] border border-stone-300 rounded-lg shadow-md p-3 relative">
             {/* 로딩 중일 때 오버레이 (자체 로딩만) */}
             {experienceButtonLoading && (
               <div className="absolute inset-0 bg-gray-300 bg-opacity-50 rounded-lg z-10 flex items-center justify-center">
@@ -784,7 +804,7 @@ export default function Editor({
                           <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <button 
-                    className={`p-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                    className={`p-2 hover:bg-stone-200 rounded-lg transition-colors flex items-center justify-center ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
                     onClick={() => setExperienceCollapsed(!experienceCollapsed)}
                     title={experienceCollapsed ? "펼치기" : "접기"}
                     disabled={experienceButtonLoading || bubbleMenuLoading}
@@ -795,12 +815,12 @@ export default function Editor({
                       <ChevronUp className="w-4 h-4 text-gray-500" />
                     )}
                   </button>
-                  <span className="font-bold text-l text-gray-900">관련 경험 살펴보기</span>
+                  <span className="font-bold text-l text-stone-800">관련 경험 살펴보기</span>
                 </div>
                 <button
                   type="button"
                   aria-label="닫기"
-                  className={`p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                  className={`w-8 h-8 p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-200 rounded-lg transition-colors flex items-center justify-center ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
                   onClick={() => setExperienceVisible(false)}
                   disabled={experienceButtonLoading || bubbleMenuLoading}
                 >
@@ -810,14 +830,14 @@ export default function Editor({
             <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
               experienceCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
             }`}>
-              <div className="text-gray-500 text-sm mb-3">
+              <div className="text-stone-500 text-sm my-3">
                 이와 연결되는 기억이 있는지 살펴보세요.<br/>
               </div>
               {experienceOptions && experienceOptions.experiences && experienceOptions.experiences.length > 0 ? (
                 experienceOptions.experiences.map((experience: any, index: number) => (
                   <div
                     key={experience.id || index}
-                    className="w-full bg-white border border-gray-100 rounded-lg p-4 mb-2"
+                    className="w-full bg-white border border-stone-200 rounded-lg p-4 mb-2"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-bold text-l text-gray-900">{experience.strategy || '과거 경험 떠올려보기'}</span>
@@ -847,7 +867,7 @@ export default function Editor({
                       onClick={() => {
                         handleViewOriginalEntry(experience.id)
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2 mt-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                      className={`w-full flex items-center justify-between px-3 py-2 mt-3 bg-gray-50 hover:bg-gray-100 border border-stone-300 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
                       disabled={experienceButtonLoading || bubbleMenuLoading}
                     >
                       <span className="text-sm font-medium text-gray-700 truncate">
@@ -858,8 +878,8 @@ export default function Editor({
                   </div>
                 ))
               ) : (
-                <div className="text-gray-400 text-sm text-center py-4">
-                  경험 관련 결과가 없습니다
+                <div className="text-stone-400 text-sm text-center py-4">
+                  연관된 이전 기록이 없습니다
                 </div>
               )}
             </div>
@@ -918,7 +938,7 @@ export default function Editor({
           
           <div className="relative" onMouseEnter={() => setColorMenuOpen(true)} onMouseLeave={() => setColorMenuOpen(false)}>
             <CircleIconButton aria-label="AI 하이라이트 색상 조절" title="AI 하이라이트 색상 조절">
-              <SparklesIcon className="h-5 w-5 text-gray-700" />
+              <SparklesIcon className="h-5 w-5 text-stone-700" />
             </CircleIconButton>
             {colorMenuOpen && (
               <div className="absolute right-full top-0 pr-2">
@@ -946,13 +966,7 @@ export default function Editor({
             )}
           </div>
           
-          <CircleIconButton 
-            onClick={handleSave} 
-            aria-label="저장하기" 
-            title="저장하기 (Ctrl+S)"
-          >
-            <ArchiveBoxIcon className="h-5 w-5 text-gray-700" />
-          </CircleIconButton>
+
         </div>
         {/* 에디터 영역 */}
         <div className="flex-1 h-[calc(100vh-200px)] overflow-hidden">
@@ -1033,7 +1047,7 @@ export default function Editor({
           </Button> */}
           {/* 증강 옵션 */}
           {(bubbleMenuOptions || augmentOptions) && augmentVisible && (
-            <div id='augment-result' className="bg-white border border-gray-200 rounded-lg shadow-sm p-3 mb-4 relative">
+            <div id='augment-result' className="bg-[#f5f4ed] border border-stone-300 rounded-lg shadow-md p-3 mb-4 relative">
               {/* 로딩 중일 때 오버레이 (자체 로딩만) */}
               {bubbleMenuLoading && (
                 <div className="absolute inset-0 bg-gray-300 bg-opacity-50 rounded-lg z-10 flex items-center justify-center">
@@ -1043,7 +1057,7 @@ export default function Editor({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <button 
-                    className={`p-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center ${(bubbleMenuLoading || experienceButtonLoading) ? 'pointer-events-none' : ''}`}
+                    className={`p-2 hover:bg-stone-200 rounded-lg transition-colors flex items-center justify-center ${(bubbleMenuLoading || experienceButtonLoading) ? 'pointer-events-none' : ''}`}
                     onClick={() => setAugmentCollapsed(!augmentCollapsed)}
                     title={augmentCollapsed ? "펼치기" : "접기"}
                     disabled={bubbleMenuLoading || experienceButtonLoading}
@@ -1054,12 +1068,12 @@ export default function Editor({
                       <ChevronUp className="w-4 h-4 text-gray-500" />
                     )}
                   </button>
-                  <span className="font-bold text-l text-gray-900">의미 찾기</span>
+                  <span className="font-bold text-l text-stone-800">의미 찾기</span>
                 </div>
                 <button
                   type="button"
                   aria-label="닫기"
-                  className={`p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center ${(bubbleMenuLoading || experienceButtonLoading) ? 'pointer-events-none' : ''}`}
+                  className={`w-8 h-8 p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-200 rounded-lg transition-colors flex items-center justify-center ${(bubbleMenuLoading || experienceButtonLoading) ? 'pointer-events-none' : ''}`}
                   onClick={() => setAugmentVisible(false)}
                   disabled={bubbleMenuLoading || experienceButtonLoading}
                 >
@@ -1069,7 +1083,7 @@ export default function Editor({
               <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
                 augmentCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
               }`}>
-                <div className="text-gray-500 text-sm mb-3">
+                <div className="text-stone-600 text-sm my-3">
                   어떻게 생각을 넓혀볼까요?<br/>
                   원하는 문장을 선택하면 추가할 수 있습니다.
                 </div>
@@ -1087,7 +1101,7 @@ export default function Editor({
                     <button
                       key={option.index}
                       onClick={() => applyAugmentation(option.text, option)}
-                      className={`w-full text-left bg-white border border-gray-100 rounded-lg p-4 mb-2 hover:bg-gray-50 transition ${(bubbleMenuLoading || experienceButtonLoading) ? 'pointer-events-none' : ''}`}
+                      className={`w-full text-left bg-white border border-stone-300 rounded-lg p-4 mb-2 hover:bg-stone-50 transition ${(bubbleMenuLoading || experienceButtonLoading) ? 'pointer-events-none' : ''}`}
                       disabled={bubbleMenuLoading || experienceButtonLoading}
                     >
                       <div className="flex items-center gap-2 mb-2">

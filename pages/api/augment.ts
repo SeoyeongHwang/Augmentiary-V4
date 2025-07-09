@@ -26,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const narrativeAgentResult = await callNarrativeAgent(diaryEntry);
     console.log('✅ [STEP 1] Narrative Agent completed:', {
       strategy: narrativeAgentResult.strategy,
-      justification: narrativeAgentResult.justification.substring(0, 100) + '...'
+      justification: narrativeAgentResult.justification ? narrativeAgentResult.justification.substring(0, 100) + '...' : 'No justification'
     });
 
     // Step 2: Interpretive Agent
@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const interpretiveAgentResult: AIAgentResult = await callInterpretiveAgent(
       diaryEntryMarked,
       userProfile,
-      narrativeAgentResult.strategy+' '+narrativeAgentResult.justification
+      (narrativeAgentResult.strategy || '') + ' ' + (narrativeAgentResult.justification || '')
     );
     console.log('✅ [STEP 2] Interpretive Agent completed:');
     console.log('  Option 1:', interpretiveAgentResult.option1.title);

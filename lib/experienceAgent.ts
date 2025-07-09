@@ -140,8 +140,8 @@ export async function callExperienceDescriptionAgent(
     2. Data from a related past diary entry (inner state summary, insights, or content)
     
     Your task is to:
-    1. Create a reflection strategy title that suggests how to recall this past experience
-    2. Write a brief description of why this past experience is relevant to the current text
+    1. Create a recalling strategy title that suggests how to recall and relate this past experience to the current text
+    2. Write a brief description of why this past experience is relevant to the current text. Be phrased as if written by the user (first-person voice) in fluent Korean.
     
     Current selected text: "${selectedText}"
     
@@ -161,9 +161,10 @@ export async function callExperienceDescriptionAgent(
      - Strategy should start with an appropriate emoji that represents the type of reflection
      - Choose emojis that match the thematic context (💭💡🌱🔄💫🎯🪞✨🌅📝💪🤝😌🔍)
      - Strategy should be actionable and specific to the type of connection
-     - Description should explain the emotional or situational connection
+     - Description should explain the emotional or situational connection but as a ambiguous hint, not a direct quote.
      - Keep both concise but meaningful
-     - Use warm, encouraging tone
+     - Use warm, encouraging informal self-suggesting style
+     - The text should have an open stance. Avoid overly prescriptive or definitive phrasing. Instead, favor phrases that open up possibilities (could, might, perhaps, ...)
     `
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {

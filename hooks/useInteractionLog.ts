@@ -115,6 +115,32 @@ export function useInteractionLog() {
     logSync(ActionType.LOGOUT)
   }, [logSync])
 
+  /**
+   * 경험 살펴보기 요청 로그
+   */
+  const logRequestRecord = useCallback((entryId: string, selectedText: string) => {
+    logAsync(ActionType.REQUEST_RECORD, { selectedText }, entryId)
+  }, [logAsync])
+
+  /**
+   * 경험 살펴보기 응답 수신 로그
+   */
+  const logReceiveRecord = useCallback((entryId: string, records: any) => {
+    logAsync(ActionType.RECEIVE_RECORD, { 
+      records: records,
+      recordCount: records.length 
+    }, entryId)
+  }, [logAsync])
+
+  /**
+   * 일기 열어보기 로그
+   */
+  const logCheckRecord = useCallback((entryId: string, originalEntryId: string) => {
+    logAsync(ActionType.CHECK_RECORD, { 
+      originalEntryId 
+    }, entryId)
+  }, [logAsync])
+
   return {
     // 기본 로그 함수들
     logAsync,
@@ -129,6 +155,11 @@ export function useInteractionLog() {
     logESMSubmit,
     logStartWriting,
     logLogout,
+    
+    // 경험 살펴보기 기능 로그 함수들
+    logRequestRecord,
+    logReceiveRecord,
+    logCheckRecord,
     
     // 사용자 정보 확인
     canLog: !!user?.participant_code

@@ -10,7 +10,11 @@ export enum ActionType {
   SAVE_ENTRY = 'save_entry',
   TRIGGER_ESM = 'trigger_esm',
   SUBMIT_ESM = 'submit_esm',
-  LOGOUT = 'logout'
+  LOGOUT = 'logout',
+  // 경험 살펴보기 기능 관련 로그
+  REQUEST_RECORD = 'request_record',  // 경험 살펴보기 기능 쿼리했을 때
+  RECEIVE_RECORD = 'receive_record',  // 경험 살펴보기 쿼리 응답을 받았을 때
+  CHECK_RECORD = 'check_record'       // 일기 열어보았을 때
 }
 
 export interface InteractionLog {

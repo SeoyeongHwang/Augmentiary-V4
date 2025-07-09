@@ -42,25 +42,22 @@ export async function callNarrativeAgent(diaryEntry: string): Promise<{ strategy
     const prompt = `
     You are an expert in narrative identity and meaning-making in personal writing.
 
-Your task is to analyze the following diary entry and output:
-1. A natural language description of the dominant narrative processing present.
-2. A natural language description of any secondary narrative dynamics present.
-3. The emotional tone of the diary entry.
-4. The level of narrative coherence (Low / Medium / High).
-5. The suggested AI interpretation strategy to support further reflection (choose ONE from the following list, and provide a short justification for your choice):
+Your task is to analyze the following diary entry and determine the best AI interpretation strategy to support further reflection.
 
+Choose ONE strategy from the following list:
 - Exploratory insight generation
 - Positive reframing and redemption
 - Action-oriented behavioral guidance
 - Connecting with values and life themes
 - Acceptance and closure support
 
-Please output the result in the following JSON format:
-For each field, write a rich, natural paragraph. Do not truncate the text unnaturally. Express narrative nuances fully.
+You must output your response in the following JSON format only:
 {
-"strategy": "<<<TEXT>>>",
-"justification": "<<<TEXT>>>"
+"strategy": "The chosen strategy name exactly as listed above",
+"justification": "A rich, natural paragraph explaining why this strategy is most appropriate for this diary entry. Consider the emotional tone, narrative coherence, and dominant themes present in the writing."
 }
+
+Do not include any text before or after the JSON. Return only valid JSON.
     `
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -81,14 +78,34 @@ For each field, write a rich, natural paragraph. Do not truncate the text unnatu
     const data = await response.json();
     const textResult = data.choices?.[0]?.message?.content || '';
     
+    console.log('🔍 [NARRATIVE AGENT] Raw OpenAI response:', textResult);
+    
     try {
         const jsonStart = textResult.indexOf('{');
         const jsonEnd = textResult.lastIndexOf('}');
         const jsonString = textResult.substring(jsonStart, jsonEnd + 1);
+        console.log('🔍 [NARRATIVE AGENT] Extracted JSON string:', jsonString);
         const parsedResult = JSON.parse(jsonString);
-        return parsedResult;
+        console.log('🔍 [NARRATIVE AGENT] Parsed result:', parsedResult);
+        
+        // 필수 필드들을 체크하고 기본값 설정
+        const safeResult = {
+          strategy: parsedResult.strategy || 'Exploratory insight generation',
+          justification: parsedResult.justification || 'Default justification for narrative analysis.',
+          raw: parsedResult.raw
+        };
+        
+        if (!parsedResult.strategy) {
+          console.warn('⚠️ [NARRATIVE AGENT] strategy is missing, using default');
+        }
+        if (!parsedResult.justification) {
+          console.warn('⚠️ [NARRATIVE AGENT] justification is missing, using default');
+        }
+        
+        return safeResult;
       } catch (err) {
-        console.error('Error parsing Narrative Agent JSON:', err);
+        console.error('❌ [NARRATIVE AGENT] Error parsing JSON:', err);
+        console.error('❌ [NARRATIVE AGENT] Raw response was:', textResult);
         return { strategy: '', justification: '', raw: textResult};
       }
   }
@@ -129,7 +146,7 @@ Guidelines:
 - Be phrased as if written by the user (first-person voice) in fluent Korean.
 - Vary across the three versions (each offering different perspectives)
 - The text should have an open stance. Avoid overly prescriptive phrasing such as "I will do X", "I must Y". Instead, favor phrases that open up possibilities (could, might, perhaps, I am starting to see...).
-- End the generated text with an open-ended clause or question that can lead to a contextually appropriate connection (such as 'because ...', 'so that ...', or similar), encouraging the user to reflect and continue writing.
+- End the generated text with an open-ended clause or question that can encourage the user to reflect and continue writing.
     `
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -253,13 +270,10 @@ Examples of appropriate connective phrases:
 - "그래야..." (should...)
 
 Guidelines:
-- Choose connective phrases that naturally flow from the content
-- Ensure the phrase encourages further reflection or writing
-- Make it feel like a natural continuation, not forced
+- Choose connective phrases that naturally flow from the last sentence of the text
 - The phrase should be contextually appropriate to the text and meaning-making strategy
-- Vary the connective phrases across the three options
-- Keep the original text intact, only add the connective phrase at the end
-- The connective phrase should be a single word or phrase ending with "...", not a sentence.
+- Keep the original text intact, only add the connective phrase at the end of the text
+- The connective phrase should be a single word or short phrase ending with "...", not a sentence
 
 Please output the result in the following JSON format:
 {

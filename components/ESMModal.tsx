@@ -58,7 +58,7 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
       />
       
       {/* 모달 내용 */}
-      <div className="relative w-full max-w-md h-[90vh] flex flex-col">
+      <div className="relative w-full max-w-md h-[70vh] flex flex-col">
         <Card className="flex flex-col p-0 h-full">
           <div className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
             <div>
