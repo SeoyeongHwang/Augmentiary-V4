@@ -694,13 +694,13 @@ export default function Editor({
   }, [])
 
   return (
-    <div className="flex flex-row h-screen w-full overflow-hidden bg-gray-50">
+    <div className="mt-20 flex flex-row h-screen w-full overflow-hidden justify-center bg-gray-50">
       {/* 왼쪽 패널: 경험 떠올리기 결과 */}
       <div className="flex-1 max-w-sm min-w-0 hidden md:flex flex-col h-full pb-20 overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-4 space-y-4">
+        <div className="flex-1 overflow-y-auto mx-2 px-2ss space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
         {/* 경험 관련 결과 */}
         {experienceOptions && experienceVisible && (
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 mb-4 relative">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 mr-2 relative">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <button 
@@ -785,7 +785,7 @@ export default function Editor({
         </div>
       </div>
       {/* 중앙 패널: 에디터 영역 */}
-      <div className="flex-1 min-w-0 hidden md:flex flex-row h-full">
+      <div className="flex-1 min-w-[600px] max-w-[800px] hidden md:flex flex-row h-full">
         {/* 에디터 툴바 */}
         <div className="flex-shrink-0 m-0 mr-4 p-0 flex flex-col items-center space-y-4">
           {/* 에디터 툴바 버튼들 */}
@@ -872,8 +872,8 @@ export default function Editor({
           </CircleIconButton>
         </div>
         {/* 에디터 영역 */}
-        <div className="flex-1 h-full overflow-hidden">
-          <div className="tiptap-scrollbar w-full h-full flex flex-col overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth">
+        <div className="flex-1 h-[calc(100vh-200px)] overflow-hidden">
+          <div className="w-full h-full flex flex-col overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
           <div className="w-full flex flex-col">
             {/* 엔트리 타이틀 */}
             <TextInput 
