@@ -149,7 +149,7 @@ export default function Editor({
       }
       aiTextEditTimeoutRef.current = setTimeout(() => {
         handleAITextEdit()
-      }, 100)
+      }, 300) // 디바운스 시간을 300ms로 증가
     },
     onSelectionUpdate: ({ editor }: { editor: any }) => {
       // 텍스트 선택 로깅 제거됨
@@ -167,19 +167,10 @@ export default function Editor({
     }
   }, [user])
 
-  // AI 하이라이트 색상 설정 (저장된 설정 복원 또는 기본값)
+  // AI 하이라이트 색상 설정 (기본값만 설정)
   useEffect(() => {
-    // localStorage에서 저장된 색상 설정 복원
-    const savedColor = localStorage.getItem('ai-highlight-color')
-    if (savedColor) {
-      const selectedColor = highlightColors.find(c => c.name === savedColor)
-      if (selectedColor) {
-        document.documentElement.style.setProperty('--ai-highlight-bg', selectedColor.bgColor)
-      }
-    } else {
-      // 기본 초록색 배경으로 설정
-      document.documentElement.style.setProperty('--ai-highlight-bg', 'rgba(207, 255, 204, 1)')
-    }
+    // 기본 초록색 배경으로 설정 (localStorage 복원 제거)
+    document.documentElement.style.setProperty('--ai-highlight-bg', 'rgba(207, 255, 204, 1)')
   }, [])
 
   // AI 요청 상태에 따라 에디터 편집 가능 상태 업데이트
@@ -432,86 +423,48 @@ export default function Editor({
   const handleAITextEdit = useCallback(() => {
     if (!editor) return
 
-    // DOM에서 모든 AI 텍스트 요소 찾기
-    const editorElement = editor.view.dom as HTMLElement
-    const aiElements = editorElement.querySelectorAll('mark[ai-text]')
+    const doc = editor.state.doc
+    const tr = editor.state.tr
+    let hasChanges = false
     
-    // 각 AI 요소에 대해 수정 정도 계산 및 직접 스타일 적용
-    aiElements.forEach((element, index) => {
-      const currentText = element.textContent || ''
-      const originalText = element.getAttribute('data-original') // DOM에서는 하이픈 사용
-      
-      // data-original이 있는 경우에만 투명도 계산 (AI 텍스트만)
-      if (originalText) {
-        const editRatio = calculateEditRatio(originalText, currentText)
-        
-        // Tiptap 명령어를 사용하여 editRatio 속성 업데이트
-        const htmlElement = element as HTMLElement
-        const requestId = htmlElement.getAttribute('request-id') // DOM에서는 하이픈 사용
-        const category = htmlElement.getAttribute('category') as AICategory || 'interpretive' // DOM에서는 하이픈 사용
-        
-        // 현재 선택 범위를 저장
-        const currentSelection = editor.state.selection
-        
-        // 해당 요소를 찾아서 마크 업데이트
-        const { from, to } = editor.state.selection
-        const doc = editor.state.doc
-        
-        // 문서 전체를 순회하면서 해당 텍스트를 찾아 마크 업데이트
-        doc.descendants((node, pos) => {
-          if (node.isText && node.text === currentText) {
-            // 해당 위치에 마크가 있는지 확인
-            const marks = editor.state.doc.nodeAt(pos)?.marks || []
-            const aiMark = marks.find(mark => mark.type.name === 'aiHighlight')
+    // 문서 전체를 순회하면서 AI 하이라이트 마크 찾기
+    doc.descendants((node, pos) => {
+      if (node.isText && node.marks.length > 0) {
+        const aiMark = node.marks.find(mark => mark.type.name === 'aiHighlight')
+        if (aiMark) {
+          const currentText = node.textContent || ''
+          const originalText = aiMark.attrs.dataOriginal
+          
+          // data-original이 있는 경우에만 투명도 계산 (AI 텍스트만)
+          if (originalText) {
+            const editRatio = calculateEditRatio(originalText, currentText)
+            const opacity = Math.max(0, 1 - editRatio)
             
-            if (aiMark) {
-              // 마크 업데이트
-              editor.chain()
-                .focus()
-                .setTextSelection({ from: pos, to: pos + currentText.length })
-                .setMark('aiHighlight', {
-                  requestId: requestId || 'unknown',
-                  category,
-                  dataOriginal: originalText,
-                  editRatio: editRatio.toString()
-                })
-                .run()
-              
-              // 원래 선택 범위 복원
-              editor.chain().focus().setTextSelection(currentSelection).run()
-            }
+            // 기존 스타일에서 배경색만 추출
+            const existingStyle = aiMark.attrs.style || ''
+            const currentBgColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg').trim() || 'rgba(207, 255, 204, 1)'
+            const backgroundColor = opacity > 0 
+              ? currentBgColor.replace('1)', `${opacity})`) 
+              : 'transparent'
+            
+            // 새로운 스타일로 마크 업데이트
+            const newMark = aiMark.type.create({
+              ...aiMark.attrs,
+              editRatio: editRatio.toString(),
+              style: `background-color: ${backgroundColor};`
+            })
+            
+            tr.removeMark(pos, pos + node.nodeSize, aiMark)
+            tr.addMark(pos, pos + node.nodeSize, newMark)
+            hasChanges = true
           }
-        })
+        }
       }
     })
-
-    // 마크 업데이트 후 현재 선택된 색상 다시 적용
-    setTimeout(() => {
-      const currentBgColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg').trim()
-      const editorElement = editor.view.dom as HTMLElement
-      const aiElements = editorElement.querySelectorAll('mark[ai-text]')
-      aiElements.forEach((element) => {
-        const htmlElement = element as HTMLElement
-        const editRatio = parseFloat(htmlElement.getAttribute('edit-ratio') || '0')
-        const opacity = Math.max(0, 1 - editRatio)
-        
-        // 현재 선택된 색상으로 배경색 업데이트
-        if (currentBgColor) {
-          const backgroundColor = opacity > 0 
-            ? currentBgColor.replace('1)', `${opacity})`) 
-            : 'transparent'
-          
-          htmlElement.style.backgroundColor = backgroundColor
-        } else {
-          // CSS 변수가 없으면 기본 색상 적용
-          const backgroundColor = opacity > 0 
-            ? `rgba(207, 255, 204, ${opacity})` 
-            : 'transparent'
-          
-          htmlElement.style.backgroundColor = backgroundColor
-        }
-      })
-    }, 50)
+    
+    if (hasChanges) {
+      editor.view.dispatch(tr)
+    }
   }, [editor])
 
   // AI 하이라이트 색상 옵션들
@@ -520,7 +473,7 @@ export default function Editor({
     { name: 'green', color: '#CFFFCC', bgColor: 'rgba(207, 255, 204, 1)' },
     { name: 'purple', color: '#F2E7FF', bgColor: 'rgba(242, 231, 255, 1)' },
     { name: 'pink', color: '#FFE7EF', bgColor: 'rgba(255, 231, 239, 1)' },
-    { name: 'yellow', color: '#FFFEA7', bgColor: 'rgba(255, 254,167, 1)' },
+    { name: 'yellow', color: '#FFFEA7', bgColor: 'rgba(255, 254, 167, 1)' },
   ]
 
   const applyFontSize = (value: string) => {
@@ -538,29 +491,51 @@ export default function Editor({
   const applyHighlightColor = (colorName: string) => {
     const selectedColor = highlightColors.find(c => c.name === colorName)
     if (selectedColor) {
-      // localStorage에 색상 설정 저장
+      // localStorage에 색상 설정 저장 (참고용으로만 유지)
       localStorage.setItem('ai-highlight-color', colorName)
       
       // CSS 변수로 배경색 설정
       document.documentElement.style.setProperty('--ai-highlight-bg', selectedColor.bgColor)
       
-      // 기존 AI 텍스트들의 배경색 업데이트 (투명도 유지)
-      if (editor) {
-        const editorElement = editor.view.dom as HTMLElement
-        const aiElements = editorElement.querySelectorAll('mark[ai-text]')
-        aiElements.forEach((element) => {
-          const htmlElement = element as HTMLElement
-          const editRatio = parseFloat(htmlElement.getAttribute('edit-ratio') || '0')
+      // 기존 AI 텍스트들의 인라인 스타일을 즉시 업데이트 (HTML 저장 시 이 색상이 저장됨)
+      updateExistingAITextColors(selectedColor.bgColor)
+    }
+  }
+
+  // 기존 AI 텍스트들의 색상을 업데이트하는 함수
+  const updateExistingAITextColors = (newBgColor: string) => {
+    if (!editor) return
+    
+    const doc = editor.state.doc
+    const tr = editor.state.tr
+    let hasChanges = false
+    
+    // 문서 전체를 순회하면서 AI 하이라이트 마크 찾기
+    doc.descendants((node, pos) => {
+      if (node.isText && node.marks.length > 0) {
+        const aiMark = node.marks.find(mark => mark.type.name === 'aiHighlight')
+        if (aiMark) {
+          const editRatio = parseFloat(aiMark.attrs.editRatio || '0')
           const opacity = Math.max(0, 1 - editRatio)
-          
-          // 투명도 적용된 배경색 계산
           const backgroundColor = opacity > 0 
-            ? selectedColor.bgColor.replace('1)', `${opacity})`) 
+            ? newBgColor.replace('1)', `${opacity})`) 
             : 'transparent'
           
-          htmlElement.style.backgroundColor = backgroundColor
-        })
+          // 새로운 스타일로 마크 업데이트
+          const newMark = aiMark.type.create({
+            ...aiMark.attrs,
+            style: `background-color: ${backgroundColor};`
+          })
+          
+          tr.removeMark(pos, pos + node.nodeSize, aiMark)
+          tr.addMark(pos, pos + node.nodeSize, newMark)
+          hasChanges = true
+        }
       }
+    })
+    
+    if (hasChanges) {
+      editor.view.dispatch(tr)
     }
   }
 
@@ -653,6 +628,12 @@ export default function Editor({
       logAITextInsert(entryId, selectedOption || inserted);
     }
 
+    // 현재 선택된 색상 가져오기
+    const currentBgColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg').trim() || 'rgba(207, 255, 204, 1)'
+    const editRatio = 0 // 새로 삽입된 텍스트는 수정되지 않음
+    const opacity = Math.max(0, 1 - editRatio)
+    const backgroundColor = opacity > 0 ? currentBgColor.replace('1)', `${opacity})`) : 'transparent'
+
     // 하나의 트랜잭션으로 텍스트 삽입과 마크 적용을 동시에 실행
     editor.chain()
       .focus()
@@ -663,11 +644,12 @@ export default function Editor({
         requestId: finalRequestId,
         category,
         dataOriginal: inserted,
-        editRatio: '0'
+        editRatio: '0',
+        style: `background-color: ${backgroundColor};` // 인라인 스타일 직접 포함
       })
       .run();
 
-    // DOM 속성 설정 및 현재 선택된 색상 적용 (히스토리에 영향을 주지 않음)
+    // DOM 속성 설정 (히스토리에 영향을 주지 않음)
     setTimeout(() => {
       const editorElement = editor.view.dom as HTMLElement;
       const aiElements = editorElement.querySelectorAll('mark[ai-text]');
@@ -680,29 +662,6 @@ export default function Editor({
           lastElement.setAttribute('request-id', finalRequestId);
           lastElement.setAttribute('category', category);
         }
-        
-              // 현재 선택된 색상 적용
-      const currentBgColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg').trim()
-      if (currentBgColor) {
-        const editRatio = parseFloat(lastElement.getAttribute('edit-ratio') || '0')
-        const opacity = Math.max(0, 1 - editRatio)
-        
-        // 새로 삽입된 AI 텍스트에 현재 선택된 색상 적용
-        const backgroundColor = opacity > 0 
-          ? currentBgColor.replace('1)', `${opacity})`) 
-          : 'transparent'
-        
-        lastElement.style.backgroundColor = backgroundColor
-      } else {
-        // CSS 변수가 없으면 기본 색상 적용
-        const editRatio = parseFloat(lastElement.getAttribute('edit-ratio') || '0')
-        const opacity = Math.max(0, 1 - editRatio)
-        const backgroundColor = opacity > 0 
-          ? `rgba(207, 255, 204, ${opacity})` 
-          : 'transparent'
-        
-        lastElement.style.backgroundColor = backgroundColor
-      }
       }
     }, 50);
 

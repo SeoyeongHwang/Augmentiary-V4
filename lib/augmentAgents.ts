@@ -145,7 +145,7 @@ Guidelines:
 - Avoid using excessive commas in the text.
 - Be phrased as if written by the user (first-person voice) in fluent Korean.
 - Vary across the three versions (each offering different perspectives)
-- The text should have an open stance. Avoid overly prescriptive phrasing such as "I will do X", "I must Y". Instead, favor phrases that open up possibilities (could, might, perhaps, I am starting to see...).
+- The text should have an open stance. Avoid overly prescriptive phrasing such as "I will do X", "I must Y". Instead, favor phrases that open up possibilities (could, might, perhaps, etc.).
 - End the generated text with an open-ended clause or question that can encourage the user to reflect and continue writing.
     `
     const response = await fetch('https://api.openai.com/v1/chat/completions', {

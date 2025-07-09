@@ -49,6 +49,11 @@ export const AIHighlight = Highlight.extend({
         parseHTML: (element) => element.getAttribute('edit-ratio'),
         renderHTML: (attributes) => ({ 'edit-ratio': attributes.editRatio }),
       },
+      style: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('style'),
+        renderHTML: (attributes) => attributes.style ? { style: attributes.style } : {},
+      },
     }
   },
 
@@ -62,20 +67,11 @@ export const AIHighlight = Highlight.extend({
 
   renderHTML({ HTMLAttributes }) {
     try {
-      // edit-ratio 속성을 기반으로 투명도 계산
-      const editRatio = parseFloat(HTMLAttributes['edit-ratio'] || '0')
-      const opacity = Math.max(0, 1 - editRatio) // 수정이 많을수록 투명도가 낮아짐
-      
-      // CSS 변수에서 색상 가져오기 (기본값 제공)
-      const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg') || 'rgba(207, 255, 204, 1)'
-      
-      // 투명도 적용
-      const backgroundColor = opacity > 0 ? highlightColor.replace('1)', `${opacity})`) : 'transparent'
-      
       // data-original 속성 보호 및 유효한 속성만 필터링
       const dataOriginal = HTMLAttributes['data-original']
       const editRatioAttr = HTMLAttributes['edit-ratio']
-      const { 'data-original': _, 'edit-ratio': __, ...otherAttributes } = HTMLAttributes
+      const styleAttr = HTMLAttributes.style
+      const { 'data-original': _, 'edit-ratio': __, style: ___, ...otherAttributes } = HTMLAttributes
       
       return [
         'mark',
@@ -84,7 +80,7 @@ export const AIHighlight = Highlight.extend({
           'ai-text': 'true',
           'data-original': dataOriginal,
           'edit-ratio': editRatioAttr,
-          style: `background-color: ${backgroundColor};`,
+          ...(styleAttr ? { style: styleAttr } : {}), // style 속성이 있으면 포함
         },
         0,
       ]
