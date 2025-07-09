@@ -111,18 +111,24 @@ You will receive:
 Your task is to generate THREE interpretive options that will be inserted in place of <<INSERT HERE>> in the diary to encourage deeper reflection and meaning-making.
 
 For each option, provide:
-1. strategy: A brief description of the narrative approach being used
-2. title: A short, engaging title for this interpretive option
+1. strategy: meaning-making strategy being used in this option (lesson learning / gaining insight / positive reappraisal)
+2. title: A short, engaging title for this interpretive approach
 3. text: The actual interpretive sentence to be inserted
 
+You can meaning-make based on following meaning-making strategies:
+- lesson learning: Practical reasoning derived from experience, guiding future actions in similar situations.
+- gaining insight: Taking a step back from experience and connecting the message gained from that experience with a deeper understanding of oneself or knowledge of the world and relationships.
+- positive reappraisal: Re-framing a situation in a more positive or hopeful light, based on one's beliefs and values.
+
 Guidelines:
-- Align with the suggested narrative strategy
-- Subtly reflect the user's profile and values
+- Align with the suggested narrative strategy.
+- You can subtly reflect the user's profile and values but avoid directly citing phrases in profile data.
+- Avoid directly citing meaning-making strategies in the text.
+- Avoid generic or clichéd phrasing.
 - Be phrased as if written by the user (first-person voice) in fluent Korean.
-- Avoid generic or clichéd phrasing
-- Vary across the three versions (each offering a slightly different lens)
-- The text should maintain an open stance. Avoid overly prescriptive phrasing such as "I will do X", "I must Y". Instead, favor phrases that open up possibilities (could, might, perhaps, I am starting to see...).
-- End the generated text with an open-ended clause that begins with a contextually appropriate (such as 'because ...', 'so that ...', or similar), encouraging the user to reflect and continue writing.
+- Vary across the three versions (each offering different perspectives)
+- The text should have an open stance. Avoid overly prescriptive phrasing such as "I will do X", "I must Y". Instead, favor phrases that open up possibilities (could, might, perhaps, I am starting to see...).
+- End the generated text with an open-ended clause or question that can lead to a contextually appropriate connection (such as 'because ...', 'so that ...', or similar), encouraging the user to reflect and continue writing.
     `
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

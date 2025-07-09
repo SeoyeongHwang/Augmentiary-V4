@@ -164,10 +164,19 @@ export default function Editor({
     }
   }, [user])
 
-  // 기본 AI 하이라이트 색상 설정 (기본 초록색으로 설정)
+  // AI 하이라이트 색상 설정 (저장된 설정 복원 또는 기본값)
   useEffect(() => {
-    // 기본 초록색 배경으로 설정
-    document.documentElement.style.setProperty('--ai-highlight-bg', 'rgba(207, 255, 204, 1)')
+    // localStorage에서 저장된 색상 설정 복원
+    const savedColor = localStorage.getItem('ai-highlight-color')
+    if (savedColor) {
+      const selectedColor = highlightColors.find(c => c.name === savedColor)
+      if (selectedColor) {
+        document.documentElement.style.setProperty('--ai-highlight-bg', selectedColor.bgColor)
+      }
+    } else {
+      // 기본 초록색 배경으로 설정
+      document.documentElement.style.setProperty('--ai-highlight-bg', 'rgba(207, 255, 204, 1)')
+    }
   }, [])
 
   // AI 요청 상태에 따라 에디터 편집 가능 상태 업데이트
@@ -412,25 +421,41 @@ export default function Editor({
 
     // 마크 업데이트 후 현재 선택된 색상 다시 적용
     setTimeout(() => {
-      const currentBgColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg')
-      if (currentBgColor) {
-        const editorElement = editor.view.dom as HTMLElement
-        const aiElements = editorElement.querySelectorAll('mark[ai-text]')
-        aiElements.forEach((element) => {
-          const htmlElement = element as HTMLElement
-          const editRatio = parseFloat(htmlElement.getAttribute('edit-ratio') || '0')
-          const opacity = Math.max(0, 1 - editRatio)
-          
-          // 현재 선택된 색상으로 배경색 업데이트
+      const currentBgColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg').trim()
+      const editorElement = editor.view.dom as HTMLElement
+      const aiElements = editorElement.querySelectorAll('mark[ai-text]')
+      aiElements.forEach((element) => {
+        const htmlElement = element as HTMLElement
+        const editRatio = parseFloat(htmlElement.getAttribute('edit-ratio') || '0')
+        const opacity = Math.max(0, 1 - editRatio)
+        
+        // 현재 선택된 색상으로 배경색 업데이트
+        if (currentBgColor) {
           const backgroundColor = opacity > 0 
             ? currentBgColor.replace('1)', `${opacity})`) 
             : 'transparent'
           
           htmlElement.style.backgroundColor = backgroundColor
-        })
-      }
+        } else {
+          // CSS 변수가 없으면 기본 색상 적용
+          const backgroundColor = opacity > 0 
+            ? `rgba(207, 255, 204, ${opacity})` 
+            : 'transparent'
+          
+          htmlElement.style.backgroundColor = backgroundColor
+        }
+      })
     }, 50)
   }, [editor])
+
+  // AI 하이라이트 색상 옵션들
+  const highlightColors = [
+    { name: 'blue', color: '#D2FBFF', bgColor: 'rgba(210, 251, 255, 1)' },
+    { name: 'green', color: '#CFFFCC', bgColor: 'rgba(207, 255, 204, 1)' },
+    { name: 'purple', color: '#F2E7FF', bgColor: 'rgba(242, 231, 255, 1)' },
+    { name: 'pink', color: '#FFE7EF', bgColor: 'rgba(255, 231, 239, 1)' },
+    { name: 'yellow', color: '#FFFEA7', bgColor: 'rgba(255, 254,167, 1)' },
+  ]
 
   const applyFontSize = (value: string) => {
     const sizeMap: Record<string, string> = {
@@ -444,18 +469,12 @@ export default function Editor({
     }
   }
 
-  // AI 하이라이트 색상 옵션들
-  const highlightColors = [
-    { name: 'blue', color: '#D2FBFF', bgColor: 'rgba(210, 251, 255, 1)' },
-    { name: 'green', color: '#CFFFCC', bgColor: 'rgba(207, 255, 204, 1)' },
-    { name: 'purple', color: '#F2E7FF', bgColor: 'rgba(242, 231, 255, 1)' },
-    { name: 'pink', color: '#FFE7EF', bgColor: 'rgba(255, 231, 239, 1)' },
-    { name: 'yellow', color: '#FFFEA7', bgColor: 'rgba(255, 254,167, 1)' },
-  ]
-
   const applyHighlightColor = (colorName: string) => {
     const selectedColor = highlightColors.find(c => c.name === colorName)
     if (selectedColor) {
+      // localStorage에 색상 설정 저장
+      localStorage.setItem('ai-highlight-color', colorName)
+      
       // CSS 변수로 배경색 설정
       document.documentElement.style.setProperty('--ai-highlight-bg', selectedColor.bgColor)
       
@@ -596,19 +615,28 @@ export default function Editor({
           lastElement.setAttribute('category', category);
         }
         
-        // 현재 선택된 색상 적용
-        const currentBgColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg')
-        if (currentBgColor) {
-          const editRatio = parseFloat(lastElement.getAttribute('edit-ratio') || '0')
-          const opacity = Math.max(0, 1 - editRatio)
-          
-          // 새로 삽입된 AI 텍스트에 현재 선택된 색상 적용
-          const backgroundColor = opacity > 0 
-            ? currentBgColor.replace('1)', `${opacity})`) 
-            : 'transparent'
-          
-          lastElement.style.backgroundColor = backgroundColor
-        }
+              // 현재 선택된 색상 적용
+      const currentBgColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg').trim()
+      if (currentBgColor) {
+        const editRatio = parseFloat(lastElement.getAttribute('edit-ratio') || '0')
+        const opacity = Math.max(0, 1 - editRatio)
+        
+        // 새로 삽입된 AI 텍스트에 현재 선택된 색상 적용
+        const backgroundColor = opacity > 0 
+          ? currentBgColor.replace('1)', `${opacity})`) 
+          : 'transparent'
+        
+        lastElement.style.backgroundColor = backgroundColor
+      } else {
+        // CSS 변수가 없으면 기본 색상 적용
+        const editRatio = parseFloat(lastElement.getAttribute('edit-ratio') || '0')
+        const opacity = Math.max(0, 1 - editRatio)
+        const backgroundColor = opacity > 0 
+          ? `rgba(207, 255, 204, ${opacity})` 
+          : 'transparent'
+        
+        lastElement.style.backgroundColor = backgroundColor
+      }
       }
     }, 50);
 
