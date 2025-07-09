@@ -142,7 +142,8 @@ export default function Write() {
         participant_code: participantCode,
         title: title.trim(),
         content_html: content,
-        shared: esmData.consent
+        shared: esmData.consent,
+        created_at: getCurrentKST()
       }
       
       // 데이터 크기 검증

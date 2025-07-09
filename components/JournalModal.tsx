@@ -1,6 +1,6 @@
 import { XMarkIcon } from "@heroicons/react/24/outline"
 import { Card } from './index'
-import { formatKST } from '../lib/time'
+import { formatKSTStored } from '../lib/time'
 
 type JournalModalProps = {
   isOpen: boolean
@@ -16,7 +16,7 @@ export default function JournalModal({ isOpen, onClose, title, content, createdA
 
   // 날짜 포맷팅 (KST 기준)
   const formatDate = (dateString: string) => {
-    return formatKST(dateString)
+    return formatKSTStored(dateString)
   }
 
   return (

@@ -1,5 +1,5 @@
 import { Card } from './index'
-import { formatKST } from '../lib/time'
+import { formatKSTStored } from '../lib/time'
 import { useEffect, useRef } from 'react'
 import VanillaTilt from 'vanilla-tilt'
 
@@ -48,7 +48,7 @@ export default function JournalCard({ id, title, content, createdAt, onClick }: 
 
   // 날짜 포맷팅 (KST 기준)
   const formatDate = (dateString: string) => {
-    return formatKST(dateString)
+    return formatKSTStored(dateString)
   }
 
   return (

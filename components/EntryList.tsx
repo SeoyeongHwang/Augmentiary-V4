@@ -1,7 +1,7 @@
 // components/EntryList.tsx
 
 import { useEffect, useState } from 'react'
-import { formatKST } from '../lib/time'
+import { formatKSTStored } from '../lib/time'
 
 type Entry = {
   id: string
@@ -88,7 +88,7 @@ export default function EntryList({}: Props) {
         {entries.map((entry) => (
             <li key={entry.id} className="p-4 border rounded">
             <p className="text-sm text-gray-400 mb-1">
-                {formatKST(entry.created_at)}
+                {formatKSTStored(entry.created_at)}
             </p>
             <p className="mb-2 whitespace-pre-wrap">{entry.content_html}</p>
             {entry.feedback && (

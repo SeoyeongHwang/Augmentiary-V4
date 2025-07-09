@@ -5,7 +5,6 @@ import { createClient } from '../utils/supabase/client'
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline"
 import { Button, Heading, JournalCard, JournalModal } from '../components'
 import type { Entry } from '../types/entry'
-import { formatKST } from '../lib/time'
 
 import { useSession } from '../hooks/useSession'
 

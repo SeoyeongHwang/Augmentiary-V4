@@ -62,3 +62,29 @@ export function formatKSTDate(date: Date | string): string {
     day: '2-digit'
   })
 }
+
+/**
+ * 이미 KST 기준으로 저장된 시간을 한국어로 포맷팅 (중복 변환 방지)
+ */
+export function formatKSTStored(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
+  return dateObj.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+/**
+ * 이미 KST 기준으로 저장된 날짜만 포맷팅 (중복 변환 방지)
+ */
+export function formatKSTStoredDate(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
+  return dateObj.toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+}
