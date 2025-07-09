@@ -112,7 +112,7 @@ Your task is to generate THREE interpretive options that will be inserted in pla
 
 For each option, provide:
 1. strategy: meaning-making strategy being used in this option (lesson learning / gaining insight / positive reappraisal)
-2. title: A short, engaging title for this interpretive approach
+2. title: A short, engaging title for this interpretive approach. Put relative emoji in front of the title.
 3. text: The actual interpretive sentence to be inserted
 
 You can meaning-make based on following meaning-making strategies:
@@ -125,6 +125,7 @@ Guidelines:
 - You can subtly reflect the user's profile and values but avoid directly citing phrases in profile data.
 - Avoid directly citing meaning-making strategies in the text.
 - Avoid generic or clichéd phrasing.
+- Avoid using excessive commas in the text.
 - Be phrased as if written by the user (first-person voice) in fluent Korean.
 - Vary across the three versions (each offering different perspectives)
 - The text should have an open stance. Avoid overly prescriptive phrasing such as "I will do X", "I must Y". Instead, favor phrases that open up possibilities (could, might, perhaps, I am starting to see...).

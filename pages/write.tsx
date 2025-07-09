@@ -271,7 +271,7 @@ export default function Write() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-screen bg-[#faf9f5]">
       {/* 헤더 */}
       <header className="bg-transparent px-6 py-4 flex-shrink-0">
         <div className="bg-transparent flex items-center justify-between">

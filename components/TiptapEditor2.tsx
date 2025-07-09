@@ -235,7 +235,13 @@ export default function Editor({
   // 원본 일기 가져오기 함수
   const handleViewOriginalEntry = useCallback(async (entryId: string) => {
     if (!user || !user.participant_code) {
-      alert('로그인 정보가 없습니다.')
+      setOriginalEntryModal({
+        isOpen: true,
+        title: '오류',
+        content: '<p>로그인 정보가 없습니다. 다시 로그인해주세요.</p>',
+        createdAt: '',
+        loading: false
+      })
       return
     }
 
@@ -260,7 +266,8 @@ export default function Editor({
         throw new Error('액세스 토큰이 없습니다. 다시 로그인해주세요.')
       }
 
-      const response = await fetch('/api/entries/list', {
+      // 새로운 개별 일기 조회 API 사용
+      const response = await fetch(`/api/entries/${entryId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -269,14 +276,45 @@ export default function Editor({
       })
       
       if (!response.ok) {
-        throw new Error('일기 목록을 가져오는 데 실패했습니다.')
+        const errorData = await response.json().catch(() => null)
+        
+        if (response.status === 404) {
+          // 일기를 찾을 수 없는 경우
+          setOriginalEntryModal({
+            isOpen: true,
+            title: '일기를 찾을 수 없습니다',
+            content: '<p>죄송합니다. 해당 일기를 찾을 수 없습니다.</p><p>일기가 삭제되었거나 접근 권한이 없을 수 있습니다.</p>',
+            createdAt: '',
+            loading: false
+          })
+          return
+        } else if (response.status === 401) {
+          // 인증 오류
+          setOriginalEntryModal({
+            isOpen: true,
+            title: '인증 오류',
+            content: '<p>세션이 만료되었습니다.</p><p>다시 로그인해주세요.</p>',
+            createdAt: '',
+            loading: false
+          })
+          return
+        } else {
+          throw new Error(errorData?.message || '일기를 가져오는 데 실패했습니다.')
+        }
       }
 
       const data = await response.json()
-      const entry = data.data.entries.find((e: any) => e.id === entryId)
+      const entry = data.data.entry
       
       if (!entry) {
-        throw new Error('해당 일기를 찾을 수 없습니다.')
+        setOriginalEntryModal({
+          isOpen: true,
+          title: '일기를 찾을 수 없습니다',
+          content: '<p>죄송합니다. 해당 일기를 찾을 수 없습니다.</p>',
+          createdAt: '',
+          loading: false
+        })
+        return
       }
 
       setOriginalEntryModal({
@@ -288,8 +326,16 @@ export default function Editor({
       })
     } catch (error) {
       console.error('원본 일기 조회 오류:', error)
-      alert(error instanceof Error ? error.message : '일기를 불러오는 데 실패했습니다.')
-      setOriginalEntryModal(prev => ({ ...prev, loading: false, isOpen: false }))
+      
+      // 사용자 친화적인 에러 모달 표시
+      const errorMessage = error instanceof Error ? error.message : '일기를 불러오는 데 실패했습니다.'
+      setOriginalEntryModal({
+        isOpen: true,
+        title: '오류 발생',
+        content: `<p>${errorMessage}</p><p>잠시 후 다시 시도해주세요.</p>`,
+        createdAt: '',
+        loading: false
+      })
     }
   }, [user])
 
@@ -722,48 +768,56 @@ export default function Editor({
   }, [])
 
   return (
-    <div className="mt-20 flex flex-row h-screen w-full overflow-hidden justify-center bg-gray-50">
+    <div className="mt-20 flex flex-row h-screen w-full overflow-hidden justify-center bg-[#faf9f5]">
       {/* 왼쪽 패널: 경험 떠올리기 결과 */}
       <div className="flex-1 max-w-sm min-w-0 hidden md:flex flex-col h-full pb-20 overflow-hidden">
-        <div className="flex-1 overflow-y-auto mx-2 px-2ss space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
+        <div className="flex-1 overflow-y-auto px-3 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
         {/* 경험 관련 결과 */}
         {experienceOptions && experienceVisible && (
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 mr-2 relative">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <button 
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
-                  onClick={() => setExperienceCollapsed(!experienceCollapsed)}
-                  title={experienceCollapsed ? "펼치기" : "접기"}
-                >
-                  {experienceCollapsed ? (
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                  ) : (
-                    <ChevronUp className="w-4 h-4 text-gray-500" />
-                  )}
-                </button>
-                <span className="font-bold text-l text-gray-900">관련 경험 살펴보기</span>
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-3 relative">
+            {/* 로딩 중일 때 오버레이 (자체 로딩만) */}
+            {experienceButtonLoading && (
+              <div className="absolute inset-0 bg-gray-300 bg-opacity-50 rounded-lg z-10 flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               </div>
-              <button
-                type="button"
-                aria-label="닫기"
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
-                onClick={() => setExperienceVisible(false)}
-              >
-                <span className="text-lg font-bold">×</span>
-              </button>
-            </div>
+            )}
+                          <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <button 
+                    className={`p-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                    onClick={() => setExperienceCollapsed(!experienceCollapsed)}
+                    title={experienceCollapsed ? "펼치기" : "접기"}
+                    disabled={experienceButtonLoading || bubbleMenuLoading}
+                  >
+                    {experienceCollapsed ? (
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-gray-500" />
+                    )}
+                  </button>
+                  <span className="font-bold text-l text-gray-900">관련 경험 살펴보기</span>
+                </div>
+                <button
+                  type="button"
+                  aria-label="닫기"
+                  className={`p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                  onClick={() => setExperienceVisible(false)}
+                  disabled={experienceButtonLoading || bubbleMenuLoading}
+                >
+                  <span className="text-lg font-bold">×</span>
+                </button>
+              </div>
             <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
               experienceCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
             }`}>
-              <div className="text-gray-500 text-sm mx-2 mb-3">
-                어떤 기억이 떠오르시나요?
+              <div className="text-gray-500 text-sm mb-3">
+                이와 연결되는 기억이 있는지 살펴보세요.<br/>
               </div>
               {experienceOptions && experienceOptions.experiences && experienceOptions.experiences.length > 0 ? (
                 experienceOptions.experiences.map((experience: any, index: number) => (
                   <div
                     key={experience.id || index}
-                    className="w-full bg-white border border-gray-100 rounded-lg p-4 mx-2 mb-2"
+                    className="w-full bg-white border border-gray-100 rounded-lg p-4 mb-2"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-bold text-l text-gray-900">{experience.strategy || '과거 경험 떠올려보기'}</span>
@@ -793,10 +847,11 @@ export default function Editor({
                       onClick={() => {
                         handleViewOriginalEntry(experience.id)
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 mt-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors duration-200"
+                      className={`w-full flex items-center justify-between px-3 py-2 mt-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                      disabled={experienceButtonLoading || bubbleMenuLoading}
                     >
                       <span className="text-sm font-medium text-gray-700 truncate">
-                        {experience.title || '무제'}
+                        &lt;{experience.title || '무제'}&gt; 보기
                       </span>
                       <ExternalLink className="w-4 h-4 text-gray-500 flex-shrink-0 ml-2" />
                     </button>
@@ -932,7 +987,7 @@ export default function Editor({
                 >
                   <div className="flex items-center gap-1 rounded-xl shadow-2xl border border-stone-400 bg-black backdrop-blur-sm p-1.5">
                     {(experienceButtonLoading || bubbleMenuLoading) ? (
-                      <div className="flex items-center justify-center px-6 py-2 text-sm font-bold">
+                      <div className="flex items-center justify-center px-6 py-2 text-sm font-bold text-white">
                         <div className="w-4 h-4 border-2 border-amber-300 border-t-stone-400 rounded-full animate-spin mr-2"></div>
                         생각 중...
                       </div>
@@ -972,74 +1027,84 @@ export default function Editor({
       </div>
       {/* 오른쪽 패널: 의미찾기 결과 */}
       <aside className="flex-1 max-w-sm min-w-0 hidden md:flex flex-col h-full pb-20 overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-4 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
+        <div className="flex-1 overflow-y-auto px-3 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
           {/* <Button onClick={handleAugment} disabled={loading} className="px-4 py-2 rounded">
             {loading ? '고민하는 중...' : '의미 찾기'}
           </Button> */}
           {/* 증강 옵션 */}
           {(bubbleMenuOptions || augmentOptions) && augmentVisible && (
-            <div id='augment-result' className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 mb-4 relative">
-                          <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <button 
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
-                  onClick={() => setAugmentCollapsed(!augmentCollapsed)}
-                  title={augmentCollapsed ? "펼치기" : "접기"}
-                >
-                  {augmentCollapsed ? (
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                  ) : (
-                    <ChevronUp className="w-4 h-4 text-gray-500" />
-                  )}
-                </button>
-                <span className="font-bold text-l text-gray-900">의미 찾기</span>
-              </div>
-              <button
-                type="button"
-                aria-label="닫기"
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
-                onClick={() => setAugmentVisible(false)}
-              >
-                <span className="text-lg font-bold">×</span>
-              </button>
-            </div>
-            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
-              augmentCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
-            }`}>
-              <div className="text-gray-500 text-sm mx-2 mb-3">
-                어떻게 생각해볼까요?
-              </div>
-              {(bubbleMenuOptions || augmentOptions) && (() => {
-                const options = bubbleMenuOptions || augmentOptions;
-                if (!options) return null;
-                
-                const optionsArray = [
-                  { ...options.option1, index: 0 },
-                  { ...options.option2, index: 1 },
-                  { ...options.option3, index: 2 }
-                ];
-                
-                return optionsArray.map((option) => (
-                  <button
-                    key={option.index}
-                    onClick={() => applyAugmentation(option.text, option)}
-                    className="w-full text-left bg-white border border-gray-100 rounded-lg p-4 mx-2 mb-2 hover:bg-gray-50 transition"
+            <div id='augment-result' className="bg-white border border-gray-200 rounded-lg shadow-sm p-3 mb-4 relative">
+              {/* 로딩 중일 때 오버레이 (자체 로딩만) */}
+              {bubbleMenuLoading && (
+                <div className="absolute inset-0 bg-gray-300 bg-opacity-50 rounded-lg z-10 flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <button 
+                    className={`p-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center ${(bubbleMenuLoading || experienceButtonLoading) ? 'pointer-events-none' : ''}`}
+                    onClick={() => setAugmentCollapsed(!augmentCollapsed)}
+                    title={augmentCollapsed ? "펼치기" : "접기"}
+                    disabled={bubbleMenuLoading || experienceButtonLoading}
                   >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-bold text-l text-gray-900">{option.title || `생각 ${option.index + 1}`}</span>
-                    </div>
-                    {option.strategy && (
-                      <div className="text-gray-500 text-xs mb-2 italic">
-                        {option.strategy}
-                      </div>
+                    {augmentCollapsed ? (
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-gray-500" />
                     )}
-                    <div className="text-gray-800 text-[15px] leading-relaxed">
-                      {option.text}
-                    </div>
                   </button>
-                ));
-              })()}
-            </div>
+                  <span className="font-bold text-l text-gray-900">의미 찾기</span>
+                </div>
+                <button
+                  type="button"
+                  aria-label="닫기"
+                  className={`p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center ${(bubbleMenuLoading || experienceButtonLoading) ? 'pointer-events-none' : ''}`}
+                  onClick={() => setAugmentVisible(false)}
+                  disabled={bubbleMenuLoading || experienceButtonLoading}
+                >
+                  <span className="text-lg font-bold">×</span>
+                </button>
+              </div>
+              <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                augmentCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
+              }`}>
+                <div className="text-gray-500 text-sm mb-3">
+                  어떻게 생각을 넓혀볼까요?<br/>
+                  원하는 문장을 선택하면 추가할 수 있습니다.
+                </div>
+                {(bubbleMenuOptions || augmentOptions) && (() => {
+                  const options = bubbleMenuOptions || augmentOptions;
+                  if (!options) return null;
+                  
+                  const optionsArray = [
+                    { ...options.option1, index: 0 },
+                    { ...options.option2, index: 1 },
+                    { ...options.option3, index: 2 }
+                  ];
+                  
+                  return optionsArray.map((option) => (
+                    <button
+                      key={option.index}
+                      onClick={() => applyAugmentation(option.text, option)}
+                      className={`w-full text-left bg-white border border-gray-100 rounded-lg p-4 mb-2 hover:bg-gray-50 transition ${(bubbleMenuLoading || experienceButtonLoading) ? 'pointer-events-none' : ''}`}
+                      disabled={bubbleMenuLoading || experienceButtonLoading}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-bold text-l text-gray-900">{option.title || `생각 ${option.index + 1}`}</span>
+                      </div>
+                      {/* {option.strategy && (
+                        <div className="text-gray-500 text-xs mb-2 italic">
+                          {option.strategy}
+                        </div>
+                      )} */}
+                      <div className="text-gray-800 text-[15px] leading-relaxed">
+                        {option.text}
+                      </div>
+                    </button>
+                  ));
+                })()}
+              </div>
             </div>
           )}
           {/* 추가된 문장 */}

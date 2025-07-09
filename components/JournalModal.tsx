@@ -28,7 +28,7 @@ export default function JournalModal({ isOpen, onClose, title, content, createdA
       />
       
       {/* 모달 내용 */}
-      <div className="relative w-full max-w-2xl h-[80vh] flex flex-col">
+      <div className="relative w-full max-w-2xl h-[70vh] flex flex-col">
         <Card className="relative flex flex-col h-full">
           {/* 헤더 영역 (고정) */}
           <div className="flex-shrink-0 pb-4 border-b border-gray-200">

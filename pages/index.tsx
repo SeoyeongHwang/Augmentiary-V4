@@ -125,10 +125,10 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-[#faf9f5]">
       {/* Header */}
       {(sidebarOpen || !hideTitle) && (
-        <header className="h-24 p-6 flex items-center bg-white transition-all duration-300 shadow-sm">
+        <header className="h-24 p-6 flex items-center bg-[#faf9f5] transition-all duration-300 shadow-sm">
           <button
             className="p-2"
             onClick={() => setSidebarOpen(true)}
