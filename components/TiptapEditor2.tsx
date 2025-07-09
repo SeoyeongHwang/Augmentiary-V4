@@ -788,7 +788,7 @@ export default function Editor({
   }, [])
 
   return (
-    <div className="flex flex-row h-screen w-full overflow-hidden justify-center bg-[#faf9f5]">
+    <div className="flex flex-row h-full w-full overflow-hidden justify-center bg-[#faf9f5]">
       {/* 왼쪽 패널: 경험 떠올리기 결과 */}
       <div className="flex-1 max-w-sm min-w-0 hidden md:flex flex-col h-full pb-20 overflow-hidden">
         <div className="flex-1 overflow-y-auto px-3 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
@@ -969,7 +969,7 @@ export default function Editor({
 
         </div>
         {/* 에디터 영역 */}
-        <div className="flex-1 h-[calc(100vh-200px)] overflow-hidden">
+        <div className="flex-1 h-full overflow-hidden">
           <div className="w-full h-full flex flex-col overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
           <div className="w-full flex flex-col">
             {/* 엔트리 타이틀 */}
