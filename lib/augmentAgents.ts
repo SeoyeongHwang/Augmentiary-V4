@@ -227,6 +227,137 @@ Guidelines:
       }
   }
 
+export async function callConnectiveAgent(
+  aiAgentResult: AIAgentResult
+): Promise<AIAgentResult> {
+  const prompt = `
+  You are an expert in narrative coaching and writing flow enhancement.
+
+Your task is to analyze interpretive text segments and add appropriate causal connective phrases to encourage users to continue writing and expand their thoughts naturally.
+
+For each text segment, add a natural and contextually appropriate causal connective word or phrase at the end that will:
+1. Encourage the user to elaborate on their thoughts and feelings
+2. Support imagination about future purposes or aspirations
+3. Create a natural flow for continued writing
+
+Examples of appropriate connective phrases:
+- "왜냐하면..." (because...)
+- "그렇게 하려면..." (to do that...)
+- "그래서..." (so...)
+- "그러면..." (then...)
+- "그렇다면..." (if so...)
+- "그런데..." (but...)
+- "그리고..." (and...)
+- "그럼에도..." (nevertheless...)
+- "그것은..." (that is...)
+- "그래야..." (should...)
+
+Guidelines:
+- Choose connective phrases that naturally flow from the content
+- Ensure the phrase encourages further reflection or writing
+- Make it feel like a natural continuation, not forced
+- The phrase should be contextually appropriate to the text and meaning-making strategy
+- Vary the connective phrases across the three options
+- Keep the original text intact, only add the connective phrase at the end
+- The connective phrase should be a single word or phrase ending with "...", not a sentence.
+
+Please output the result in the following JSON format:
+{
+"option1": {
+  "strategy": "<<<STRATEGY>>>",
+  "title": "<<<TITLE>>>",
+  "text": "<<<MODIFIED_TEXT_WITH_CONNECTIVE>>>"
+},
+"option2": {
+  "strategy": "<<<STRATEGY>>>",
+  "title": "<<<TITLE>>>",
+  "text": "<<<MODIFIED_TEXT_WITH_CONNECTIVE>>>"
+},
+"option3": {
+  "strategy": "<<<STRATEGY>>>",
+  "title": "<<<TITLE>>>",
+  "text": "<<<MODIFIED_TEXT_WITH_CONNECTIVE>>>"
+}
+}
+  `;
+
+  const userContent = `
+Please analyze the following interpretive options and add appropriate causal connective phrases:
+
+Option 1:
+Strategy: ${aiAgentResult.option1.strategy}
+Title: ${aiAgentResult.option1.title}
+Text: ${aiAgentResult.option1.text}
+
+Option 2:
+Strategy: ${aiAgentResult.option2.strategy}
+Title: ${aiAgentResult.option2.title}
+Text: ${aiAgentResult.option2.text}
+
+Option 3:
+Strategy: ${aiAgentResult.option3.strategy}
+Title: ${aiAgentResult.option3.title}
+Text: ${aiAgentResult.option3.text}
+  `;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: prompt },
+        { role: 'user', content: userContent },
+      ],
+      temperature: 0.7,
+    }),
+  });
+
+  const data = await response.json();
+  const textResult = data.choices?.[0]?.message?.content || '';
+  
+  try {
+    const jsonStart = textResult.indexOf('{');
+    const jsonEnd = textResult.lastIndexOf('}');
+    
+    if (jsonStart === -1 || jsonEnd === -1) {
+      console.error('JSON brackets not found in ConnectiveAgent response');
+      return aiAgentResult; // 원본 결과 반환
+    }
+    
+    let jsonString = textResult.substring(jsonStart, jsonEnd + 1);
+    
+    // JSON 문자열 정리
+    const cleanedJson = jsonString.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    // JSON이 완전하지 않은 경우 수정 시도
+    let finalJson = cleanedJson;
+    if (!cleanedJson.endsWith('}')) {
+      finalJson = cleanedJson.replace(/,\s*$/, '') + '}';
+    }
+    
+    // JSON 파싱 시도
+    const parsedResult = JSON.parse(finalJson);
+    
+    // 필수 필드 확인 및 기본값 설정
+    return {
+      option1: createAIOption(parsedResult.option1),
+      option2: createAIOption(parsedResult.option2),
+      option3: createAIOption(parsedResult.option3)
+    };
+    
+  } catch (err) {
+    console.error('Error parsing ConnectiveAgent JSON:', err);
+    console.error('Raw response:', textResult);
+    
+    // JSON 파싱 실패 시 원본 결과 반환
+    return aiAgentResult;
+  }
+}
+
 // 헬퍼 함수들
 function createAIOption(option: any): AIOption {
   return {
