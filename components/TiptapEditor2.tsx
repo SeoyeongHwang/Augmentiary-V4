@@ -788,7 +788,7 @@ export default function Editor({
   }, [])
 
   return (
-    <div className="mt-20 flex flex-row h-screen w-full overflow-hidden justify-center bg-[#faf9f5]">
+    <div className="flex flex-row h-screen w-full overflow-hidden justify-center bg-[#faf9f5]">
       {/* 왼쪽 패널: 경험 떠올리기 결과 */}
       <div className="flex-1 max-w-sm min-w-0 hidden md:flex flex-col h-full pb-20 overflow-hidden">
         <div className="flex-1 overflow-y-auto px-3 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
@@ -951,7 +951,7 @@ export default function Editor({
                           applyHighlightColor(color.name)
                           setColorMenuOpen(false)
                         }}
-                        className="px-3 py-1.5 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 flex items-center gap-2 rounded"
+                        className="px-3 py-1.5 hover:bg-stone-50 transition-colors text-sm font-medium text-stone-700 flex items-center gap-2 rounded"
                       >
                         <div 
                           className="w-4 h-4 rounded-full" 
