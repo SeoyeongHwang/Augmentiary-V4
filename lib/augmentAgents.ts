@@ -184,7 +184,8 @@ Guidelines:
           }
           ` },
         ],
-        temperature: 0.8,
+        temperature: 0.4,
+        top_p: 0.9,
       }),
     })
 
@@ -250,14 +251,8 @@ export async function callConnectiveAgent(
   const prompt = `
   You are an expert in narrative coaching and writing flow enhancement.
 
-Your task is to analyze interpretive text segments and add appropriate causal connective phrases to encourage users to continue writing and expand their thoughts naturally.
-
-For each text segment, add a natural and contextually appropriate causal connective word or phrase at the end that will:
-1. Encourage the user to elaborate on their thoughts and feelings
-2. Support imagination about future purposes or aspirations
-3. Create a natural flow for continued writing
-
-Examples of appropriate connective phrases:
+For each text segment, add a natural and contextually appropriate causal expression at the end.
+Refer to the following conjunctions:
 - "왜냐하면..." (because...)
 - "그렇게 하려면..." (to do that...)
 - "그래서..." (so...)
@@ -268,12 +263,11 @@ Examples of appropriate connective phrases:
 - "그럼에도..." (nevertheless...)
 - "그것은..." (that is...)
 - "그래야..." (should...)
+- "어떻게 하면..." (how to...)
 
 Guidelines:
-- Choose connective phrases that naturally flow from the last sentence of the text
-- The phrase should be contextually appropriate to the text and meaning-making strategy
+- Choose Korean conjunctions that naturally flow from the last sentence of the text
 - Keep the original text intact, only add the connective phrase at the end of the text
-- The connective phrase should be a single word or short phrase ending with "...", not a sentence
 
 Please output the result in the following JSON format:
 {
@@ -326,7 +320,7 @@ Text: ${aiAgentResult.option3.text}
         { role: 'system', content: prompt },
         { role: 'user', content: userContent },
       ],
-      temperature: 0.7,
+      temperature: 0.5,
     }),
   });
 
