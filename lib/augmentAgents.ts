@@ -184,7 +184,7 @@ Guidelines:
           }
           ` },
         ],
-        temperature: 1.0,
+        temperature: 0.8,
       }),
     })
 
