@@ -766,10 +766,10 @@ export default function Editor({
   }, [])
 
   return (
-    <div className="flex flex-row h-full w-full overflow-hidden justify-center bg-[#faf9f5]">
+    <div className="flex flex-col lg:flex-row h-full w-full overflow-auto lg:overflow-hidden justify-center bg-[#faf9f5] px-6 gap-4">
       {/* 왼쪽 패널: 경험 떠올리기 결과 */}
-      <div className="flex-1 max-w-sm min-w-0 hidden md:flex flex-col h-full pb-20 overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-3 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
+      <div className="flex-1 max-w-full lg:max-w-sm min-w-0 flex flex-col h-fit lg:h-full pb-4 lg:pb-20 overflow-visible lg:overflow-hidden order-2 lg:order-1">
+        <div className="flex-1 lg:overflow-y-auto px-0 lg:px-3 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
         {/* 경험 관련 결과 */}
         {experienceOptions && experienceVisible && (
           <div className="bg-[#f5f4ed] border border-stone-300 rounded-lg shadow-md p-3 relative">
@@ -866,9 +866,9 @@ export default function Editor({
         </div>
       </div>
       {/* 중앙 패널: 에디터 영역 */}
-      <div className="flex-1 min-w-[600px] max-w-[800px] hidden md:flex flex-row h-full">
+      <div className="flex-1 min-w-0 lg:min-w-[600px] max-w-full lg:max-w-[800px] flex flex-col lg:flex-row h-[50vh] lg:h-[90vh] order-1 lg:order-2">
         {/* 에디터 툴바 */}
-        <div className="flex-shrink-0 m-0 mr-4 p-0 flex flex-col items-center space-y-4">
+        <div className="flex-shrink-0 m-0 mr-0 lg:mr-4 p-0 flex flex-row lg:flex-col items-center justify-center lg:justify-start space-x-4 lg:space-x-0 lg:space-y-4 py-2 lg:py-0">
           {/* 에디터 툴바 버튼들 */}
           <CircleIconButton 
             onClick={() => editor?.chain().focus().undo().run()} 
@@ -947,7 +947,7 @@ export default function Editor({
 
         </div>
         {/* 에디터 영역 */}
-        <div className="flex-1 h-full overflow-hidden">
+        <div className="flex-1 h-full overflow-hidden lg:mx-3">
           <div className="w-full h-full flex flex-col overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
           <div className="w-full flex flex-col">
             {/* 엔트리 타이틀 */}
@@ -958,7 +958,7 @@ export default function Editor({
               value={title} 
               onChange={setTitle} 
             />
-            <div className={`tiptap editor-wrapper w-full h-fit p-6 min-h-[60vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none relative ${(loading || bubbleMenuLoading || experienceButtonLoading) ? 'opacity-60 cursor-wait' : ''}`} style={{marginBottom: '30px' }}>
+            <div className={`tiptap editor-wrapper w-full h-fit p-6 min-h-[35vh] lg:min-h-[80vh] border-none overflow-hidden max-h-none antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none relative ${(loading || bubbleMenuLoading || experienceButtonLoading) ? 'opacity-60 cursor-wait' : ''}`} style={{marginBottom: '30px' }}>
               <EditorContent editor={editor} />
               
               {/* BubbleMenu - 공식 React 컴포넌트 사용 */}
@@ -1023,8 +1023,8 @@ export default function Editor({
       </div>
       </div>
       {/* 오른쪽 패널: 의미찾기 결과 */}
-      <aside className="flex-1 max-w-sm min-w-0 hidden md:flex flex-col h-full pb-20 overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-3 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
+      <aside className="flex-1 max-w-full lg:max-w-sm min-w-0 flex flex-col h-fit lg:h-full px-0 pb-4 lg:pb-20 overflow-visible lg:overflow-hidden order-3 lg:order-3">
+        <div className="flex-1 lg:overflow-y-auto px-0 lg:px-3 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
           {/* <Button onClick={handleAugment} disabled={loading} className="px-4 py-2 rounded">
             {loading ? '고민하는 중...' : '의미 찾기'}
           </Button> */}
