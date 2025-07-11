@@ -230,6 +230,13 @@ export default function Editor({
         selectedText: selectedText,
         experiences: experiences
       })
+
+      // 응답 후 선택 해제하여 버블 메뉴 숨기기
+      setTimeout(() => {
+        if (editor) {
+          editor.commands.setTextSelection(to)
+        }
+      }, 100)
     } catch (error) {
       console.error('Error fetching experience options:', error)
       alert('경험 관련 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
@@ -411,6 +418,13 @@ export default function Editor({
 
         setAugmentOptions(aiSuggestions)
       }
+
+      // 응답 후 선택 해제하여 버블 메뉴 숨기기
+      setTimeout(() => {
+        if (editor) {
+          editor.commands.setTextSelection(to)
+        }
+      }, 100)
     } catch (error) {
       console.error('Error fetching augment options:', error)
       alert('AI 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
@@ -662,6 +676,11 @@ export default function Editor({
           lastElement.setAttribute('request-id', finalRequestId);
           lastElement.setAttribute('category', category);
         }
+      }
+
+      // 텍스트 삽입 후 선택 해제하여 버블 메뉴 숨기기
+      if (editor) {
+        editor.commands.setTextSelection(to + inserted.length)
       }
     }, 50);
 
@@ -953,6 +972,11 @@ export default function Editor({
                   shouldShow={({ state }) => {
                     const { from, to } = state.selection
                     const selectedText = state.doc.textBetween(from, to).trim()
+                    
+                    // 모달이 열렸을 때는 버블 메뉴 숨기기
+                    if (originalEntryModal.isOpen) {
+                      return false
+                    }
                     
                     // 텍스트가 선택되었고 500자 이하일 때만 표시
                     return from !== to && selectedText.length > 0 && selectedText.length < 500
