@@ -117,7 +117,7 @@ export default function Editor({
       StarterKit,
       AIHighlight,
       Placeholder.configure({
-        placeholder: '무엇이든 자유롭게 적어보세요',
+        placeholder: '요즘 마음 속에 머물고 있는 이야기들을 써 보세요',
         emptyEditorClass: 'is-editor-empty',
       }),
     ],
@@ -809,7 +809,7 @@ export default function Editor({
               experienceCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
             }`}>
               <div className="text-stone-500 text-sm my-3">
-                이와 연결되는 기억이 있는지 살펴보세요.<br/>
+                어떤 순간들이 지금과 맞닿아 있는지 살펴보세요.<br/>
               </div>
               {experienceOptions && experienceOptions.experiences && experienceOptions.experiences.length > 0 ? (
                 experienceOptions.experiences.map((experience: any, index: number) => (
@@ -1067,8 +1067,8 @@ export default function Editor({
                 augmentCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
               }`}>
                 <div className="text-stone-600 text-sm my-3">
-                  어떻게 생각을 넓혀볼까요?<br/>
-                  원하는 문장을 선택하면 추가할 수 있습니다.
+                어떤 방향으로 생각해볼까요?<br/>
+                자신의 마음과 각 관점을 비교해보고, 마음에 드는 것이 있다면 선택해서 생각을 이어나가보세요.
                 </div>
                 {(bubbleMenuOptions || augmentOptions) && (() => {
                   const options = bubbleMenuOptions || augmentOptions;
