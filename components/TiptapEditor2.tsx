@@ -117,7 +117,7 @@ export default function Editor({
       StarterKit,
       AIHighlight,
       Placeholder.configure({
-        placeholder: '무엇이든 자유롭게 적어보세요',
+        placeholder: '요즘 마음 속에 머물고 있는 이야기들을 써 보세요',
         emptyEditorClass: 'is-editor-empty',
       }),
     ],
@@ -239,7 +239,7 @@ export default function Editor({
       }, 100)
     } catch (error) {
       console.error('Error fetching experience options:', error)
-      alert('경험 관련 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
+      alert('이전 경험에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
     } finally {
       setExperienceButtonLoading(false)
     }
@@ -793,7 +793,7 @@ export default function Editor({
                       <ChevronUp className="w-4 h-4 text-gray-500" />
                     )}
                   </button>
-                  <span className="font-bold text-l text-stone-800">관련 경험 살펴보기</span>
+                  <span className="font-bold text-l text-stone-800">맞닿은 경험 찾기</span>
                 </div>
                 <button
                   type="button"
@@ -809,7 +809,7 @@ export default function Editor({
               experienceCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
             }`}>
               <div className="text-stone-500 text-sm my-3">
-                이와 연결되는 기억이 있는지 살펴보세요.<br/>
+                어떤 순간들이 지금과 맞닿아 있는지 살펴보세요.<br/>
               </div>
               {experienceOptions && experienceOptions.experiences && experienceOptions.experiences.length > 0 ? (
                 experienceOptions.experiences.map((experience: any, index: number) => (
@@ -818,10 +818,10 @@ export default function Editor({
                     className="w-full bg-white border border-stone-200 rounded-lg p-4 mb-2"
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="font-bold text-l text-gray-900">{experience.strategy || '과거 경험 떠올려보기'}</span>
+                      <span className="font-bold text-l text-gray-900">{experience.strategy || '이전 경험 떠올려보기'}</span>
                     </div>
                     <div className="text-gray-800 text-[15px] leading-relaxed mb-3">
-                      {experience.description || '관련된 과거 경험이 있습니다.'}
+                      {experience.description || '관련된 과거 기록이 있습니다.'}
                     </div>
                     
                     {/* 내면 상태와 인사이트 요약 */}
@@ -995,20 +995,20 @@ export default function Editor({
                             handleExperienceRecall();
                           }}
                           className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-transparent hover:bg-gradient-to-r hover:from-amber-500/30 hover:to-orange-500/30 transition-all duration-300 text-base font-bold text-white hover:text-white hover:shadow-lg"
-                          title="관련 경험 떠올리기"
+                          title="맞닿은 경험 찾기"
                         >
                           <LoaderIcon className="w-4 h-4" />
-                          경험떠올리기
+                          맞닿은 경험 찾기
                         </button>
                         <button
                           onClick={() => {
                             handleMeaningAugment();
                           }}
                           className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-transparent hover:bg-gradient-to-r hover:from-amber-500/30 hover:to-orange-500/30 transition-all duration-300 text-base font-bold text-white hover:text-white hover:shadow-lg"
-                          title="의미 찾기"
+                          title="의미 만들기"
                         >
                           <SparkleIcon className="w-4 h-4" />
-                          의미찾기
+                          의미 만들기
                         </button>
                       </>
                     )}
@@ -1026,7 +1026,7 @@ export default function Editor({
       <aside className="flex-1 max-w-full lg:max-w-sm min-w-0 flex flex-col h-fit lg:h-full px-0 pb-4 lg:pb-20 overflow-visible lg:overflow-hidden order-3 lg:order-3">
         <div className="flex-1 lg:overflow-y-auto px-0 lg:px-3 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
           {/* <Button onClick={handleAugment} disabled={loading} className="px-4 py-2 rounded">
-            {loading ? '고민하는 중...' : '의미 찾기'}
+            {loading ? '고민하는 중...' : '의미 만들기'}
           </Button> */}
           {/* 증강 옵션 */}
           {(bubbleMenuOptions || augmentOptions) && augmentVisible && (
@@ -1051,7 +1051,7 @@ export default function Editor({
                       <ChevronUp className="w-4 h-4 text-gray-500" />
                     )}
                   </button>
-                  <span className="font-bold text-l text-stone-800">의미 찾기</span>
+                  <span className="font-bold text-l text-stone-800">의미 만들기</span>
                 </div>
                 <button
                   type="button"
@@ -1067,8 +1067,8 @@ export default function Editor({
                 augmentCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
               }`}>
                 <div className="text-stone-600 text-sm my-3">
-                  어떻게 생각을 넓혀볼까요?<br/>
-                  원하는 문장을 선택하면 추가할 수 있습니다.
+                어떤 방향으로 생각해볼까요?<br/>
+                자신의 마음과 각 관점을 비교해보고, 마음에 드는 것이 있다면 선택해서 생각을 이어나가보세요.
                 </div>
                 {(bubbleMenuOptions || augmentOptions) && (() => {
                   const options = bubbleMenuOptions || augmentOptions;
