@@ -988,6 +988,10 @@ export default function Editor({
                         <div className="w-4 h-4 border-2 border-amber-300 border-t-stone-400 rounded-full animate-spin mr-2"></div>
                         생각 중...
                       </div>
+                    ) : editor && editor.state.doc.textContent.length < 300 ? (
+                      <div className="flex items-center justify-center px-6 py-2 text-sm font-medium text-amber-200">
+                        충분히 작성한 뒤 다시 시도해주세요 (300자 이상)
+                      </div>
                     ) : (
                       <>
                         <button
