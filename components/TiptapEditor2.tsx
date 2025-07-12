@@ -239,7 +239,7 @@ export default function Editor({
       }, 100)
     } catch (error) {
       console.error('Error fetching experience options:', error)
-      alert('경험 관련 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
+      alert('이전 경험에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
     } finally {
       setExperienceButtonLoading(false)
     }
@@ -793,7 +793,7 @@ export default function Editor({
                       <ChevronUp className="w-4 h-4 text-gray-500" />
                     )}
                   </button>
-                  <span className="font-bold text-l text-stone-800">관련 경험 살펴보기</span>
+                  <span className="font-bold text-l text-stone-800">맞닿은 경험 찾기</span>
                 </div>
                 <button
                   type="button"
@@ -818,10 +818,10 @@ export default function Editor({
                     className="w-full bg-white border border-stone-200 rounded-lg p-4 mb-2"
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="font-bold text-l text-gray-900">{experience.strategy || '과거 경험 떠올려보기'}</span>
+                      <span className="font-bold text-l text-gray-900">{experience.strategy || '이전 경험 떠올려보기'}</span>
                     </div>
                     <div className="text-gray-800 text-[15px] leading-relaxed mb-3">
-                      {experience.description || '관련된 과거 경험이 있습니다.'}
+                      {experience.description || '관련된 과거 기록이 있습니다.'}
                     </div>
                     
                     {/* 내면 상태와 인사이트 요약 */}
@@ -995,20 +995,20 @@ export default function Editor({
                             handleExperienceRecall();
                           }}
                           className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-transparent hover:bg-gradient-to-r hover:from-amber-500/30 hover:to-orange-500/30 transition-all duration-300 text-base font-bold text-white hover:text-white hover:shadow-lg"
-                          title="관련 경험 떠올리기"
+                          title="맞닿은 경험 찾기"
                         >
                           <LoaderIcon className="w-4 h-4" />
-                          경험떠올리기
+                          맞닿은 경험 찾기
                         </button>
                         <button
                           onClick={() => {
                             handleMeaningAugment();
                           }}
                           className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-transparent hover:bg-gradient-to-r hover:from-amber-500/30 hover:to-orange-500/30 transition-all duration-300 text-base font-bold text-white hover:text-white hover:shadow-lg"
-                          title="의미 찾기"
+                          title="의미 만들기"
                         >
                           <SparkleIcon className="w-4 h-4" />
-                          의미찾기
+                          의미 만들기
                         </button>
                       </>
                     )}
@@ -1026,7 +1026,7 @@ export default function Editor({
       <aside className="flex-1 max-w-full lg:max-w-sm min-w-0 flex flex-col h-fit lg:h-full px-0 pb-4 lg:pb-20 overflow-visible lg:overflow-hidden order-3 lg:order-3">
         <div className="flex-1 lg:overflow-y-auto px-0 lg:px-3 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
           {/* <Button onClick={handleAugment} disabled={loading} className="px-4 py-2 rounded">
-            {loading ? '고민하는 중...' : '의미 찾기'}
+            {loading ? '고민하는 중...' : '의미 만들기'}
           </Button> */}
           {/* 증강 옵션 */}
           {(bubbleMenuOptions || augmentOptions) && augmentVisible && (
@@ -1051,7 +1051,7 @@ export default function Editor({
                       <ChevronUp className="w-4 h-4 text-gray-500" />
                     )}
                   </button>
-                  <span className="font-bold text-l text-stone-800">의미 찾기</span>
+                  <span className="font-bold text-l text-stone-800">의미 만들기</span>
                 </div>
                 <button
                   type="button"
