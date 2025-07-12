@@ -295,7 +295,7 @@ export default function Write() {
       </header>
 
       {/* 메인 콘텐츠 */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-auto lg:overflow-hidden">
         <TiptapEditor2 
           userId={user?.id || ''}
           entryId={entryId}
