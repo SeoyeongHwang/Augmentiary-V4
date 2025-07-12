@@ -9,7 +9,7 @@ import {
   sendSuccessResponse,
   sendErrorResponse
 } from '../../lib/apiErrorHandler'
-import { callExperienceAgent, callExperienceDescriptionAgent } from '../../lib/experienceAgent'
+import { callExperienceAgentCombined, callExperienceDescriptionAgent, callPastContextAgent, callPastContextRelevanceAgent } from '../../lib/experienceAgent'
 
 // 서버 사이드에서 service_role 사용
 const supabase = createClient(
@@ -106,37 +106,17 @@ async function experienceHandler(
 
   // 7. 유사도 계산 및 관련 경험 찾기
   const experiencePromises = entries.map(async (entry) => {
-    let totalSimilarity = 0
-    let validFields = 0
-    let reasons: string[] = []
-
-    // sum_innerstate와 비교
-    if (entry.sum_innerstate) {
-      const analysis = await callExperienceAgent(selectedText, entry.sum_innerstate, 'innerstate')
-      totalSimilarity += analysis.similarity
-      validFields++
-      if (analysis.reason) {
-        reasons.push(`내면상태: ${analysis.reason}`)
-      }
-    }
-
-    // sum_insight와 비교
-    if (entry.sum_insight) {
-      const analysis = await callExperienceAgent(selectedText, entry.sum_insight, 'insight')
-      totalSimilarity += analysis.similarity
-      validFields++
-      if (analysis.reason) {
-        reasons.push(`깨달음: ${analysis.reason}`)
-      }
-    }
-
-    // 평균 유사도 계산
-    const avgSimilarity = validFields > 0 ? totalSimilarity / validFields : 0
+    // 한 번의 API 호출로 두 필드를 모두 분석
+    const analysis = await callExperienceAgentCombined(
+      selectedText, 
+      entry.sum_innerstate, 
+      entry.sum_insight
+    )
 
     return {
       ...entry,
-      similarity: avgSimilarity,
-      analysisReasons: reasons
+      similarity: analysis.averageSimilarity,
+      analysisReasons: analysis.analysisReasons
     }
   })
 
@@ -144,11 +124,12 @@ async function experienceHandler(
 
   // 8. 유사도가 높은 순으로 정렬하고 상위 3개 선택
   const topExperiences = experiencesWithSimilarity
-    .filter(exp => exp.similarity > 0.1) // 최소 유사도 필터링
+    .filter(exp => exp.similarity >= 0.6) // 최소 유사도 0.6 이상으로 필터링
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, 3)
 
   console.log(`📊 상위 경험 ${topExperiences.length}개 선택됨`, `[${requestId}]`)
+  console.log(`📊 전체 경험 ${experiencesWithSimilarity.length}개, 유사도 분포:`, experiencesWithSimilarity.map(exp => exp.similarity), `[${requestId}]`)
 
   // 9. 각 선택된 경험에 대해 상세 설명 및 전략 생성
   const experiencesWithDescriptions = await Promise.all(
@@ -194,12 +175,137 @@ async function experienceHandler(
 
   console.log(`✅ 경험 떠올리기 완료: ${experiencesWithDescriptions.length}개 발견`, `[${requestId}]`)
 
-  // 10. 성공 응답
+  // 10. 과거 기록이 부족한 경우 과거 맥락 카드 추가
+  let finalExperiences = experiencesWithDescriptions
+  
+  // 과거 맥락 카드 생성 조건: 
+  // 1) 상세 설명이 생성된 경험이 3개 미만이거나
+  // 2) 전체 경험이 있지만 모두 유사도 0.6 미만인 경우
+  const shouldAddPastContext = experiencesWithDescriptions.length < 3 || 
+    (experiencesWithSimilarity.length > 0 && topExperiences.length === 0)
+  
+  console.log(`🔍 과거 맥락 카드 생성 조건 확인:`, {
+    experiencesWithDescriptionsLength: experiencesWithDescriptions.length,
+    experiencesWithSimilarityLength: experiencesWithSimilarity.length,
+    topExperiencesLength: topExperiences.length,
+    shouldAddPastContext
+  }, `[${requestId}]`)
+  
+  if (shouldAddPastContext) {
+    try {
+      console.log('🔍 사용자 프로필 조회 시작', `[${requestId}]`)
+      
+      // 사용자 프로필 정보 조회
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('profile')
+        .eq('participant_code', participantCode)
+        .single()
+
+      console.log('🔍 사용자 프로필 조회 결과:', { userProfile, profileError }, `[${requestId}]`)
+
+      if (profileError) {
+        console.error('❌ 사용자 프로필 조회 실패:', profileError, `[${requestId}]`)
+      } else if (userProfile?.profile) {
+        let profile
+        let pastContext
+
+        // profile이 문자열인지 객체인지 확인
+        if (typeof userProfile.profile === 'string') {
+          console.log('🔍 프로필이 문자열 형태입니다. JSON 파싱 시도 중...', `[${requestId}]`)
+          try {
+            profile = JSON.parse(userProfile.profile)
+            console.log('✅ JSON 파싱 성공', `[${requestId}]`)
+          } catch (parseError) {
+            console.error('❌ JSON 파싱 실패:', parseError, `[${requestId}]`)
+            profile = null
+          }
+        } else {
+          console.log('🔍 프로필이 이미 객체 형태입니다', `[${requestId}]`)
+          profile = userProfile.profile
+        }
+
+        if (profile) {
+          pastContext = profile.personal_life_context?.past
+        }
+
+        console.log('🔍 과거 맥락 정보:', { 
+          profileExists: !!profile,
+          profileType: typeof userProfile.profile,
+          personalLifeContextExists: !!profile?.personal_life_context,
+          pastContextExists: !!pastContext,
+          pastContextLength: pastContext?.length || 0,
+          rawProfile: userProfile.profile
+        }, `[${requestId}]`)
+
+        if (pastContext) {
+          console.log('🌱 과거 맥락 연관성 분석 시작', `[${requestId}]`)
+          
+          // 먼저 과거 맥락과의 연관성 분석
+          const relevanceAnalysis = await callPastContextRelevanceAgent(selectedText, pastContext)
+          
+          console.log('🔍 과거 맥락 연관성 분석 결과:', relevanceAnalysis, `[${requestId}]`)
+          
+          // 연관성이 0.4 이상일 때만 과거 맥락 카드 생성
+          if (relevanceAnalysis.relevance >= 0.4) {
+            console.log('🌱 과거 맥락 카드 생성 시작 (연관성 충족)', `[${requestId}]`)
+            
+            const pastContextResult = await callPastContextAgent(selectedText, pastContext)
+            
+            console.log('🔍 과거 맥락 에이전트 결과:', pastContextResult, `[${requestId}]`)
+            
+            const pastContextCard = {
+              id: 'past_context',
+              title: '과거 배경',
+              content: pastContext.substring(0, 200) + (pastContext.length > 200 ? '...' : ''),
+              created_at: new Date().toISOString(),
+              sum_innerstate: null,
+              sum_insight: null,
+              similarity: relevanceAnalysis.relevance, // 실제 분석된 연관성 사용
+              analysisReasons: [`과거 생애 맥락 기반: ${relevanceAnalysis.reason}`],
+              strategy: pastContextResult.strategy,
+              description: pastContextResult.description,
+              isPastContext: true // 과거 맥락 카드임을 표시
+            }
+
+            finalExperiences = [...experiencesWithDescriptions, pastContextCard]
+            console.log('✅ 과거 맥락 카드 추가됨 (연관성 충족):', {
+              ...pastContextCard,
+              relevance: relevanceAnalysis.relevance, // 연관성 값 별도 표시
+              note: 'similarity 필드에 연관성 값이 저장됨'
+            }, `[${requestId}]`)
+          } else {
+            console.log('⚠️ 과거 맥락 연관성 부족으로 카드 생성 건너뜀 (연관성:', relevanceAnalysis.relevance, ')', `[${requestId}]`)
+          }
+        } else {
+          console.log('⚠️ 과거 맥락 정보가 없습니다', `[${requestId}]`)
+        }
+      } else {
+        console.log('⚠️ 사용자 프로필이 없습니다', `[${requestId}]`)
+      }
+    } catch (error) {
+      console.error('❌ 과거 맥락 카드 생성 실패:', error, `[${requestId}]`)
+    }
+  }
+
+  // 11. 성공 응답
+  console.log('🎯 최종 응답 데이터:', {
+    experiencesCount: finalExperiences.length,
+    experienceIds: finalExperiences.map(exp => exp.id),
+    hasPastContext: finalExperiences.some(exp => (exp as any).isPastContext),
+    experienceDetails: finalExperiences.map(exp => ({
+      id: exp.id,
+      similarity: exp.similarity,
+      isPastContext: (exp as any).isPastContext,
+      type: (exp as any).isPastContext ? '과거 맥락 (연관성)' : '과거 기록 (유사도)'
+    }))
+  }, `[${requestId}]`)
+  
   sendSuccessResponse(res, {
-    experiences: experiencesWithDescriptions,
+    experiences: finalExperiences,
     selectedText: selectedText,
     totalEntriesChecked: entries.length
-  }, `${experiencesWithDescriptions.length}개의 관련 경험을 찾았습니다.`)
+  }, `${finalExperiences.length}개의 관련 경험을 찾았습니다.`)
 }
 
 export default withErrorHandler(experienceHandler) 

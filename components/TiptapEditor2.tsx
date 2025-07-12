@@ -840,19 +840,21 @@ export default function Editor({
                       </div>
                     )} */}
                     
-                    {/* 원본 보기 버튼 */}
-                    <button
-                      onClick={() => {
-                        handleViewOriginalEntry(experience.id)
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 mt-3 bg-gray-50 hover:bg-gray-100 border border-stone-300 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
-                      disabled={experienceButtonLoading || bubbleMenuLoading}
-                    >
-                      <span className="text-sm font-medium text-gray-700 truncate">
-                        &lt;{experience.title || '무제'}&gt; 보기
-                      </span>
-                      <ExternalLink className="w-4 h-4 text-gray-500 flex-shrink-0 ml-2" />
-                    </button>
+                    {/* 원본 보기 버튼 - 과거 맥락 카드가 아닌 경우에만 표시 */}
+                    {!experience.isPastContext && (
+                      <button
+                        onClick={() => {
+                          handleViewOriginalEntry(experience.id)
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 mt-3 bg-gray-50 hover:bg-gray-100 border border-stone-300 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                        disabled={experienceButtonLoading || bubbleMenuLoading}
+                      >
+                        <span className="text-sm font-medium text-gray-700 truncate">
+                          &lt;{experience.title || '무제'}&gt; 보기
+                        </span>
+                        <ExternalLink className="w-4 h-4 text-gray-500 flex-shrink-0 ml-2" />
+                      </button>
+                    )}
                   </div>
                 ))
               ) : (
