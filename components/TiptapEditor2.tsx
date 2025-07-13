@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import { Plugin, PluginKey, Transaction } from '@tiptap/pm/state'
+import { Extension } from '@tiptap/core'
 import { AIHighlight } from '../utils/tiptapExtensions'
 import { Button, Heading, Card, Textarea, TextInput } from './index'
 import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ArchiveBoxIcon, DocumentTextIcon, SparklesIcon, BoldIcon, ItalicIcon, CommandLineIcon, LinkIcon, LightBulbIcon, CheckIcon, PlusIcon } from "@heroicons/react/24/outline";
@@ -21,6 +23,8 @@ import { calculateEditRatio } from '../utils/diff'
 import type { AICategory, AIAgentResult } from '../types/ai'
 import { useInteractionLog } from '../hooks/useInteractionLog'
 import { useSession } from '../hooks/useSession'
+import { ActionType } from '../types/log'
+import { logInteractionAsync } from '../lib/logger'
 import { saveAIPrompt } from '../lib/augmentAgents'
 import Placeholder from '@tiptap/extension-placeholder'
 import { addAIPromptToQueue } from '../utils/aiPromptQueue'
@@ -55,17 +59,470 @@ export default function Editor({
     logRequestRecord,
     logReceiveRecord,
     logCheckRecord,
+    logTextEdit,
+    logAsync,
     canLog 
   } = useInteractionLog()
 
   // 세션 정보 가져오기
   const { user } = useSession()
 
-  // 로깅 상태 확인
-  const canLogState = canLog && entryId
-
   // 변화 감지용 ref (필요한 것만 유지)
   const lastReceiveAI = useRef<string>('')
+  
+  // 텍스트 편집 로그를 위한 상태
+  const previousTextRef = useRef<string>('')
+  
+  // 디바운스용 ref
+  const aiTextEditTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // 로그 상태를 ref로 관리 (클로저 문제 해결)
+  const canLogRef = useRef<boolean>(false)
+  const entryIdRef = useRef<string>('')
+  const userRef = useRef<any>(null)
+  
+  // ref 값을 실시간으로 업데이트
+  useEffect(() => {
+    canLogRef.current = canLog
+    entryIdRef.current = entryId
+    userRef.current = user
+  }, [canLog, entryId, user])
+  
+  // Transaction 기반 텍스트 편집 로그 Plugin
+  const createTextEditLogPlugin = useCallback(() => {
+    const getWordCount = (text: string) => {
+      return text.trim().split(/\s+/).filter(word => word.length > 0).length
+    }
+    
+    // 이전 상태를 추적
+    let lastLoggedText = ''
+    let lastActivityTime = 0
+    let pendingLogTimeout: NodeJS.Timeout | null = null
+    
+    // AI 텍스트 영역과 변경 범위가 겹치는지 확인하는 함수
+    const isChangeInAIText = (transactions: readonly Transaction[], oldState: any, newState: any) => {
+      for (const tr of transactions) {
+        if (tr.docChanged) {
+          // 변경된 범위 확인
+          for (let i = 0; i < tr.steps.length; i++) {
+            const step = tr.steps[i] as any
+            if (step.from !== undefined && step.to !== undefined) {
+              const changeFrom = step.from
+              const changeTo = Math.max(step.to, changeFrom) // to가 from보다 작을 수 있음
+              
+              // oldState에서 AI 마크 확인 (삭제/수정되는 부분)
+              let foundAIMarkInOld = false
+              try {
+                oldState.doc.nodesBetween(changeFrom, changeTo, (node: any, pos: number) => {
+                  if (node.isText && node.marks) {
+                    const hasAIMark = node.marks.some((mark: any) => mark.type.name === 'aiHighlight')
+                    if (hasAIMark) {
+                      foundAIMarkInOld = true
+                      return false // 찾았으면 중단
+                    }
+                  }
+                })
+              } catch (e) {
+                // 범위가 잘못된 경우 무시
+              }
+              
+              if (foundAIMarkInOld) {
+                console.log('🔍 [AI_DETECTION] Found AI mark in OLD state at:', changeFrom, '-', changeTo)
+                return true
+              }
+              
+              // newState에서도 AI 마크 확인 (새로 추가되는 부분)
+              let foundAIMarkInNew = false
+              try {
+                const newChangeFrom = changeFrom
+                const newChangeTo = Math.min(changeFrom + Math.max(0, (step.slice?.content?.size || 0)), newState.doc.content.size)
+                
+                if (newChangeTo > newChangeFrom) {
+                  newState.doc.nodesBetween(newChangeFrom, newChangeTo, (node: any, pos: number) => {
+                    if (node.isText && node.marks) {
+                      const hasAIMark = node.marks.some((mark: any) => mark.type.name === 'aiHighlight')
+                      if (hasAIMark) {
+                        foundAIMarkInNew = true
+                        return false // 찾았으면 중단
+                      }
+                    }
+                  })
+                }
+              } catch (e) {
+                // 범위가 잘못된 경우 무시
+              }
+              
+              if (foundAIMarkInNew) {
+                console.log('🔍 [AI_DETECTION] Found AI mark in NEW state at:', changeFrom)
+                return true
+              }
+            }
+          }
+        }
+      }
+      return false
+    }
+    
+    return Extension.create({
+      name: 'textEditLog',
+      addProseMirrorPlugins() {
+        return [
+          new Plugin({
+            key: new PluginKey('textEditLog'),
+            appendTransaction(transactions, oldState, newState) {
+              // ref를 통해 실시간으로 로그 가능 상태 계산
+              const currentCanLog = userRef.current?.participant_code && entryIdRef.current
+              
+              if (!currentCanLog) return null
+              
+              // 강제 저장 로그 처리 (저장 직전 미완료 변경사항 로깅)
+              const hasForceSaveLog = transactions.some(tr => tr.getMeta('forceSaveLog'))
+              if (hasForceSaveLog) {
+                const currentText = transactions.find(tr => tr.getMeta('currentText'))?.getMeta('currentText') || newState.doc.textContent
+                
+                // 마지막 로그된 텍스트와 현재 텍스트가 다르면 강제 로깅
+                if (lastLoggedText !== currentText) {
+                  const editData = {
+                    changeType: currentText.length > lastLoggedText.length ? 'insert' : 
+                               currentText.length < lastLoggedText.length ? 'delete' : 'replace',
+                    position: 0,
+                    oldText: lastLoggedText.slice(0, 100),
+                    newText: currentText.slice(0, 100),
+                    oldLength: lastLoggedText.length,
+                    newLength: currentText.length,
+                    wordCountBefore: getWordCount(lastLoggedText),
+                    wordCountAfter: getWordCount(currentText),
+                    characterCountBefore: lastLoggedText.length,
+                    characterCountAfter: currentText.length
+                  }
+                  
+                  console.log('💾 [FORCE_SAVE_LOG] 저장 직전 강제 로깅 실행:', editData)
+                  
+                  if (canLogRef.current && entryIdRef.current && userRef.current?.participant_code) {
+                    const logData = {
+                      participant_code: userRef.current.participant_code,
+                      action_type: ActionType.EDIT_USER_TEXT,
+                      meta: editData,
+                      entry_id: entryIdRef.current
+                    }
+                    
+                    logInteractionAsync(logData)
+                    lastLoggedText = currentText // 로그된 텍스트 상태 업데이트
+                  }
+                }
+                
+                return null // 강제 로깅 처리 후 종료
+              }
+              
+              // 텍스트 변경이 있었는지 확인
+              const oldText = oldState.doc.textContent
+              const newText = newState.doc.textContent
+              
+              if (oldText === newText) return null
+              
+              // AI 텍스트 삽입인지 확인
+              const hasAIInsert = transactions.some(tr => tr.getMeta('aiTextInsert'))
+              if (hasAIInsert) {
+                console.log('🤖 [AI_TEXT_INSERT] AI 텍스트 삽입 감지:', {
+                  oldLength: oldText.length,
+                  newLength: newText.length,
+                  lengthDiff: newText.length - oldText.length
+                })
+                
+                // AI 텍스트 삽입을 간단하게 로깅 (INSERT_AI_TEXT 사용)
+                if (lastLoggedText !== newText && canLogRef.current && entryIdRef.current && userRef.current?.participant_code) {
+                  const insertData = {
+                    changeType: 'initial_insert' as const
+                  }
+                  
+                  console.log('🤖 [AI_TEXT_INSERT_LOG]:', insertData)
+                  
+                  const logData = {
+                    participant_code: userRef.current.participant_code,
+                    action_type: ActionType.INSERT_AI_TEXT,
+                    meta: insertData,
+                    entry_id: entryIdRef.current
+                  }
+                  
+                  logInteractionAsync(logData)
+                  lastLoggedText = newText // 상태 업데이트로 다음 편집의 정확한 기준점 제공
+                }
+                
+                return null
+              }
+              
+              // 모든 메타데이터 확인 (디버깅용)
+              const allMetaKeys = new Set<string>()
+              const metaDetails: any = {}
+              transactions.forEach((tr, index) => {
+                // 트랜잭션의 모든 메타데이터 키 수집
+                const metaKeys = Object.keys((tr as any).meta || {})
+                metaKeys.forEach(key => {
+                  allMetaKeys.add(key)
+                  metaDetails[key] = tr.getMeta(key)
+                })
+              })
+              
+              // AI 텍스트 편집인지 확인
+              const isAITextEdit = isChangeInAIText(transactions, oldState, newState)
+              
+              console.log('🔍 [EDIT_DETECTION]:', {
+                isAITextEdit,
+                hasHistoryMeta: transactions.some(tr => tr.getMeta('history$') !== undefined),
+                isAddedToHistory: transactions.some(tr => tr.getMeta('addToHistory') !== false && tr.docChanged),
+                textChange: `"${oldText}" -> "${newText}"`,
+                lengthChange: `${oldText.length} -> ${newText.length}`
+              })
+              
+              // AI 텍스트 편집인데 감지되지 않는 경우 추가 디버깅
+              if (!isAITextEdit) {
+                console.log('🔍 [DEBUG_AI_DETECTION] Checking why AI text not detected...')
+                
+                // 문서 전체에서 AI 마크 위치 확인
+                const aiMarksInOld: any[] = []
+                const aiMarksInNew: any[] = []
+                
+                oldState.doc.descendants((node: any, pos: number) => {
+                  if (node.isText && node.marks) {
+                    node.marks.forEach((mark: any) => {
+                      if (mark.type.name === 'aiHighlight') {
+                        aiMarksInOld.push({ pos, length: node.textContent.length, text: node.textContent.slice(0, 20) })
+                      }
+                    })
+                  }
+                })
+                
+                newState.doc.descendants((node: any, pos: number) => {
+                  if (node.isText && node.marks) {
+                    node.marks.forEach((mark: any) => {
+                      if (mark.type.name === 'aiHighlight') {
+                        aiMarksInNew.push({ pos, length: node.textContent.length, text: node.textContent.slice(0, 20) })
+                      }
+                    })
+                  }
+                })
+                
+                console.log('🔍 [AI_MARKS] Old state AI marks:', aiMarksInOld)
+                console.log('🔍 [AI_MARKS] New state AI marks:', aiMarksInNew)
+                
+                // 변경 범위 확인
+                transactions.forEach(tr => {
+                  if (tr.docChanged) {
+                    tr.steps.forEach((step: any, i) => {
+                      console.log(`🔍 [STEP ${i}] from: ${step.from}, to: ${step.to}, stepType: ${step.constructor.name}`)
+                    })
+                  }
+                })
+              }
+              
+              // 시간 기반 디바운싱 (500ms) + 메타데이터 확인 + 5자 이상 변경 조건
+              const currentTime = Date.now()
+              const timeSinceLastActivity = currentTime - lastActivityTime
+              lastActivityTime = currentTime
+              
+              // ProseMirror History 플러그인의 실제 그룹 감지
+              const hasHistoryMeta = transactions.some(tr => {
+                const historyMeta = tr.getMeta('history$')
+                return historyMeta !== undefined
+              })
+              
+              // 히스토리에 추가되는 트랜잭션 감지 (실제 Undo 지점 결정)
+              const isAddedToHistory = transactions.some(tr => {
+                const addToHistory = tr.getMeta('addToHistory')
+                return addToHistory !== false && tr.docChanged
+              })
+              
+              // 새로운 히스토리 그룹 시작 조건 체크 (ProseMirror의 newGroupDelay와 일치)
+              const isNewHistoryGroup = timeSinceLastActivity > 500 && isAddedToHistory
+              
+              // 메타데이터가 있는 경우에만 자세히 로깅
+              if (allMetaKeys.size > 0) {
+                console.log('📝 [APPEND_TRANSACTION] History group detected:', {
+                  hasHistoryMeta: hasHistoryMeta,
+                  oldLength: oldText.length,
+                  newLength: newText.length,
+                  lastLoggedLength: lastLoggedText.length,
+                  allMetaKeys: Array.from(allMetaKeys),
+                  metaDetails: metaDetails
+                })
+              }
+              
+              // 기존 타이머 정리
+              if (pendingLogTimeout) {
+                clearTimeout(pendingLogTimeout)
+                pendingLogTimeout = null
+              }
+              
+              // 로그 실행 함수
+              const performLog = (reason?: string, textToLog?: string) => {
+                // 로그할 텍스트 결정 (매개변수로 받은 텍스트 또는 기본값)
+                const currentText = textToLog || newText
+                
+                // 변경 타입 결정
+                let changeType: 'insert' | 'delete' | 'replace' = 'replace'
+                if (lastLoggedText.length < currentText.length) {
+                  changeType = 'insert'
+                } else if (lastLoggedText.length > currentText.length) {
+                  changeType = 'delete'
+                }
+                
+                const oldLen = (lastLoggedText || oldText).length
+                const newLen = currentText.length
+                const wordCountBefore = getWordCount(lastLoggedText || oldText)
+                const wordCountAfter = getWordCount(currentText)
+                const characterCountBefore = oldLen
+                const characterCountAfter = newLen
+                
+                const editData = {
+                  changeType,
+                  position: 0,
+                  length: newLen,
+                  lengthDiff: newLen - oldLen,
+                  wordCount: wordCountAfter,
+                  wordCountDiff: wordCountAfter - wordCountBefore,
+                  characterCount: characterCountAfter,
+                  characterCountDiff: characterCountAfter - characterCountBefore,
+                  currentText: currentText
+                }
+                
+                console.log(`📝 [TEXT_EDIT] Logging edit (${reason || 'AppendTransaction-based'}):`, editData)
+                
+                // 직접 logInteractionAsync 호출
+                if (canLogRef.current && entryIdRef.current && userRef.current?.participant_code) {
+                  const logData = {
+                    participant_code: userRef.current.participant_code,
+                    action_type: ActionType.EDIT_USER_TEXT,
+                    meta: editData,
+                    entry_id: entryIdRef.current
+                  }
+                  
+                  logInteractionAsync(logData)
+                } else {
+                  console.log('❌ [DIRECT_LOG] Cannot log - missing conditions')
+                }
+                
+                // 로그된 텍스트 상태 업데이트
+                lastLoggedText = currentText
+              }
+              
+              // AI 텍스트 편집용 로깅 함수 (manual 텍스트 편집과 동일한 구조)
+              const performAILog = (reason?: string, textToLog?: string) => {
+                const currentText = textToLog || newText
+                
+                // 변경 타입 결정
+                let changeType: 'insert' | 'delete' | 'replace' = 'replace'
+                if (lastLoggedText.length < currentText.length) {
+                  changeType = 'insert'
+                } else if (lastLoggedText.length > currentText.length) {
+                  changeType = 'delete'
+                }
+                
+                const oldLen = (lastLoggedText || oldText).length
+                const newLen = currentText.length
+                const wordCountBefore = getWordCount(lastLoggedText || oldText)
+                const wordCountAfter = getWordCount(currentText)
+                const characterCountBefore = oldLen
+                const characterCountAfter = newLen
+                
+                const editData = {
+                  changeType,
+                  position: 0,
+                  length: newLen,
+                  lengthDiff: newLen - oldLen,
+                  wordCount: wordCountAfter,
+                  wordCountDiff: wordCountAfter - wordCountBefore,
+                  characterCount: characterCountAfter,
+                  characterCountDiff: characterCountAfter - characterCountBefore,
+                  currentText: currentText
+                }
+                
+                console.log(`🤖 [AI_TEXT_EDIT] Logging AI edit (${reason || 'AppendTransaction-based'}):`, editData)
+                
+                // 직접 logInteractionAsync 호출
+                if (canLogRef.current && entryIdRef.current && userRef.current?.participant_code) {
+                  const logData = {
+                    participant_code: userRef.current.participant_code,
+                    action_type: ActionType.EDIT_AI_TEXT,
+                    meta: editData,
+                    entry_id: entryIdRef.current
+                  }
+                  
+                  logInteractionAsync(logData)
+                } else {
+                  console.log('❌ [AI_LOG] Cannot log - missing conditions')
+                }
+                
+                // 로그된 텍스트 상태 업데이트
+                lastLoggedText = currentText
+              }
+              
+              // 로그 실행 조건: 히스토리 그룹 완료 시점에서 누적 변경사항 로깅
+              if (hasHistoryMeta) {
+                // Undo/Redo 작업 시 즉시 로그
+                if (isAITextEdit) {
+                  performAILog('History Meta - Undo/Redo Unit (AI Text)')
+                } else {
+                  performLog('History Meta - Undo/Redo Unit')
+                }
+              } else if (isAddedToHistory) {
+                // 히스토리 그룹 완료 감지를 위한 타이머 설정
+                if (pendingLogTimeout) {
+                  clearTimeout(pendingLogTimeout)
+                }
+                
+                // 500ms 후 히스토리 그룹이 완료되면 누적 변경사항 로깅
+                pendingLogTimeout = setTimeout(() => {
+                  // 현재 에디터 상태 확인 (newState 캡처)
+                  const currentText = newState.doc.textContent
+                  
+                  // 마지막 로그와 현재 텍스트가 다르면 히스토리 그룹 완료로 간주
+                  if (lastLoggedText !== currentText) {
+                    if (isAITextEdit) {
+                      performAILog('History Group Complete - Accumulated Changes (AI Text)', currentText)
+                    } else {
+                      performLog('History Group Complete - Accumulated Changes', currentText)
+                    }
+                  }
+                }, 500) // Tiptap의 newGroupDelay와 일치
+              } else {
+                // 히스토리에 추가되지 않는 트랜잭션 (중간 상태)
+                console.log('⏸️ [WAITING] 히스토리 추가 대기 중...')
+              }
+              
+                              return null // appendTransaction은 새 트랜잭션을 반환하거나 null 반환
+              },
+              destroy() {
+                // Plugin 종료 시 타이머 정리
+                if (pendingLogTimeout) {
+                  clearTimeout(pendingLogTimeout)
+                  pendingLogTimeout = null
+                }
+              }
+            })
+          ]
+        }
+    })
+  }, [logTextEdit])
+
+  // 텍스트 편집 로그를 위한 유틸리티 함수들
+  const getWordCount = useCallback((text: string) => {
+    return text.trim().split(/\s+/).filter(word => word.length > 0).length
+  }, [])
+
+  const getChangeType = useCallback((oldText: string, newText: string, position: number) => {
+    if (oldText.length === newText.length) {
+      return 'replace'
+    } else if (oldText.length < newText.length) {
+      return 'insert'
+    } else {
+      return 'delete'
+    }
+  }, [])
+
+  const detectTextEdit = useCallback((newContent: string) => {
+    // Transaction 기반 Plugin으로 대체됨 - 이 함수는 더 이상 사용되지 않음
+    return
+  }, [])
 
   // 제목 변경 시 외부로 알림
   useEffect(() => {
@@ -73,6 +530,7 @@ export default function Editor({
       onTitleChange(title)
     }
   }, [title, onTitleChange])
+  
   const [augments, setAugments] = useState<{ start: number; end: number; inserted: string; requestId: string; category: AICategory; originalText: string }[]>([])
   const [userInfo, setBeliefSummary] = useState('')
   const [augmentOptions, setAugmentOptions] = useState<AIAgentResult | null>(null)
@@ -99,10 +557,9 @@ export default function Editor({
   })
   
   // 디바운스용 ref
-  const aiTextEditTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   useEffect(() => {
     const options = bubbleMenuOptions || augmentOptions
-    if (options && canLogState) {
+    if (options && canLog && entryId) {
       // 중복 체크를 위한 문자열 생성
       const optionsString = JSON.stringify(options)
       if (lastReceiveAI.current !== optionsString) {
@@ -110,16 +567,21 @@ export default function Editor({
         lastReceiveAI.current = optionsString
       }
     }
-  }, [bubbleMenuOptions, augmentOptions, canLogState, entryId, logAIReceive])
+  }, [bubbleMenuOptions, augmentOptions, canLog, entryId, logAIReceive])
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        history: {
+          newGroupDelay: 500, // 500ms 그룹 딜레이 (기본값)
+        },
+      }),
       AIHighlight,
       Placeholder.configure({
         placeholder: '요즘 마음 속에 머물고 있는 이야기들을 써 보세요',
         emptyEditorClass: 'is-editor-empty',
       }),
+      createTextEditLogPlugin(),
     ],
     editorProps: {
       attributes: {
@@ -152,7 +614,7 @@ export default function Editor({
       }, 300) // 디바운스 시간을 300ms로 증가
     },
     onSelectionUpdate: ({ editor }: { editor: any }) => {
-      // 텍스트 선택 로깅 제거됨
+      // 텍스트 선택 로그 제거됨
     },
     
   })
@@ -177,6 +639,11 @@ export default function Editor({
   useEffect(() => {
     if (editor) {
       editor.setEditable(!loading && !bubbleMenuLoading && !experienceButtonLoading)
+      
+      // 에디터 초기화 시 이전 텍스트 설정
+      if (previousTextRef.current === '') {
+        previousTextRef.current = editor.state.doc.textContent
+      }
     }
   }, [editor, loading, bubbleMenuLoading, experienceButtonLoading])
 
@@ -195,7 +662,7 @@ export default function Editor({
     if (!selectedText) return
 
     // 경험 살펴보기 요청 로그 (REQUEST_RECORD)
-    if (canLogState) {
+    if (canLog && entryId) {
       logRequestRecord(entryId, selectedText)
     }
 
@@ -222,7 +689,7 @@ export default function Editor({
       const experiences = data.data.experiences || []
       
       // 경험 살펴보기 응답 수신 로그 (RECEIVE_RECORD)
-      if (canLogState) {
+      if (canLog && entryId) {
         logReceiveRecord(entryId, experiences)
       }
       
@@ -243,7 +710,7 @@ export default function Editor({
     } finally {
       setExperienceButtonLoading(false)
     }
-  }, [experienceButtonLoading, editor, user, canLogState, entryId, logRequestRecord, logReceiveRecord])
+  }, [experienceButtonLoading, editor, user, canLog, entryId, logRequestRecord, logReceiveRecord])
 
   // 원본 일기 가져오기 함수
   const handleViewOriginalEntry = useCallback(async (originalEntryId: string) => {
@@ -331,7 +798,7 @@ export default function Editor({
       }
 
       // 일기 열어보기 로그 (CHECK_RECORD)
-      if (canLogState) {
+      if (canLog && entryId) {
         logCheckRecord(entryId, originalEntryId)
       }
 
@@ -355,7 +822,7 @@ export default function Editor({
         loading: false
       })
     }
-  }, [user, canLogState, entryId, logCheckRecord])
+  }, [user, canLog, entryId, logCheckRecord])
 
   // BubbleMenu용 AI API 호출 함수 (useCallback으로 메모이제이션)
   const handleMeaningAugment = useCallback(async () => {
@@ -374,7 +841,7 @@ export default function Editor({
     if (!selectedText) return
 
     // AI 호출 로그 기록
-    if (canLogState) {
+    if (canLog && entryId) {
       logAITrigger(entryId, selectedText)
     }
 
@@ -431,7 +898,7 @@ export default function Editor({
     } finally {
       setBubbleMenuLoading(false)
     }
-  }, [bubbleMenuLoading, editor, userInfo, canLogState, entryId, logAITrigger, user])
+  }, [bubbleMenuLoading, editor, userInfo, canLog, entryId, logAITrigger, user])
 
   // AI 텍스트 편집 감지 및 투명도 업데이트 (직접 스타일 적용)
   const handleAITextEdit = useCallback(() => {
@@ -555,6 +1022,19 @@ export default function Editor({
 
   // 저장 함수 (부모 컴포넌트에 위임)
   const handleSave = () => {
+    // 저장 직전에 미완료된 텍스트 변경사항 강제 로깅
+    if (editor && canLogRef.current && entryIdRef.current && userRef.current?.participant_code) {
+      const currentText = editor.state.doc.textContent
+      
+      // Plugin의 강제 로깅 함수 호출을 위한 커스텀 트랜잭션 생성
+      const tr = editor.state.tr
+      tr.setMeta('forceSaveLog', true)
+      tr.setMeta('currentText', currentText)
+      editor.view.dispatch(tr)
+      
+      console.log('💾 [SAVE_FORCE_LOG] 저장 직전 미완료 텍스트 변경사항 강제 로깅')
+    }
+    
     if (onSave) {
       onSave()
     }
@@ -574,7 +1054,7 @@ export default function Editor({
     if (!selectedText) return alert('텍스트를 선택하세요.')
 
     // AI 호출 로그 기록
-    if (canLogState) {
+    if (canLog && entryId) {
       logAITrigger(entryId, selectedText)
     }
 
@@ -638,7 +1118,7 @@ export default function Editor({
     const category: AICategory = 'interpretive';
 
     // AI 텍스트 삽입 로그
-    if (canLogState) {
+    if (canLog && entryId) {
       logAITextInsert(entryId, selectedOption || inserted);
     }
 
@@ -648,20 +1128,26 @@ export default function Editor({
     const opacity = Math.max(0, 1 - editRatio)
     const backgroundColor = opacity > 0 ? currentBgColor.replace('1)', `${opacity})`) : 'transparent'
 
-    // 하나의 트랜잭션으로 텍스트 삽입과 마크 적용을 동시에 실행
-    editor.chain()
-      .focus()
-      .setTextSelection(to)
-      .insertContent(inserted)
-      .setTextSelection({ from: to, to: to + inserted.length })
-      .setMark('aiHighlight', {
-        requestId: finalRequestId,
-        category,
-        dataOriginal: inserted,
-        editRatio: '0',
-        style: `background-color: ${backgroundColor};` // 인라인 스타일 직접 포함
-      })
-      .run();
+    // AI 텍스트 삽입을 위한 트랜잭션 생성 (메타데이터 포함)
+    const tr = editor.state.tr
+    tr.setMeta('aiTextInsert', true)
+    
+    // 텍스트 삽입
+    tr.insertText(inserted, to)
+    
+    // AI 하이라이트 마크 적용
+    const aiHighlightMark = editor.schema.marks.aiHighlight.create({
+      requestId: finalRequestId,
+      category,
+      dataOriginal: inserted,
+      editRatio: '0',
+      style: `background-color: ${backgroundColor};`
+    })
+    
+    tr.addMark(to, to + inserted.length, aiHighlightMark)
+    
+    // 트랜잭션 실행
+    editor.view.dispatch(tr)
 
     // DOM 속성 설정 (히스토리에 영향을 주지 않음)
     setTimeout(() => {

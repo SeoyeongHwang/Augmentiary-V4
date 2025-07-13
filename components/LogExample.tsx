@@ -73,7 +73,7 @@ export function LogExample() {
     if (text !== newText) {
       // 간단한 수정 감지 (실제로는 더 정교한 diff 알고리즘 사용)
       if (newText.length > text.length) {
-        logAsync(ActionType.EDIT_MANUAL_TEXT, { 
+        logAsync(ActionType.EDIT_USER_TEXT, { 
           originalText: text, 
           newText 
         }, 'example-entry-id')

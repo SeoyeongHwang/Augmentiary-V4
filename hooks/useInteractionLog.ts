@@ -75,7 +75,7 @@ export function useInteractionLog() {
    * AI 텍스트 삽입 로그
    */
   const logAITextInsert = useCallback((entryId: string, selectedOption: any) => {
-    logAsync(ActionType.INSERT_AI_TEXT, { 
+    logAsync(ActionType.SELECT_AI_TEXT, { 
       selectedOption
     }, entryId)
   }, [logAsync])
@@ -141,6 +141,43 @@ export function useInteractionLog() {
     }, entryId)
   }, [logAsync])
 
+  /**
+   * 텍스트 편집 로그 (수동 편집)
+   */
+  const logTextEdit = useCallback((entryId: string, editData: {
+    changeType: 'insert' | 'delete' | 'replace' | 'format'
+    position: number
+    oldText: string
+    newText: string
+    oldLength: number
+    newLength: number
+    wordCountBefore: number
+    wordCountAfter: number
+    characterCountBefore: number
+    characterCountAfter: number
+  }) => {
+    logAsync(ActionType.EDIT_USER_TEXT, editData, entryId)
+  }, [logAsync])
+
+  /**
+   * 텍스트 선택 로그
+   */
+  const logTextSelection = useCallback((entryId: string, selectionData: {
+    from: number
+    to: number
+    selectedText: string
+    selectionLength: number
+  }) => {
+    logAsync(ActionType.SELECT_TEXT, selectionData, entryId)
+  }, [logAsync])
+
+  /**
+   * 텍스트 선택 해제 로그
+   */
+  const logTextDeselection = useCallback((entryId: string) => {
+    logAsync(ActionType.DESELECT_TEXT, undefined, entryId)
+  }, [logAsync])
+
   return {
     // 기본 로그 함수들
     logAsync,
@@ -160,6 +197,11 @@ export function useInteractionLog() {
     logRequestRecord,
     logReceiveRecord,
     logCheckRecord,
+    
+    // 텍스트 편집 로그 함수들
+    logTextEdit,
+    logTextSelection,
+    logTextDeselection,
     
     // 사용자 정보 확인
     canLog: !!user?.participant_code
