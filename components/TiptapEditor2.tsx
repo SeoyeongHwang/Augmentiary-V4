@@ -64,7 +64,7 @@ export default function Editor({
     canLog 
   } = useInteractionLog()
 
-  // 세션 정보 가져오기
+  // 세션 정보 이어쓰기
   const { user } = useSession()
 
   // 변화 감지용 ref (필요한 것만 유지)
@@ -619,7 +619,7 @@ export default function Editor({
     
   })
 
-  // 사용자 프로필 가져오기 - 서버사이드 API 사용 대신 useSession의 user 데이터 활용
+  // 사용자 프로필 이어쓰기 - 서버사이드 API 사용 대신 useSession의 user 데이터 활용
   useEffect(() => {
     // user 객체에 profile이 있으면 사용, 없으면 빈 문자열
     if (user?.profile) {
@@ -712,7 +712,9 @@ export default function Editor({
     }
   }, [experienceButtonLoading, editor, user, canLog, entryId, logRequestRecord, logReceiveRecord])
 
-  // 원본 일기 가져오기 함수
+
+
+  // 원본 일기 이어쓰기 함수
   const handleViewOriginalEntry = useCallback(async (originalEntryId: string) => {
     if (!user || !user.participant_code) {
       setOriginalEntryModal({
@@ -735,7 +737,7 @@ export default function Editor({
     })
 
     try {
-      // localStorage에서 세션 정보 가져오기
+      // localStorage에서 세션 정보 이어쓰기
       const sessionData = localStorage.getItem('supabase_session')
       if (!sessionData) {
         throw new Error('세션 정보가 없습니다. 다시 로그인해주세요.')
@@ -1122,7 +1124,7 @@ export default function Editor({
       logAITextInsert(entryId, selectedOption || inserted);
     }
 
-    // 현재 선택된 색상 가져오기
+    // 현재 선택된 색상 이어쓰기
     const currentBgColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg').trim() || 'rgba(207, 255, 204, 1)'
     const editRatio = 0 // 새로 삽입된 텍스트는 수정되지 않음
     const opacity = Math.max(0, 1 - editRatio)
@@ -1180,6 +1182,37 @@ export default function Editor({
     }]);
     setAugmentOptions(null);
   };
+
+  // 경험 찾기 결과를 본문에 추가하는 함수
+  const handleAddExperience = useCallback((experience: any) => {
+    if (!editor) return;
+    
+    // 에디터의 현재 커서 위치 또는 마지막 위치에 텍스트 추가
+    const { to } = editor.state.selection;
+    const textToInsert = experience.description || '';
+    
+    if (!textToInsert.trim()) return;
+    
+    // AI 텍스트 삽입 로그 (경험 찾기 결과 추가)
+    if (canLog && entryId) {
+      logAITextInsert(entryId, {
+        type: 'experience_addition',
+        strategy: experience.strategy,
+        description: textToInsert,
+        originalEntryId: experience.id
+      });
+    }
+    
+    // applyAugmentation 함수 재사용하여 텍스트 추가
+    applyAugmentation(textToInsert, {
+      type: 'experience_addition',
+      strategy: experience.strategy,
+      description: textToInsert
+    });
+    
+    // 경험 찾기 결과 패널 닫기 (옵션)
+    // setExperienceVisible(false);
+  }, [editor, canLog, entryId, logAITextInsert, applyAugmentation]);
 
   // 로깅 시스템 검증을 위한 디버깅 함수
   const debugLoggingState = useCallback(() => {
@@ -1253,7 +1286,7 @@ export default function Editor({
 
   return (
     <div className="flex flex-col lg:flex-row h-auto lg:h-full w-full overflow-visible lg:overflow-hidden lg:justify-center bg-[#faf9f5] px-6 gap-4">
-      {/* 왼쪽 패널: 경험 떠올리기 결과 */}
+      {/* 왼쪽 패널: 경험 찾기 결과 */}
       <div className={`flex-1 max-w-full lg:max-w-sm min-w-0 flex flex-col h-fit pb-4 overflow-visible order-2 lg:order-1 ${
         experienceOptions && experienceVisible && !experienceCollapsed ? 'lg:h-full lg:overflow-hidden' : 'lg:overflow-visible'
       }`}>
@@ -1299,7 +1332,7 @@ export default function Editor({
               experienceCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
             }`}>
               <div className="text-stone-500 text-sm my-3">
-                어떤 순간들이 지금과 맞닿아 있는지 살펴보세요.<br/>
+                어떤 순간과 맞닿아 있는지 살펴보세요.<br/>자신의 마음과 각 내용을 비교해 보고, 마음에 드는 것이 있다면 선택해서 생각을 이어 나갈 수 있습니다.
               </div>
               {experienceOptions && experienceOptions.experiences && experienceOptions.experiences.length > 0 ? (
                 experienceOptions.experiences.map((experience: any, index: number) => (
@@ -1330,13 +1363,14 @@ export default function Editor({
                       </div>
                     )} */}
                     
+          
                     {/* 원본 보기 버튼 - 과거 맥락 카드가 아닌 경우에만 표시 */}
                     {!experience.isPastContext && (
                       <button
                         onClick={() => {
                           handleViewOriginalEntry(experience.id)
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2 mt-3 bg-gray-50 hover:bg-gray-100 border border-stone-300 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                        className={`w-full flex items-center justify-between px-3 py-2 mt-2 bg-gray-50 hover:bg-gray-100 border border-stone-300 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
                         disabled={experienceButtonLoading || bubbleMenuLoading}
                       >
                         <span className="text-sm font-medium text-gray-700 truncate">
@@ -1345,6 +1379,21 @@ export default function Editor({
                         <ExternalLink className="w-4 h-4 text-gray-500 flex-shrink-0 ml-2" />
                       </button>
                     )}
+
+                    {/* 이어쓰기 버튼 */}
+                    <button
+                      onClick={() => {
+                        handleAddExperience(experience)
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 mt-2 bg-green-50 hover:bg-green-100 border border-green-300 hover:border-green-400 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                      disabled={experienceButtonLoading || bubbleMenuLoading}
+                    >
+                      <span className="text-sm font-medium text-green-700">
+                        이어쓰기
+                      </span>
+                      <PlusIcon className="w-4 h-4 text-green-700 ml-2" />
+                    </button>
+                    
                   </div>
                 ))
               ) : (
@@ -1518,7 +1567,7 @@ export default function Editor({
         </div>
       </div>
       </div>
-      {/* 오른쪽 패널: 의미찾기 결과 */}
+      {/* 오른쪽 패널: 의미 만들기 결과 */}
       <aside className={`flex-1 max-w-full lg:max-w-sm min-w-0 flex flex-col h-fit px-0 pb-4 overflow-visible order-3 lg:order-3 ${
         (bubbleMenuOptions || augmentOptions) && augmentVisible && !augmentCollapsed ? 'lg:h-full lg:overflow-hidden' : 'lg:overflow-visible'
       }`}>
@@ -1581,11 +1630,9 @@ export default function Editor({
                   ];
                   
                   return optionsArray.map((option) => (
-                    <button
+                    <div
                       key={option.index}
-                      onClick={() => applyAugmentation(option.text, option)}
-                      className={`w-full text-left bg-white border border-stone-300 rounded-lg p-4 mb-2 hover:bg-stone-50 transition ${(bubbleMenuLoading || experienceButtonLoading) ? 'pointer-events-none' : ''}`}
-                      disabled={bubbleMenuLoading || experienceButtonLoading}
+                      className="w-full bg-white border border-stone-300 rounded-lg p-4 mb-2"
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <span className="font-bold text-l text-gray-900">{option.title || `생각 ${option.index + 1}`}</span>
@@ -1595,10 +1642,22 @@ export default function Editor({
                           {option.strategy}
                         </div>
                       )} */}
-                      <div className="text-gray-800 text-[15px] leading-relaxed">
+                      <div className="text-gray-800 text-[15px] leading-relaxed mb-3">
                         {option.text}
                       </div>
-                    </button>
+                      
+                      {/* 이어쓰기 버튼 */}
+                      <button
+                        onClick={() => applyAugmentation(option.text, option)}
+                        className={`w-full flex items-center justify-between px-3 py-2 mt-2 bg-green-50 hover:bg-green-100 border border-green-300 hover:border-green-400 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                        disabled={experienceButtonLoading || bubbleMenuLoading}
+                      >
+                        <span className="text-sm font-medium text-green-700">
+                          이어쓰기
+                        </span>
+                        <PlusIcon className="w-4 h-4 text-green-700 ml-2" />
+                      </button>
+                    </div>
                   ));
                 })()}
               </div>
