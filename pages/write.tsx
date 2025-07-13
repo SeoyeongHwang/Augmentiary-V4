@@ -286,10 +286,10 @@ export default function Write() {
           <h1 className="text-lg font-semibold text-gray-900"> </h1>
           <Button
             onClick={handleSave}
-            className="px-6 py-2"
+            className="px-6 py-2 bg-stone-700 text-white hover:bg-stone-800"
             disabled={!entryId}
           >
-            저장
+            저장하기
           </Button>
         </div>
       </header>

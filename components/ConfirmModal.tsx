@@ -70,7 +70,7 @@ export default function ConfirmModal({
                 <div className="mt-6 flex space-x-3">
                   <Button
                     onClick={onCancel}
-                    className="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    className="flex-1 bg-stone-300 text-stone-700 hover:bg-stone-400"
                   >
                     {cancelText}
                   </Button>

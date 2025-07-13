@@ -42,11 +42,11 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
   }
 
   const questions = [
-    { id: 'q1', label: '시스템과 상호작용하는 동안 내 행동의 주체는 나였습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
-    { id: 'q2', label: '글을 쓰는 동안 텍스트를 통제하고 있다는 느낌이 들었습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
-    { id: 'q3', label: '(일기에서 주로 묘사된) 이 경험을 이해하게 되었습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
-    { id: 'q4', label: 'AI로 생성된 텍스트가 마치 나를 위해 특별히 작성된 것처럼 느껴졌습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
-    { id: 'q5', label: 'AI로 생성된 텍스트가 의미나 통찰을 찾는 데 도움이 되었다고 느꼈습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' }
+    { id: 'q1', label: 'Q1. 시스템과 상호작용하는 동안 내 행동의 주체는 나였습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
+    { id: 'q2', label: 'Q2. 글을 쓰는 동안 텍스트를 통제하고 있다는 느낌이 들었습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
+    { id: 'q3', label: 'Q3. (일기에서 주로 묘사된) 이 경험을 이해하게 되었습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
+    { id: 'q4', label: 'Q4. AI로 생성된 텍스트가 마치 나를 위해 특별히 작성된 것처럼 느껴졌습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
+    { id: 'q5', label: 'Q5. AI로 생성된 텍스트가 의미나 통찰을 찾는 데 도움이 되었다고 느꼈습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' }
   ]
 
   return (
@@ -58,21 +58,21 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
       />
       
       {/* 모달 내용 */}
-      <div className="relative w-full max-w-md h-[70vh] flex flex-col">
+      <div className="relative max-w-lg h-[80vh] flex flex-col">
         <Card className="flex flex-col p-0 h-full">
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">연구 참여 동의</h2>
-              <p className="text-sm text-gray-600">이 일기를 연구 목적으로 사용해도 괜찮으신가요?</p>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">저장하기</h2>
+              <p className="text-sm text-gray-600">작성해주신 글을 데이터 분석에 활용해도 괜찮으신가요?<br/>(통계적 패턴 분석 목적)</p>
             </div>
 
             {/* 동의 토글 */}
             <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-gray-700">결과 분석에 이 일기를 사용하는 것에 동의합니다</span>
+              <span className="text-sm font-bold text-gray-700">데이터 분석에 이 글을 사용하는 것에 동의합니다</span>
               <button
                 onClick={() => setFormData(prev => ({ ...prev, consent: !prev.consent }))}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  formData.consent ? 'bg-blue-600' : 'bg-gray-200'
+                  formData.consent ? 'bg-emerald-500' : 'bg-gray-200'
                 }`}
               >
                 <span
@@ -82,9 +82,12 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
                 />
               </button>
             </div>
-
+            
+            <hr className="my-4" />
             {/* 질문들 */}
             <div className="space-y-4">
+              <p className="text-sm text-gray-600">작성 과정을 떠올리며 해당하는 정도를 선택해주세요.</p>
+
               {questions.map((question) => (
                 <div key={question.id} className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">
@@ -100,12 +103,14 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
                         ...prev,
                         [question.id]: parseInt(e.target.value)
                       }))}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider accent-emerald-400"
                     />
                     <div className="flex justify-between text-xs text-gray-500">
                       <span>{question.min}</span>
-                      <span className="font-bold">{formData[question.id as keyof ESMData]}</span>
                       <span>{question.max}</span>
+                    </div>
+                    <div className="w-full flex justify-center">
+                      <span className="font-bold text-emerald-600">{formData[question.id as keyof ESMData]}</span>
                     </div>
                   </div>
                 </div>
@@ -114,17 +119,17 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
 
           </div>
           {/* 고정된 버튼 영역 */}
-          <div className="flex-shrink-0 p-6 pt-4 border-t border-gray-200 bg-white">
+          <div className="flex-shrink-0 pt-4 border-t border-gray-200 bg-white">
             <div className="flex space-x-3">
               <Button
                 onClick={onClose}
-                className="flex-1 bg-gray-200 text-gray-700 hover:bg-gray-300"
+                className="flex-1 bg-stone-300 text-stone-700 hover:bg-stone-400"
               >
                 취소
               </Button>
               <Button
                 onClick={handleSubmit}
-                className="flex-1"
+                className="flex-1 bg-stone-700 text-white hover:bg-stone-800"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? '저장 중...' : '저장하고 완료하기'}

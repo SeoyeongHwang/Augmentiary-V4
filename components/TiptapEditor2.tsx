@@ -1365,7 +1365,7 @@ export default function Editor({
           <CircleIconButton 
             onClick={() => editor?.chain().focus().undo().run()} 
             aria-label="되돌리기" 
-            className={`${loading || bubbleMenuLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+            className={`${loading || bubbleMenuLoading ? 'opacity-60 cursor-not-allowed' : ''} hover:bg-stone-200`}
             title="되돌리기 (Ctrl+Z)"
           >
             <ArrowUturnLeftIcon className="h-5 w-5 text-gray-700" />
@@ -1373,14 +1373,14 @@ export default function Editor({
           <CircleIconButton 
             onClick={() => editor?.chain().focus().redo().run()} 
             aria-label="다시하기" 
-            className={`${loading || bubbleMenuLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+            className={`${loading || bubbleMenuLoading ? 'opacity-60 cursor-not-allowed' : ''} hover:bg-stone-200`}
             title="다시하기 (Ctrl+Y)"
           >
             <ArrowUturnRightIcon className="h-5 w-5 text-gray-700" />
           </CircleIconButton>
 
           <div className="relative" onMouseEnter={() => setFontMenuOpen(true)} onMouseLeave={() => setFontMenuOpen(false)}>
-            <CircleIconButton aria-label="글자 크기 조절" title="글자 크기 조절">
+            <CircleIconButton aria-label="글자 크기 조절" title="글자 크기 조절" className="hover:bg-stone-200">
               <span className="font-normal font-sans" style={{ fontSize: '1.25rem' }}>T</span>
             </CircleIconButton>
                                         {fontMenuOpen && (
@@ -1407,7 +1407,7 @@ export default function Editor({
           </div>
           
           <div className="relative" onMouseEnter={() => setColorMenuOpen(true)} onMouseLeave={() => setColorMenuOpen(false)}>
-            <CircleIconButton aria-label="AI 하이라이트 색상 조절" title="AI 하이라이트 색상 조절">
+            <CircleIconButton aria-label="AI 하이라이트 색상 조절" title="AI 하이라이트 색상 조절" className="hover:bg-stone-200">
               <SparklesIcon className="h-5 w-5 text-stone-700" />
             </CircleIconButton>
             {colorMenuOpen && (
