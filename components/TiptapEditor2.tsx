@@ -64,7 +64,7 @@ export default function Editor({
     canLog 
   } = useInteractionLog()
 
-  // 세션 정보 가져오기
+  // 세션 정보 이어쓰기
   const { user } = useSession()
 
   // 변화 감지용 ref (필요한 것만 유지)
@@ -547,6 +547,10 @@ export default function Editor({
   const [experienceCollapsed, setExperienceCollapsed] = useState(false);
   const [augmentCollapsed, setAugmentCollapsed] = useState(false);
   
+  // 개별 카드 접기/펼치기 상태
+  const [experienceCardCollapsed, setExperienceCardCollapsed] = useState<{[key: string]: boolean}>({});
+  const [augmentCardCollapsed, setAugmentCardCollapsed] = useState<{[key: string]: boolean}>({});
+  
   // 원본 일기 모달 상태
   const [originalEntryModal, setOriginalEntryModal] = useState({
     isOpen: false,
@@ -619,7 +623,7 @@ export default function Editor({
     
   })
 
-  // 사용자 프로필 가져오기 - 서버사이드 API 사용 대신 useSession의 user 데이터 활용
+  // 사용자 프로필 이어쓰기 - 서버사이드 API 사용 대신 useSession의 user 데이터 활용
   useEffect(() => {
     // user 객체에 profile이 있으면 사용, 없으면 빈 문자열
     if (user?.profile) {
@@ -712,7 +716,9 @@ export default function Editor({
     }
   }, [experienceButtonLoading, editor, user, canLog, entryId, logRequestRecord, logReceiveRecord])
 
-  // 원본 일기 가져오기 함수
+
+
+  // 원본 일기 이어쓰기 함수
   const handleViewOriginalEntry = useCallback(async (originalEntryId: string) => {
     if (!user || !user.participant_code) {
       setOriginalEntryModal({
@@ -735,7 +741,7 @@ export default function Editor({
     })
 
     try {
-      // localStorage에서 세션 정보 가져오기
+      // localStorage에서 세션 정보 이어쓰기
       const sessionData = localStorage.getItem('supabase_session')
       if (!sessionData) {
         throw new Error('세션 정보가 없습니다. 다시 로그인해주세요.')
@@ -1122,7 +1128,7 @@ export default function Editor({
       logAITextInsert(entryId, selectedOption || inserted);
     }
 
-    // 현재 선택된 색상 가져오기
+    // 현재 선택된 색상 이어쓰기
     const currentBgColor = getComputedStyle(document.documentElement).getPropertyValue('--ai-highlight-bg').trim() || 'rgba(207, 255, 204, 1)'
     const editRatio = 0 // 새로 삽입된 텍스트는 수정되지 않음
     const opacity = Math.max(0, 1 - editRatio)
@@ -1181,6 +1187,37 @@ export default function Editor({
     setAugmentOptions(null);
   };
 
+  // 경험 찾기 결과를 본문에 추가하는 함수
+  const handleAddExperience = useCallback((experience: any) => {
+    if (!editor) return;
+    
+    // 에디터의 현재 커서 위치 또는 마지막 위치에 텍스트 추가
+    const { to } = editor.state.selection;
+    const textToInsert = experience.description || '';
+    
+    if (!textToInsert.trim()) return;
+    
+    // AI 텍스트 삽입 로그 (경험 찾기 결과 추가)
+    if (canLog && entryId) {
+      logAITextInsert(entryId, {
+        type: 'experience_addition',
+        strategy: experience.strategy,
+        description: textToInsert,
+        originalEntryId: experience.id
+      });
+    }
+    
+    // applyAugmentation 함수 재사용하여 텍스트 추가
+    applyAugmentation(textToInsert, {
+      type: 'experience_addition',
+      strategy: experience.strategy,
+      description: textToInsert
+    });
+    
+    // 경험 찾기 결과 패널 닫기 (옵션)
+    // setExperienceVisible(false);
+  }, [editor, canLog, entryId, logAITextInsert, applyAugmentation]);
+
   // 로깅 시스템 검증을 위한 디버깅 함수
   const debugLoggingState = useCallback(() => {
     if (!editor) return
@@ -1233,12 +1270,16 @@ export default function Editor({
   useEffect(() => {
     if (bubbleMenuOptions || augmentOptions) {
       setAugmentVisible(true);
+      // 새로운 의미 만들기 응답이 올 때마다 모든 카드를 접힌 상태로 초기화
+      setAugmentCardCollapsed({});
     }
   }, [bubbleMenuOptions, augmentOptions]);
 
   useEffect(() => {
     if (experienceOptions) {
       setExperienceVisible(true);
+      // 새로운 경험 응답이 올 때마다 모든 카드를 접힌 상태로 초기화
+      setExperienceCardCollapsed({});
     }
   }, [experienceOptions]);
 
@@ -1253,7 +1294,7 @@ export default function Editor({
 
   return (
     <div className="flex flex-col lg:flex-row h-auto lg:h-full w-full overflow-visible lg:overflow-hidden lg:justify-center bg-[#faf9f5] px-6 gap-4">
-      {/* 왼쪽 패널: 경험 떠올리기 결과 */}
+      {/* 왼쪽 패널: 경험 찾기 결과 */}
       <div className={`flex-1 max-w-full lg:max-w-sm min-w-0 flex flex-col h-fit pb-4 overflow-visible order-2 lg:order-1 ${
         experienceOptions && experienceVisible && !experienceCollapsed ? 'lg:h-full lg:overflow-hidden' : 'lg:overflow-visible'
       }`}>
@@ -1299,54 +1340,92 @@ export default function Editor({
               experienceCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
             }`}>
               <div className="text-stone-500 text-sm my-3">
-                어떤 순간들이 지금과 맞닿아 있는지 살펴보세요.<br/>
+                어떤 순간과 맞닿아 있는지 살펴보세요.<br/>자신의 마음과 각 내용을 비교해 보고, 마음에 드는 것이 있다면 선택해서 생각을 이어 나갈 수 있습니다.
               </div>
               {experienceOptions && experienceOptions.experiences && experienceOptions.experiences.length > 0 ? (
-                experienceOptions.experiences.map((experience: any, index: number) => (
-                  <div
-                    key={experience.id || index}
-                    className="w-full bg-white border border-stone-200 rounded-lg p-4 mb-2"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-bold text-l text-gray-900">{experience.strategy || '이전 경험 떠올려보기'}</span>
-                    </div>
-                    <div className="text-gray-800 text-[15px] leading-relaxed mb-3">
-                      {experience.description || '관련된 과거 기록이 있습니다.'}
-                    </div>
-                    
-                    {/* 내면 상태와 인사이트 요약 */}
-                    {/* {(experience.sum_innerstate || experience.sum_insight) && (
-                      <div className="space-y-1">
-                        {experience.sum_innerstate && (
-                          <div className="text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded">
-                            💭 {experience.sum_innerstate.substring(0, 50)}{experience.sum_innerstate.length > 50 ? '...' : ''}
-                          </div>
-                        )}
-                        {experience.sum_insight && (
-                          <div className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
-                            💡 {experience.sum_insight.substring(0, 50)}{experience.sum_insight.length > 50 ? '...' : ''}
-                          </div>
-                        )}
+                experienceOptions.experiences.map((experience: any, index: number) => {
+                  const cardId = `experience-${experience.id || index}`;
+                  const isCardCollapsed = experienceCardCollapsed[cardId] ?? true;
+                  
+                  return (
+                    <div
+                      key={experience.id || index}
+                      className="w-full bg-white border border-stone-200 rounded-lg p-4 mb-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <button 
+                          className="p-1 hover:bg-stone-100 rounded transition-colors flex items-center justify-center"
+                          onClick={() => setExperienceCardCollapsed(prev => ({
+                            ...prev,
+                            [cardId]: !prev[cardId]
+                          }))}
+                          title={isCardCollapsed ? "펼치기" : "접기"}
+                        >
+                          {isCardCollapsed ? (
+                            <ChevronDown className="w-4 h-4 text-gray-500" />
+                          ) : (
+                            <ChevronUp className="w-4 h-4 text-gray-500" />
+                          )}
+                        </button>
+                        <span className="font-bold text-l text-gray-900">{experience.strategy || '이전 경험 떠올려보기'}</span>
                       </div>
-                    )} */}
+                      <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                        isCardCollapsed ? 'max-h-0 opacity-0' : 'max-h-[1000px] opacity-100'
+                      }`}>
+                        <div className="text-gray-800 text-[15px] leading-relaxed my-3">
+                          {experience.description || '관련된 과거 기록이 있습니다.'}
+                        </div>
                     
-                    {/* 원본 보기 버튼 - 과거 맥락 카드가 아닌 경우에만 표시 */}
-                    {!experience.isPastContext && (
-                      <button
-                        onClick={() => {
-                          handleViewOriginalEntry(experience.id)
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 mt-3 bg-gray-50 hover:bg-gray-100 border border-stone-300 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
-                        disabled={experienceButtonLoading || bubbleMenuLoading}
-                      >
-                        <span className="text-sm font-medium text-gray-700 truncate">
-                          &lt;{experience.title || '무제'}&gt; 보기
-                        </span>
-                        <ExternalLink className="w-4 h-4 text-gray-500 flex-shrink-0 ml-2" />
-                      </button>
-                    )}
-                  </div>
-                ))
+                        {/* 내면 상태와 인사이트 요약 */}
+                        {/* {(experience.sum_innerstate || experience.sum_insight) && (
+                          <div className="space-y-1">
+                            {experience.sum_innerstate && (
+                              <div className="text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded">
+                                💭 {experience.sum_innerstate.substring(0, 50)}{experience.sum_innerstate.length > 50 ? '...' : ''}
+                              </div>
+                            )}
+                            {experience.sum_insight && (
+                              <div className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
+                                💡 {experience.sum_insight.substring(0, 50)}{experience.sum_insight.length > 50 ? '...' : ''}
+                              </div>
+                            )}
+                          </div>
+                        )} */}
+                        
+              
+                        {/* 원본 보기 버튼 - 과거 맥락 카드가 아닌 경우에만 표시 */}
+                        {!experience.isPastContext && (
+                          <button
+                            onClick={() => {
+                              handleViewOriginalEntry(experience.id)
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 mt-2 bg-gray-50 hover:bg-gray-100 border border-stone-300 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                            disabled={experienceButtonLoading || bubbleMenuLoading}
+                          >
+                            <span className="text-sm font-medium text-gray-700 truncate">
+                              &lt;{experience.title || '무제'}&gt; 보기
+                            </span>
+                            <ExternalLink className="w-4 h-4 text-gray-500 flex-shrink-0 ml-2" />
+                          </button>
+                        )}
+
+                        {/* 이어쓰기 버튼 */}
+                        <button
+                          onClick={() => {
+                            handleAddExperience(experience)
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 mt-2 bg-green-50 hover:bg-green-100 border border-green-300 hover:border-green-400 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                          disabled={experienceButtonLoading || bubbleMenuLoading}
+                        >
+                          <span className="text-sm font-medium text-green-700">
+                            이어쓰기
+                          </span>
+                          <PlusIcon className="w-4 h-4 text-green-700 ml-2" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
                 <div className="text-stone-400 text-sm text-center py-4">
                   연관된 이전 기록이 없습니다
@@ -1365,7 +1444,7 @@ export default function Editor({
           <CircleIconButton 
             onClick={() => editor?.chain().focus().undo().run()} 
             aria-label="되돌리기" 
-            className={`${loading || bubbleMenuLoading ? 'opacity-60 cursor-not-allowed' : ''} hover:bg-stone-200`}
+            className={`${loading || bubbleMenuLoading ? 'opacity-60 cursor-not-allowed' : ''} hover:bg-stone-200 hover:border-stone-400 hover:border`}
             title="되돌리기 (Ctrl+Z)"
           >
             <ArrowUturnLeftIcon className="h-5 w-5 text-gray-700" />
@@ -1373,14 +1452,14 @@ export default function Editor({
           <CircleIconButton 
             onClick={() => editor?.chain().focus().redo().run()} 
             aria-label="다시하기" 
-            className={`${loading || bubbleMenuLoading ? 'opacity-60 cursor-not-allowed' : ''} hover:bg-stone-200`}
+            className={`${loading || bubbleMenuLoading ? 'opacity-60 cursor-not-allowed' : ''} hover:bg-stone-200 hover:border-stone-400 hover:border`}
             title="다시하기 (Ctrl+Y)"
           >
             <ArrowUturnRightIcon className="h-5 w-5 text-gray-700" />
           </CircleIconButton>
 
           <div className="relative" onMouseEnter={() => setFontMenuOpen(true)} onMouseLeave={() => setFontMenuOpen(false)}>
-            <CircleIconButton aria-label="글자 크기 조절" title="글자 크기 조절" className="hover:bg-stone-200">
+            <CircleIconButton aria-label="글자 크기 조절" title="글자 크기 조절" className="hover:bg-stone-200 hover:border-stone-400 hover:border">
               <span className="font-normal font-sans" style={{ fontSize: '1.25rem' }}>T</span>
             </CircleIconButton>
                                         {fontMenuOpen && (
@@ -1394,7 +1473,7 @@ export default function Editor({
                             applyFontSize(size)
                             setFontMenuOpen(false)
                         }}
-                          className="px-3 py-1.5 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 flex items-center gap-2 rounded"
+                          className="px-3 py-1.5 hover:bg-stone-100 transition-colors text-sm font-medium text-gray-700 flex items-center gap-2 rounded"
                         >
                           <span className="font-normal font-sans" style={{ fontSize: size === 'small' ? '0.75rem' : size === 'normal' ? '1rem' : size === 'large' ? '1.25rem' : '1.5rem' }}>T</span>
                           <span className="capitalize">{size}</span>
@@ -1407,7 +1486,7 @@ export default function Editor({
           </div>
           
           <div className="relative" onMouseEnter={() => setColorMenuOpen(true)} onMouseLeave={() => setColorMenuOpen(false)}>
-            <CircleIconButton aria-label="AI 하이라이트 색상 조절" title="AI 하이라이트 색상 조절" className="hover:bg-stone-200">
+            <CircleIconButton aria-label="AI 하이라이트 색상 조절" title="AI 하이라이트 색상 조절" className="hover:bg-stone-200 hover:border-stone-400 hover:border">
               <SparklesIcon className="h-5 w-5 text-stone-700" />
             </CircleIconButton>
             {colorMenuOpen && (
@@ -1421,7 +1500,7 @@ export default function Editor({
                           applyHighlightColor(color.name)
                           setColorMenuOpen(false)
                         }}
-                        className="px-3 py-1.5 hover:bg-stone-50 transition-colors text-sm font-medium text-stone-700 flex items-center gap-2 rounded"
+                        className="px-3 py-1.5 hover:bg-stone-100 transition-colors text-sm font-medium text-stone-700 flex items-center gap-2 rounded"
                       >
                         <div 
                           className="w-4 h-4 rounded-full" 
@@ -1518,7 +1597,7 @@ export default function Editor({
         </div>
       </div>
       </div>
-      {/* 오른쪽 패널: 의미찾기 결과 */}
+      {/* 오른쪽 패널: 의미 만들기 결과 */}
       <aside className={`flex-1 max-w-full lg:max-w-sm min-w-0 flex flex-col h-fit px-0 pb-4 overflow-visible order-3 lg:order-3 ${
         (bubbleMenuOptions || augmentOptions) && augmentVisible && !augmentCollapsed ? 'lg:h-full lg:overflow-hidden' : 'lg:overflow-visible'
       }`}>
@@ -1580,26 +1659,59 @@ export default function Editor({
                     { ...options.option3, index: 2 }
                   ];
                   
-                  return optionsArray.map((option) => (
-                    <button
-                      key={option.index}
-                      onClick={() => applyAugmentation(option.text, option)}
-                      className={`w-full text-left bg-white border border-stone-300 rounded-lg p-4 mb-2 hover:bg-stone-50 transition ${(bubbleMenuLoading || experienceButtonLoading) ? 'pointer-events-none' : ''}`}
-                      disabled={bubbleMenuLoading || experienceButtonLoading}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-bold text-l text-gray-900">{option.title || `생각 ${option.index + 1}`}</span>
-                      </div>
-                      {/* {option.strategy && (
-                        <div className="text-gray-500 text-xs mb-2 italic">
-                          {option.strategy}
+                  return optionsArray.map((option) => {
+                    const cardId = `augment-${option.index}`;
+                    const isCardCollapsed = augmentCardCollapsed[cardId] ?? true;
+                    
+                    return (
+                      <div
+                        key={option.index}
+                        className="w-full bg-white border border-stone-300 rounded-lg p-4 mb-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <button 
+                            className="p-1 hover:bg-stone-100 rounded transition-colors flex items-center justify-center"
+                            onClick={() => setAugmentCardCollapsed(prev => ({
+                              ...prev,
+                              [cardId]: !prev[cardId]
+                            }))}
+                            title={isCardCollapsed ? "펼치기" : "접기"}
+                          >
+                            {isCardCollapsed ? (
+                              <ChevronDown className="w-4 h-4 text-gray-500" />
+                            ) : (
+                              <ChevronUp className="w-4 h-4 text-gray-500" />
+                            )}
+                          </button>
+                          <span className="font-bold text-l text-gray-900">{option.title || `생각 ${option.index + 1}`}</span>
                         </div>
-                      )} */}
-                      <div className="text-gray-800 text-[15px] leading-relaxed">
-                        {option.text}
+                        <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                          isCardCollapsed ? 'max-h-0 opacity-0' : 'max-h-[1000px] opacity-100'
+                        }`}>
+                          {/* {option.strategy && (
+                            <div className="text-gray-500 text-xs mb-2 italic">
+                              {option.strategy}
+                            </div>
+                          )} */}
+                          <div className="text-gray-800 text-[15px] leading-relaxed my-3">
+                            {option.text}
+                          </div>
+                          
+                          {/* 이어쓰기 버튼 */}
+                          <button
+                            onClick={() => applyAugmentation(option.text, option)}
+                            className={`w-full flex items-center justify-between px-3 py-2 mt-2 bg-green-50 hover:bg-green-100 border border-green-300 hover:border-green-400 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
+                            disabled={experienceButtonLoading || bubbleMenuLoading}
+                          >
+                            <span className="text-sm font-medium text-green-700">
+                              이어쓰기
+                            </span>
+                            <PlusIcon className="w-4 h-4 text-green-700 ml-2" />
+                          </button>
+                        </div>
                       </div>
-                    </button>
-                  ));
+                    );
+                  });
                 })()}
               </div>
             </div>

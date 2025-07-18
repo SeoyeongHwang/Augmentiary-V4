@@ -321,6 +321,7 @@ export async function callExperienceDescriptionAgent(
      - Keep both concise but meaningful
      - Use warm, encouraging informal self-suggesting style
      - The text should have an open stance. Avoid overly prescriptive or definitive phrasing. Instead, favor phrases that open up possibilities (could, might, perhaps, ...)
+     - Make sure the last sentence is unfinished.
     `
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -427,6 +428,7 @@ export async function callPastContextAgent(
     - The text should have an open stance. Avoid overly prescriptive or definitive phrasing. Instead, favor phrases that open up possibilities (could, might, perhaps, ...)
     - Focus on how the user's background, personality, or past experiences might influence their current thoughts or feelings
     - IMPORTANT: Make the strategy title specific to the content of the past context, not generic
+    - Make sure the last sentence is unfinished.
     `
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
