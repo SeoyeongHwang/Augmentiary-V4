@@ -146,63 +146,71 @@ export async function callInterpretiveAgent(
 
     
     const systemPrompt = `
-    You are a narrative meaning-making assistant and a personal writing assistant.
+    You are a narrative meaning-making assistant and personal writing assistant.
 
-Your task is to generate three different short reflective paragraph scaffolds that will be inserted at the end of the selected diary entry. You will use three different meaning-making approaches and selectively incorporate relevant personal resources to personalize and deepen the reflection.
+Your task is to generate three different short reflective paragraph scaffolds to be inserted at the end of a selected diary entry. The selected diary entry will end with the "<<INSERT HERE>>" marker, indicating exactly where your generated text should be placed.
 
 INPUT:
-<Selected Diary Entry>: The specific part that the user wants to interpret.
+<Selected Diary Entry>: The specific part the user wants to interpret.
 <Previous Context>: Diary entries up to the selected section.
-<Significance>: The significance of the selected entry. Shows how much reflective potential this passage holds.
-<Approaches>: Three different meaning-making approaches to apply, each for a different option.
-<Resource>: The user's profile information in JSON format (demographics, personality, value, past_context, current_context) that can be used for meaning-making.
+<Significance>: The significance level of the selected entry. Higher values mean greater reflective potential.
+<Approaches>: Three different meaning-making approaches to be applied, each for a different option.
+<Resource>: User's profile information in JSON format (demographics, personality, values, past_context, current_context) to use for meaning-making.
 
-For each approach, create a distinct perspective and interpretation. Select only relevant resources from these categories that meaningfully support each specific approach: demographics, personality, values, current_context, and future_ideal. Or if there is no reason to use resource, just empty array.
+**Resource Selection Guidelines:**
+- Select only relevant resources (strings from: demographics, personality, values, current_context, future_ideal) that meaningfully support each specific approach.
+- If there is no reason to use a resource, use an empty array.
 
-Guidelines:
-- Each option should offer a genuinely different perspective and interpretation approach.
-- Keep each text to 2-3 sentences with an open stance using possibility phrases (could, might, perhaps, etc.).
-- Write in first-person voice with fluent, natural Korean that maintains self-talking tone.
-- Avoid directly citing the meaning-making approach or user profile information.
+**Text Generation Guidelines:**
+- Each option must be based on a genuinely different interpretive approach and perspective.
+- Limit each text to 2-3 sentences. Use an open, first-person stance with possibility phrases (could, might, perhaps, etc.).
+- Write in fluent, natural Korean with a self-talking, first-person voice.
+- Do not directly cite the approach or user profile information.
 - Avoid generic sentences, clichés, and excessive commas.
-- End with a grammatically incomplete sentence that trails off mid-thought, requiring the reader to complete the idea (avoid ending complete thoughts with "...").
+- End each text with a grammatically incomplete sentence that trails off and invites the reader to complete the thought (do not simply use an ellipse).
+- Ensure each text connects smoothly from where the <<INSERT HERE>> marker appears.
 
-**Tone and depth by significance level:**
-- Low significance (1-2): Light tone, grounded in everyday observation, avoid heavy emotional language
-- Moderate significance (3): Balanced tone—thoughtful but not overly weighty  
-- High significance (4-5): Allow for more introspective or emotionally resonant insights
+**Tone and Depth by Significance:**
+- Low significance (1-2): Use a light tone, everyday observations, avoid heavy emotion.
+- Moderate significance (3): Use a balanced, thoughtful, but not heavy tone.
+- High significance (4-5): Allow for introspective or emotionally resonant insights.
 
-**Title requirements:**
-- Reflect specific aspects of the text, different for each option (e.g. "~하기", "~보기")
-- In front of the title, include matching thematic emoji (e.g. 🌱💭🔄💫🎯🪞✨🌅📝💪🤝😌🔍)
+**Title Requirements:**
+- Each option should have a short, unique title reflecting a specific aspect of the text, such as "~하기", "~보기".
+- Precede each title with a matching thematic emoji (e.g., 🌱💭🔄💫🏆🪞✨🌅📝💪🤝😌🔍).
 
-You must output your response in the following JSON format only:
+## Output Format
+You must provide your response as valid, strictly structured JSON. The output must contain three options with the following schema (use only double quotes, ensure all strings are properly escaped):
+
 {
   "option1": {
-    "approach": "<First approach name>",
-    "resource": [List of referenced resource categories],
-    "resource_usage": "<Brief explanation of why you used the resource to support the approach>",
-    "title": "<Short and concise title>", 
-    "text": "<Paragraph of interpretive text written according to the first meaning-making approach>"
+    "approach": "<First approach as provided from the Approaches input (string)>",
+    "resource": ["<String resource category>", ...],
+    "resource_usage": "<Brief explanation (string)>",
+    "title": "<Emoji + short title (string)>",
+    "text": "<Generated interpretive text (string)>"
   },
   "option2": {
-    "approach": "<Second approach name>",
-    "resource": [List of referenced resource categories],
-    "resource_usage": "<Brief explanation of why you used the resource to support the approach>",
-    "title": "<Short and concise title>", 
-    "text": "<Paragraph of interpretive text written according to the second meaning-making approach>"
+    "approach": "<Second approach as provided from the Approaches input (string)>",
+    "resource": ["<String resource category>", ...],
+    "resource_usage": "<Brief explanation (string)>",
+    "title": "<Emoji + short title (string)>",
+    "text": "<Generated interpretive text (string)>"
   },
   "option3": {
-    "approach": "<Third approach name>",
-    "resource": [List of referenced resource categories],
-    "resource_usage": "<Brief explanation of why you used the resource to support the approach>",
-    "title": "<Short and concise title>", 
-    "text": "<Paragraph of interpretive text written according to the third meaning-making approach>"
+    "approach": "<Third approach as provided from the Approaches input (string)>",
+    "resource": ["<String resource category>", ...],
+    "resource_usage": "<Brief explanation (string)>",
+    "title": "<Emoji + short title (string)>",
+    "text": "<Generated interpretive text (string)>"
   }
-}    
+}
+
+- The list assigned to each 'resource' field must contain only string values naming the referenced resource categories or be an empty array if no resource is used.
+- The 'approach' field must exactly match the corresponding string from the Approaches input.    
   `
     
-    const userMessage = `Selected Diary Entry: \n${selectedEntry}
+    const userMessage = `Selected Diary Entry: \n${selectedEntry}<<INSERT HERE>>
           \n\n
           Previous Context: \n${diaryEntry}
           \n\n
@@ -247,26 +255,48 @@ You must output your response in the following JSON format only:
         
         let jsonString = textResult.substring(jsonStart, jsonEnd + 1);
         
-        // JSON 문자열 정리 및 수정
-        let cleanedJson = jsonString.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-        
-        // 일반적인 JSON 오류 수정
-        cleanedJson = cleanedJson
-          // 마지막 쉼표 제거 (객체나 배열 끝에서)
+        // JSON 문자열 정리 및 수정 - 더 강력한 정리 로직
+        let cleanedJson = jsonString
+          // 개행 문자와 과도한 공백 정리
+          .replace(/\r?\n/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          // 잘못된 유니코드 따옴표를 표준 따옴표로 변경
+          .replace(/[""]/g, '"')
+          .replace(/['']/g, "'")
+          // 제어 문자 제거
+          .replace(/[\x00-\x1F\x7F]/g, ' ')
+          // 마지막 쉼표 제거
           .replace(/,(\s*[}\]])/g, '$1')
-          // 쌍따옴표 누락 수정 시도
-          .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
-          // 홀따옴표를 쌍따옴표로 변경
-          .replace(/'/g, '"');
+          // 누락된 쌍따옴표 추가 (속성명에만)
+          .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
         
-        // JSON이 완전하지 않은 경우 수정 시도
+        // JSON 완성도 확인 및 수정
         let finalJson = cleanedJson;
-        if (!cleanedJson.endsWith('}')) {
-          finalJson = cleanedJson.replace(/,\s*$/, '') + '}';
+        
+        // 중괄호 짝 맞추기
+        const openBraces = (finalJson.match(/{/g) || []).length;
+        const closeBraces = (finalJson.match(/}/g) || []).length;
+        if (openBraces > closeBraces) {
+          finalJson += '}';
         }
+        
+        // 따옴표 짝 맞추기 (간단한 방법)
+        const quotes = (finalJson.match(/"/g) || []).length;
+        if (quotes % 2 !== 0) {
+          finalJson = finalJson.replace(/,$/, '"');
+        }
+        
+        console.log('🔍 [INTERPRETIVE AGENT] Cleaned JSON:', finalJson.substring(0, 200) + '...');
         
         // JSON 파싱 시도
         const parsedResult = JSON.parse(finalJson);
+        
+        // 결과 검증
+        if (!parsedResult.option1 || !parsedResult.option2 || !parsedResult.option3) {
+          console.error('❌ [INTERPRETIVE AGENT] Missing required options in parsed result');
+          throw new Error('Missing required options');
+        }
         
         // AIAgentResult 형식으로 변환
         const result: AIAgentResult = {
@@ -302,134 +332,6 @@ You must output your response in the following JSON format only:
       }
   }
 
-export async function callConnectiveAgent(
-  aiAgentResult: AIAgentResult
-): Promise<AIAgentResult> {
-  const systemPrompt = `
-  You are an expert in narrative coaching and writing flow enhancement.
-
-For each text segment, add a natural and contextually appropriate causal expression at the end.
-Refer to the following conjunctions:
-- "왜냐하면..." (because...)
-- "그렇게 하려면..." (to do that...)
-- "그래서..." (so...)
-- "그러면..." (then...)
-- "그렇다면..." (if so...)
-- "그런데..." (but...)
-- "그리고..." (and...)
-- "그럼에도..." (nevertheless...)
-- "그것은..." (that is...)
-- "그래야..." (should...)
-- "어떻게 하면..." (how to...)
-
-Guidelines:
-- Choose Korean conjunctions that naturally flow from the last sentence of the text
-- Keep the original text intact, only add the connective phrase at the end of the text
-- Preserve the original approach, resource, and resource_usage information exactly as provided
-
-Please output the result in the following JSON format:
-{
-"option1": {
-  "approach": "<<<STRATEGY>>>",
-  "title": "<<<TITLE>>>",
-  "text": "<<<MODIFIED_TEXT_WITH_CONNECTIVE>>>"
-},
-"option2": {
-  "approach": "<<<STRATEGY>>>",
-  "title": "<<<TITLE>>>",
-  "text": "<<<MODIFIED_TEXT_WITH_CONNECTIVE>>>"
-},
-"option3": {
-  "approach": "<<<STRATEGY>>>",
-  "title": "<<<TITLE>>>",
-  "text": "<<<MODIFIED_TEXT_WITH_CONNECTIVE>>>"
-}
-}
-  `;
-
-  const userPrompt = `
-Please analyze the following interpretive options and add appropriate causal connective phrases:
-
-Option 1:
-Strategy: ${aiAgentResult.option1.approach}
-Resource: ${JSON.stringify(aiAgentResult.option1.resource)}
-Resource Usage: ${aiAgentResult.option1.resource_usage || ''}
-Title: ${aiAgentResult.option1.title}
-Text: ${aiAgentResult.option1.text}
-
-Option 2:
-Strategy: ${aiAgentResult.option2.approach}
-Resource: ${JSON.stringify(aiAgentResult.option2.resource)}
-Resource Usage: ${aiAgentResult.option2.resource_usage || ''}
-Title: ${aiAgentResult.option2.title}
-Text: ${aiAgentResult.option2.text}
-
-Option 3:
-Strategy: ${aiAgentResult.option3.approach}
-Resource: ${JSON.stringify(aiAgentResult.option3.resource)}
-Resource Usage: ${aiAgentResult.option3.resource_usage || ''}
-Title: ${aiAgentResult.option3.title}
-Text: ${aiAgentResult.option3.text}
-  `;
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.5,
-    }),
-  });
-
-  const data = await response.json();
-  const textResult = data.choices?.[0]?.message?.content || '';
-  
-  try {
-    const jsonStart = textResult.indexOf('{');
-    const jsonEnd = textResult.lastIndexOf('}');
-    
-    if (jsonStart === -1 || jsonEnd === -1) {
-      console.error('JSON brackets not found in ConnectiveAgent response');
-      return aiAgentResult; // 원본 결과 반환
-    }
-    
-    let jsonString = textResult.substring(jsonStart, jsonEnd + 1);
-    
-    // JSON 문자열 정리
-    const cleanedJson = jsonString.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-    
-    // JSON이 완전하지 않은 경우 수정 시도
-    let finalJson = cleanedJson;
-    if (!cleanedJson.endsWith('}')) {
-      finalJson = cleanedJson.replace(/,\s*$/, '') + '}';
-    }
-    
-    // JSON 파싱 시도
-    const parsedResult = JSON.parse(finalJson);
-    
-    // 필수 필드 확인 및 기본값 설정
-    return {
-      option1: createAIOption(parsedResult.option1),
-      option2: createAIOption(parsedResult.option2),
-      option3: createAIOption(parsedResult.option3)
-    };
-    
-  } catch (err) {
-    console.error('Error parsing ConnectiveAgent JSON:', err);
-    console.error('Raw response:', textResult);
-    
-    // JSON 파싱 실패 시 원본 결과 반환
-    return aiAgentResult;
-  }
-}
-
 // 헬퍼 함수들
 function createAIOption(option: any): AIOption {
   return {
@@ -443,54 +345,99 @@ function createAIOption(option: any): AIOption {
 
 function extractFieldsWithRegex(textResult: string): AIAgentResult | null {
   try {
-    // 각 옵션을 개별적으로 추출 (개행 문자 포함)
-    const option1Match = textResult.match(/"option1"\s*:\s*{([\s\S]*?)},?\s*"option2"/);
-    const option2Match = textResult.match(/"option2"\s*:\s*{([\s\S]*?)},?\s*"option3"/);
-    const option3Match = textResult.match(/"option3"\s*:\s*{([\s\S]*?)}\s*}/);
+    console.log('🔍 [REGEX FALLBACK] Attempting regex extraction...');
     
-    // option3이 마지막인 경우를 위한 추가 매칭
-    const option3MatchAlt = textResult.match(/"option3"\s*:\s*{([\s\S]*?)}\s*$/);
-    const finalOption3Match = option3Match || option3MatchAlt;
-    
-    if (!option1Match || !option2Match || !finalOption3Match) {
-      console.log('❌ Could not find all three options in regex fallback');
+    // 전체 텍스트에서 JSON 부분 찾기
+    const jsonMatch = textResult.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.log('❌ [REGEX FALLBACK] No JSON structure found');
       return null;
     }
     
-    const extractOption = (optionText: string): AIOption => {
-      const approachMatch = optionText.match(/"approach"\s*:\s*"([^"]*)"/);
-      const titleMatch = optionText.match(/"title"\s*:\s*"([^"]*)"/);
-      const textMatch = optionText.match(/"text"\s*:\s*"([^"]*)"/);
-      const resourceMatch = optionText.match(/"resource"\s*:\s*\[([^\]]*)\]/);
-      const resourceUsageMatch = optionText.match(/"resource_usage"\s*:\s*"([^"]*)"/);
+    const jsonText = jsonMatch[0];
+    
+    // 각 옵션을 더 유연하게 추출
+    const extractOption = (optionNum: string): AIOption => {
+      // option 블록 찾기 - 더 유연한 패턴
+      const optionPattern = new RegExp(`"option${optionNum}"\\s*:\\s*\\{([\\s\\S]*?)\\}(?=\\s*[,}]|\\s*"option|\\s*$)`, 'i');
+      const optionMatch = jsonText.match(optionPattern);
       
-      // resource 배열 파싱
-      let resourceArray: string[] = [];
-      if (resourceMatch && resourceMatch[1].trim()) {
-        try {
-          resourceArray = resourceMatch[1].split(',').map(s => s.trim().replace(/"/g, ''));
-        } catch {
-          resourceArray = [];
+             if (!optionMatch) {
+         console.log(`❌ [REGEX FALLBACK] Could not find option${optionNum}`);
+         return createAIOption({});
+       }
+      
+      const optionContent = optionMatch[1];
+      
+      // 각 필드 추출 - 더 유연한 패턴
+      const extractField = (fieldName: string): string => {
+        const patterns = [
+          new RegExp(`"${fieldName}"\\s*:\\s*"([^"]*)"`, 'i'),
+          new RegExp(`"${fieldName}"\\s*:\\s*'([^']*)'`, 'i'),
+          new RegExp(`${fieldName}\\s*:\\s*"([^"]*)"`, 'i'),
+        ];
+        
+        for (const pattern of patterns) {
+          const match = optionContent.match(pattern);
+          if (match) return match[1];
         }
-      }
+        return '';
+      };
+      
+      // resource 배열 추출
+      const extractResource = (): string[] => {
+        const resourcePatterns = [
+          /"resource"\s*:\s*\[([^\]]*)\]/i,
+          /resource\s*:\s*\[([^\]]*)\]/i,
+        ];
+        
+        for (const pattern of resourcePatterns) {
+          const match = optionContent.match(pattern);
+          if (match && match[1].trim()) {
+            try {
+              // 배열 내용 파싱
+              const resourceContent = match[1];
+              const items = resourceContent.split(',').map(item => 
+                item.trim().replace(/['"]/g, '')
+              ).filter(item => item.length > 0);
+              return items;
+            } catch {
+              return [];
+            }
+          }
+        }
+        return [];
+      };
       
       return {
-        approach: approachMatch ? approachMatch[1] : '',
-        title: titleMatch ? titleMatch[1] : '',
-        text: textMatch ? textMatch[1] : '',
-        resource: resourceArray,
-        resource_usage: resourceUsageMatch ? resourceUsageMatch[1] : ''
+        approach: extractField('approach'),
+        title: extractField('title'),
+        text: extractField('text'),
+        resource: extractResource(),
+        resource_usage: extractField('resource_usage')
       };
     };
     
-    return {
-      option1: extractOption(option1Match[1]),
-      option2: extractOption(option2Match[1]),
-      option3: extractOption(finalOption3Match[1])
+    const result = {
+      option1: extractOption('1'),
+      option2: extractOption('2'),
+      option3: extractOption('3')
     };
     
+    // 결과 검증
+    const isValidOption = (option: AIOption) => 
+      option.approach && option.title && option.text;
+    
+    if (!isValidOption(result.option1) || !isValidOption(result.option2) || !isValidOption(result.option3)) {
+      console.log('❌ [REGEX FALLBACK] Extracted options are incomplete');
+      return null;
+    }
+    
+    console.log('✅ [REGEX FALLBACK] Successfully extracted all options');
+    return result;
+    
   } catch (err) {
-    console.error('❌ Regex extraction failed:', err);
+    console.error('❌ [REGEX FALLBACK] Extraction failed:', err);
     return null;
   }
 }
@@ -528,12 +475,5 @@ function createDefaultAIAgentResult(): AIAgentResult {
   };
 }
 
-function createDefaultAIOption(): AIOption {
-  return {
-    approach: '',
-    title: '',
-    text: '',
-    resource: []
-  };
-}
+
 

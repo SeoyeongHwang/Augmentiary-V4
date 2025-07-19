@@ -12,18 +12,9 @@ const generateRequestId = (): string => {
 
 // userProfile JSON을 필요한 필드들만 추출하여 변환하는 함수
 const extractUserProfileForResource = (userProfileInput: any) => {
-  try {
-    console.log('🔍 [EXTRACT] Input analysis:', {
-      type: typeof userProfileInput,
-      isNull: userProfileInput === null,
-      isUndefined: userProfileInput === undefined,
-      isEmpty: userProfileInput === '',
-      fullInput: userProfileInput
-    });
-    
+  try {    
     // null/undefined 처리
     if (!userProfileInput) {
-      console.log('❌ [EXTRACT] Empty user profile, using default structure');
       return JSON.stringify({
         demographics: {},
         personality: {},
@@ -36,12 +27,10 @@ const extractUserProfileForResource = (userProfileInput: any) => {
     // 이미 객체인 경우
     let fullProfile;
     if (typeof userProfileInput === 'object') {
-      console.log('📊 [EXTRACT] User profile is already an object:', userProfileInput);
       fullProfile = userProfileInput;
     } else if (typeof userProfileInput === 'string') {
       // 문자열인 경우 trim 체크
       if (userProfileInput.trim() === '') {
-        console.log('Empty user profile string, using default structure');
         return JSON.stringify({
           demographics: {},
           personality: {},
@@ -125,23 +114,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       approaches: directionAgentResult.approaches
     });
 
-    // userProfile을 resource 형태로 변환
-    console.log('📊 [AUGMENT] Original userProfile received:', {
-      type: typeof userProfile,
-      isNull: userProfile === null,
-      isUndefined: userProfile === undefined,
-      isEmpty: userProfile === '',
-      fullContent: userProfile,
-      stringLength: typeof userProfile === 'string' ? userProfile.length : 'N/A'
-    });
-    
+    // userProfile을 resource 형태로 변환    
     const resourceProfile = extractUserProfileForResource(userProfile);
-    
-    console.log('📊 [AUGMENT] Processed resourceProfile:', {
-      type: typeof resourceProfile,
-      length: resourceProfile ? resourceProfile.length : 0,
-      content: resourceProfile ? resourceProfile.substring(0, 200) + '...' : 'No content'
-    });
 
     // Step 2: Interpretive Agent (모든 approach를 한번에 처리)
     console.log('💭 [STEP 2] Starting Interpretive Agent with all approaches...');
