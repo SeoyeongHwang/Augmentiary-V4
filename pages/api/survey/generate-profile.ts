@@ -293,7 +293,18 @@ async function generateProfileHandler(
   }
 
   // 6. 이미 프로필이 있는 경우 확인
-  if (userData.profile && userData.profile.trim() !== '') {
+  console.log('🔍 API userData.profile 디버깅:', {
+    profile: userData.profile,
+    type: typeof userData.profile,
+    isString: typeof userData.profile === 'string',
+    isObject: typeof userData.profile === 'object'
+  }, `[${requestId}]`)
+  
+  const hasProfile = userData.profile && 
+    ((typeof userData.profile === 'string' && userData.profile.trim() !== '') ||
+     (typeof userData.profile === 'object' && userData.profile !== null))
+  
+  if (hasProfile) {
     console.log('⚠️ 이미 프로필이 존재함', `[${requestId}]`)
     
     const profileExistsError = createApiError(

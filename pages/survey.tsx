@@ -97,9 +97,22 @@ export default function SurveyPage() {
 
   // 이미 profile이 있는 경우 메인 페이지로 리다이렉트
   useEffect(() => {
-    if (user && user.profile && user.profile.trim() !== '') {
-      console.log('📝 이미 프로필이 존재함 - 메인 페이지로 이동')
-      router.push('/')
+    if (user && user.profile) {
+      console.log('🔍 survey.tsx user.profile 디버깅:', {
+        profile: user.profile,
+        type: typeof user.profile,
+        isString: typeof user.profile === 'string',
+        isObject: typeof user.profile === 'object'
+      })
+      
+      const hasProfile = user.profile && 
+        ((typeof user.profile === 'string' && user.profile.trim() !== '') ||
+         (typeof user.profile === 'object' && user.profile !== null))
+      
+      if (hasProfile) {
+        console.log('📝 이미 프로필이 존재함 - 메인 페이지로 이동')
+        router.push('/')
+      }
     }
   }, [user, router])
 
