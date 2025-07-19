@@ -23,9 +23,22 @@ export default function Editor({ userId }: { userId: string }) {
         .eq('id', userId)
         .single()
       if (!error && data?.profile) {
-        const profileText = typeof data.profile === 'string' ? data.profile : ''
-        if (profileText.trim()) {
-          setBeliefSummary(profileText)
+        console.log('🔍 Editor.tsx data.profile 디버깅:', {
+          profile: data.profile,
+          type: typeof data.profile,
+          isString: typeof data.profile === 'string',
+          isObject: typeof data.profile === 'object'
+        })
+        
+        let profileContent = ''
+        if (typeof data.profile === 'string') {
+          profileContent = data.profile.trim()
+        } else if (typeof data.profile === 'object' && data.profile !== null) {
+          profileContent = JSON.stringify(data.profile)
+        }
+        
+        if (profileContent) {
+          setBeliefSummary(profileContent)
         }
       }
     }

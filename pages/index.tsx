@@ -22,9 +22,22 @@ export default function Home() {
   // 사용자가 로그인되어 있으면 일기 목록 가져오기
   useEffect(() => {
     if (!sessionLoading && user) {
+      // profile 데이터 디버깅
+      console.log('🔍 user.profile 디버깅:', {
+        profile: user.profile,
+        type: typeof user.profile,
+        isString: typeof user.profile === 'string',
+        isObject: typeof user.profile === 'object',
+        isNull: user.profile === null,
+        isUndefined: user.profile === undefined
+      })
+      
       // profile이 비어있으면 설문 페이지로 이동
-      const profileText = typeof user.profile === 'string' ? user.profile : ''
-      if (!profileText || profileText.trim() === '') {
+      const hasProfile = user.profile && 
+        ((typeof user.profile === 'string' && user.profile.trim() !== '') ||
+         (typeof user.profile === 'object' && user.profile !== null))
+      
+      if (!hasProfile) {
         console.log('📝 프로필이 비어있음 - 설문 페이지로 이동')
         router.push('/survey')
         return
