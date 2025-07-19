@@ -11,7 +11,7 @@ export interface ApproachDefinition {
 export const MEANING_MAKING_APPROACHES: Record<string, ApproachDefinition> = {
   'Positive Reappraisal': {
     name: 'Positive Reappraisal',
-    fullDescription: 'Reinterpreting a negative or stressful experience in a positive light – "finding the silver lining". Involves actively finding positive meaning or personal growth in the face of hardship',
+    fullDescription: 'Reinterpreting a negative or stressful experience in a positive light—"finding the silver lining". Involves actively finding positive meaning or personal growth in the face of hardship',
     shortDescription: 'Re-framing a situation in a more positive or hopeful light, based on one\'s beliefs and values',
     guidelines: [
       'Focus on finding positive aspects or growth opportunities',

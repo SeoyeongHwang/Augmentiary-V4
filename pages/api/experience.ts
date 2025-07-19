@@ -9,7 +9,7 @@ import {
   sendSuccessResponse,
   sendErrorResponse
 } from '../../lib/apiErrorHandler'
-import { callExperienceAgentCombined, callExperienceDescriptionAgent, callPastContextAgent, callPastContextRelevanceAgent } from '../../lib/experienceAgent'
+import { callPastRecordAgent, callAutobiographicReasoningAgent, callPastContextAgent, callPastContextRelevanceAgent } from '../../lib/experienceAgent'
 
 // 서버 사이드에서 service_role 사용
 const supabase = createClient(
@@ -107,7 +107,7 @@ async function experienceHandler(
   // 7. 유사도 계산 및 관련 경험 찾기
   const experiencePromises = entries.map(async (entry) => {
     // 한 번의 API 호출로 두 필드를 모두 분석
-    const analysis = await callExperienceAgentCombined(
+    const analysis = await callPastRecordAgent(
       selectedText, 
       entry.sum_innerstate, 
       entry.sum_insight
@@ -135,7 +135,7 @@ async function experienceHandler(
   const experiencesWithDescriptions = await Promise.all(
     topExperiences.map(async (exp) => {
       try {
-        const descriptionResult = await callExperienceDescriptionAgent(selectedText, {
+        const descriptionResult = await callAutobiographicReasoningAgent(selectedText, {
           id: exp.id,
           sum_innerstate: exp.sum_innerstate,
           sum_insight: exp.sum_insight,

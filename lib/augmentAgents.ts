@@ -66,12 +66,17 @@ Start by interpreting what the selected entry reveals about the person's emotion
 Select THREE approaches from the following list:
 ${getDirectionAgentApproachesPrompt()}
 
-You must output your response in the following JSON format only:
+## Output Format
+Your output must be a JSON object structured as follows:
 {
-  "reflective_summary": "<Interpretive summary of the selected diary entry>",
-  "significance": "1~5",  // Reflective potential: 1 = low (mundane), 5 = high (rich point for meaning-making)
-  "approaches": ["<first approach>", "<second approach>", "<third approach>"]
-}    
+  "reflective_summary": "<Interpretive summary of the selected diary entry; provide a concise and insightful overview of the writer's emotional state, thoughts, or concerns based on the entry and its context>",
+  "significance": "<1~5>",  // Reflective potential: rate how rich or meaningful the passage is for self-exploration. 1 = low (mundane), 5 = high (rich point for meaning-making).
+  "approaches": ["<first approach>", "<second approach>", "<third approach>"] // Select the three most relevant approaches from the provided list. They do not need to be rank-ordered.
+}
+
+- The field 'significance' uses a numeric string between 1 (low) and 5 (high); use your judgment based on the depth, complexity, or emotional richness of the diary passage.
+- If the selected diary entry is blank or clearly irrelevant, set 'reflective_summary' to "No relevant content provided." and return an empty array for 'approaches' and the lowest significance rating.
+- The 'reflective_summary' should be a single well-formed English sentence or a brief paragraph, 1-3 sentences in length.   
   `
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
