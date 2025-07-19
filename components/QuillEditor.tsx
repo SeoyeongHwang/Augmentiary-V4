@@ -188,13 +188,14 @@ export default function Editor({
     
     const fullText = quill.getText();
     const diaryEntryMarked = fullText.slice(0, index + length) + ' <<INSERT HERE>> ' + fullText.slice(index + length);
+    const previousContext = fullText.slice(0, index); // 선택된 부분 직전까지의 맥락
 
     try {
       const res = await fetch('/api/augment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          diaryEntry: fullText,
+          diaryEntry: previousContext,
           diaryEntryMarked: diaryEntryMarked,
           userProfile: beliefSummary,
         }),
