@@ -42,7 +42,7 @@ async function signupHandler(
   }
 
   // 2. 입력값 검증
-  const { email, password, name } = req.body
+  const { email, password, name, participant_code } = req.body
   
   const validationError = validateRequired(req.body, ['email', 'password', 'name'])
   if (validationError) {
@@ -80,6 +80,31 @@ async function signupHandler(
     return sendErrorResponse(res, nameError, requestId)
   }
 
+  // 참가자번호 검증 (입력된 경우)
+  if (participant_code && participant_code.trim()) {
+    const trimmedCode = participant_code.trim()
+    
+    // 참가자번호 형식 검증 (예: 영문자, 숫자, 하이픈만 허용)
+    if (!/^[a-zA-Z0-9-_]+$/.test(trimmedCode)) {
+      const codeFormatError = createApiError(
+        ErrorCode.VALIDATION_ERROR,
+        '참가자번호는 영문자, 숫자, 하이픈(-), 언더스코어(_)만 사용할 수 있습니다.',
+        400
+      )
+      return sendErrorResponse(res, codeFormatError, requestId)
+    }
+    
+    // 참가자번호 길이 검증
+    if (trimmedCode.length < 2 || trimmedCode.length > 50) {
+      const codeLengthError = createApiError(
+        ErrorCode.VALIDATION_ERROR,
+        '참가자번호는 2자 이상 50자 이하여야 합니다.',
+        400
+      )
+      return sendErrorResponse(res, codeLengthError, requestId)
+    }
+  }
+
   console.log('📝 회원가입 시도:', email, `[${requestId}]`)
 
   // 3. 이메일 중복 검사 (service_role로 직접 확인)
@@ -96,6 +121,24 @@ async function signupHandler(
       409
     )
     return sendErrorResponse(res, duplicateError, requestId)
+  }
+
+  // 3-1. 참가자번호 중복 검사 (입력된 경우)
+  if (participant_code && participant_code.trim()) {
+    const { data: existingParticipant, error: participantCheckError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('participant_code', participant_code.trim())
+      .single()
+
+    if (existingParticipant) {
+      const participantDuplicateError = createApiError(
+        ErrorCode.CONFLICT,
+        '이미 사용 중인 참가자번호입니다.',
+        409
+      )
+      return sendErrorResponse(res, participantDuplicateError, requestId)
+    }
   }
 
   // 4. Supabase 인증 계정 생성
@@ -147,14 +190,47 @@ async function signupHandler(
 
   console.log('✅ 인증 계정 생성 성공:', authData.user.id, `[${requestId}]`)
 
-  // 5. 사용자 정보 테이블에 저장 (service_role 사용)
-  const participantCode = `P${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+  // 5. 참가자번호 결정 (입력되지 않은 경우 자동 생성)
+  let finalParticipantCode = participant_code?.trim()
   
+  if (!finalParticipantCode) {
+    // 자동 생성 로직
+    let attempts = 0
+    const maxAttempts = 10
+    
+    while (attempts < maxAttempts) {
+      finalParticipantCode = `P${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+      
+      // 생성된 코드 중복 검사
+      const { data: duplicateCheck } = await supabase
+        .from('users')
+        .select('id')
+        .eq('participant_code', finalParticipantCode)
+        .single()
+      
+      if (!duplicateCheck) {
+        break // 중복되지 않으면 사용
+      }
+      
+      attempts++
+      if (attempts >= maxAttempts) {
+        console.error('❌ 참가자번호 생성 실패 - 최대 시도 횟수 초과', `[${requestId}]`)
+        const codeGenerationError = createApiError(
+          ErrorCode.SERVER_ERROR,
+          '참가자번호 생성에 실패했습니다. 다시 시도해주세요.',
+          500
+        )
+        return sendErrorResponse(res, codeGenerationError, requestId)
+      }
+    }
+  }
+
+  // 6. 사용자 정보 테이블에 저장 (service_role 사용)
   const userData = {
     id: authData.user.id,
     email: email.toLowerCase(),
     name: name.trim(),
-    participant_code: participantCode
+    participant_code: finalParticipantCode
   }
 
   const { data: createdUser, error: userError } = await supabase
@@ -184,7 +260,7 @@ async function signupHandler(
     return sendErrorResponse(res, dbError, requestId)
   }
 
-  console.log('✅ 회원가입 완료:', participantCode, `[${requestId}]`)
+  console.log('✅ 회원가입 완료:', finalParticipantCode, `[${requestId}]`)
 
   // 6. 성공 응답
   const responseData: any = {

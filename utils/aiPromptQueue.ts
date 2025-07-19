@@ -28,7 +28,19 @@ class AIPromptQueue {
     try {
       const insertData = batch.map(p => ({
         ...p,
-        ai_suggestion: JSON.stringify(p.ai_suggestion),
+        ai_suggestion: (() => {
+          // 이미 문자열인 경우 파싱 후 다시 문자열로 변환 (이중 인코딩 방지)
+          if (typeof p.ai_suggestion === 'string') {
+            try {
+              const parsed = JSON.parse(p.ai_suggestion)
+              return JSON.stringify(parsed)
+            } catch {
+              return p.ai_suggestion
+            }
+          }
+          // 객체인 경우 문자열로 변환
+          return JSON.stringify(p.ai_suggestion)
+        })(),
       }))
       const { error } = await supabase.from('ai_prompts').insert(insertData)
       if (error) {

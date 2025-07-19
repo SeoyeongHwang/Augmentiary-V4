@@ -22,6 +22,13 @@ export default function Home() {
   // 사용자가 로그인되어 있으면 일기 목록 가져오기
   useEffect(() => {
     if (!sessionLoading && user) {
+      // profile이 비어있으면 설문 페이지로 이동
+      if (!user.profile || user.profile.trim() === '') {
+        console.log('📝 프로필이 비어있음 - 설문 페이지로 이동')
+        router.push('/survey')
+        return
+      }
+      
       fetchEntries()
     } else if (!sessionLoading && !user) {
       router.push('/login')

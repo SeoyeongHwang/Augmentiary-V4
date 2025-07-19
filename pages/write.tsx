@@ -181,7 +181,19 @@ export default function Write() {
       // AI 프롬프트 데이터를 서버에서 처리할 수 있도록 변환
       const processedAIPromptsData = aiPromptsData.map(prompt => ({
         ...prompt,
-        ai_suggestion: JSON.stringify(prompt.ai_suggestion)
+        ai_suggestion: (() => {
+          // 이미 문자열인 경우 파싱 후 다시 문자열로 변환 (이중 인코딩 방지)
+          if (typeof prompt.ai_suggestion === 'string') {
+            try {
+              const parsed = JSON.parse(prompt.ai_suggestion)
+              return JSON.stringify(parsed)
+            } catch {
+              return prompt.ai_suggestion
+            }
+          }
+          // 객체인 경우 문자열로 변환
+          return JSON.stringify(prompt.ai_suggestion)
+        })()
       }))
       
       // 서버 사이드 API 호출

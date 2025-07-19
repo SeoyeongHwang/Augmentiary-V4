@@ -22,7 +22,19 @@ export async function saveAIPrompt(
       .insert({
         entry_id: entryId,
         selected_text: selectedText,
-        ai_suggestion: JSON.stringify(aiSuggestions),
+        ai_suggestion: (() => {
+          // 이미 문자열인 경우 파싱 후 다시 문자열로 변환 (이중 인코딩 방지)
+          if (typeof aiSuggestions === 'string') {
+            try {
+              const parsed = JSON.parse(aiSuggestions)
+              return JSON.stringify(parsed)
+            } catch {
+              return aiSuggestions
+            }
+          }
+          // 객체인 경우 문자열로 변환
+          return JSON.stringify(aiSuggestions)
+        })(),
         participant_code: participantCode,
         created_at: createdAt
       })

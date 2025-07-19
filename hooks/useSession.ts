@@ -138,10 +138,47 @@ export function useSession() {
     }
   }
 
+  const refreshUser = async () => {
+    try {
+      const sessionData = localStorage.getItem('supabase_session')
+      
+      if (!sessionData) {
+        return false
+      }
+
+      const session = JSON.parse(sessionData)
+      
+      if (!session.access_token) {
+        return false
+      }
+
+      // 서버사이드 API로 최신 사용자 정보 조회
+      const response = await fetch('/api/auth/session', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.data?.isLoggedIn) {
+        return false
+      }
+
+      setUser(data.data.user)
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+
   return {
     user,
     loading,
     signOut,
-    refreshSession
+    refreshSession,
+    refreshUser
   }
 }

@@ -7,6 +7,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
+  const [participantCode, setParticipantCode] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
@@ -24,7 +25,12 @@ export default function LoginPage() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ email, password, name }),
+          body: JSON.stringify({ 
+            email, 
+            password, 
+            name, 
+            participant_code: participantCode.trim() || undefined 
+          }),
         })
 
         const data = await response.json()
@@ -43,8 +49,8 @@ export default function LoginPage() {
           localStorage.setItem('supabase_session', JSON.stringify(data.data.session))
           console.log('🔐 세션 저장 완료')
           
-          // 메인 페이지로 이동
-          await router.push('/')
+          // 회원가입 후 설문 페이지로 이동 (profile 설정을 위해)
+          await router.push('/survey')
         } else {
           // 이메일 인증 필요한 경우
           alert(data.message || '회원가입이 완료되었습니다.')
@@ -95,13 +101,22 @@ export default function LoginPage() {
       <Section className="w-full max-w-md mx-auto">
         <Heading level={1} className="text-center mb-6">{isSignUp ? '회원가입' : '로그인'}</Heading>
         {isSignUp && (
-          <TextInput
-            type="text"
-            placeholder="이름"
-            value={name}
-            onChange={setName}
-            className="w-full mb-3 p-2 border"
-          />
+          <>
+            <TextInput
+              type="text"
+              placeholder="이름 또는 닉네임"
+              value={name}
+              onChange={setName}
+              className="w-full mb-3 p-2 border"
+            />
+            <TextInput
+              type="text"
+              placeholder="참가자번호"
+              value={participantCode}
+              onChange={setParticipantCode}
+              className="w-full mb-3 p-2 border"
+            />
+          </>
         )}
         <TextInput
           type="email"
@@ -130,7 +145,7 @@ export default function LoginPage() {
         <p className="mt-4 text-sm text-center">
           {isSignUp ? '이미 계정이 있나요?' : '계정이 없나요?'}{' '}
           <Button 
-            className="!bg-white !text-black font-bold border border-gray-400 hover:!bg-gray-50" 
+            className="ml-2 !bg-white !text-black font-bold border border-gray-400 hover:!bg-gray-50" 
             onClick={() => setIsSignUp(!isSignUp)}
             disabled={isLoading}
           >
