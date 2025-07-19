@@ -49,9 +49,9 @@ export async function saveAIPrompt(
   }
 }
 
-export async function callNarrativeAgent(diaryEntry: string): Promise<{ strategy: string; justification: string; raw?: string }> {
+export async function callNarrativeAgent(diaryEntry: string, selectedEntry: string): Promise<{ strategy: string; justification: string; raw?: string }> {
     // OpenAI API 호출 예시
-    const prompt = `
+    const systemPrompt = `
     You are an expert in narrative identity and meaning-making in personal writing.
 
 Your task is to analyze the following diary entry and determine the best AI interpretation strategy to support further reflection.
@@ -80,8 +80,10 @@ Do not include any text before or after the JSON. Return only valid JSON.
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: prompt },
-          { role: 'user', content: `Diary Entry: \n${diaryEntry}` },
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Diary Entry: \n${diaryEntry}
+          \n\n
+          Selected Entry: \n${selectedEntry}` },
         ],
         temperature: 1.0,
       }),
@@ -129,7 +131,7 @@ export async function callInterpretiveAgent(
   ): Promise<AIAgentResult> {
     // 마찬가지로 OpenAI API 호출 구현
     // 예시 생략 가능, 위 구조 동일
-    const prompt = `
+    const systemPrompt = `
     You are an expert in narrative coaching and personal meaning-making through writing.
 
 You will receive:
@@ -169,7 +171,7 @@ Guidelines:
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: prompt },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: `Diary Entry with <<INSERT HERE>> Marker: \n${diaryEntryMarked}
           \n\n
           User Profile: \n${userProfile}
@@ -260,7 +262,7 @@ Guidelines:
 export async function callConnectiveAgent(
   aiAgentResult: AIAgentResult
 ): Promise<AIAgentResult> {
-  const prompt = `
+  const systemPrompt = `
   You are an expert in narrative coaching and writing flow enhancement.
 
 For each text segment, add a natural and contextually appropriate causal expression at the end.
@@ -301,7 +303,7 @@ Please output the result in the following JSON format:
 }
   `;
 
-  const userContent = `
+  const userPrompt = `
 Please analyze the following interpretive options and add appropriate causal connective phrases:
 
 Option 1:
@@ -329,8 +331,8 @@ Text: ${aiAgentResult.option3.text}
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: prompt },
-        { role: 'user', content: userContent },
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
       ],
       temperature: 0.5,
     }),
@@ -415,13 +417,4 @@ function createDefaultAIAgentResult(): AIAgentResult {
     option3: defaultOption
   };
 }
-  
-//   export async function callCausalAgent(
-//     diaryEntry: string,
-//     selectedEntry: string,
-//     interpretiveSentence: string
-//   ): Promise<string> {
-//     // 마찬가지로 OpenAI API 호출 구현
-//     // 예시 생략 가능, 위 구조 동일
-//     return 'Causal Connective Phrase (stub)';
-//   }
+

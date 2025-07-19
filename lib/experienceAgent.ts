@@ -40,7 +40,7 @@ export async function callExperienceAgent(
   summaryType: 'innerstate' | 'insight'
 ): Promise<ExperienceAnalysisResult> {
   try {
-    const prompt = `
+    const systemPrompt = `
     You are an expert in analyzing diary entries and understanding emotional and psychological connections between experiences.
     
     I will provide you with:
@@ -79,7 +79,7 @@ export async function callExperienceAgent(
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: prompt },
+          { role: 'system', content: systemPrompt },
         ],
         temperature: 0.3,
       }),
@@ -138,7 +138,7 @@ export async function callExperienceAgentCombined(
   sumInsight?: string
 ): Promise<ExperienceAnalysisResultCombined> {
   try {
-    const prompt = `
+    const systemPrompt = `
     You are an expert in analyzing diary entries and understanding emotional and psychological connections between experiences.
     
     I will provide you with:
@@ -184,7 +184,7 @@ export async function callExperienceAgentCombined(
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: prompt },
+          { role: 'system', content: systemPrompt },
         ],
         temperature: 0.3,
       }),
@@ -288,7 +288,7 @@ export async function callExperienceDescriptionAgent(
   }
 ): Promise<ExperienceDescriptionResult> {
   try {
-    const prompt = `
+    const systemPrompt = `
     You are an expert in reflective journaling and helping people connect their current experiences with meaningful past experiences.
     
     I will provide you with:
@@ -333,7 +333,7 @@ export async function callExperienceDescriptionAgent(
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: prompt },
+          { role: 'system', content: systemPrompt },
         ],
         temperature: 0.6,
         top_p: 1.0
@@ -395,7 +395,7 @@ export async function callPastContextAgent(
   pastContext: string
 ): Promise<ExperienceDescriptionResult> {
   try {
-    const prompt = `
+    const systemPrompt = `
     You are an expert in reflective journaling and helping people connect their current experiences with their personal life history and background.
     
     I will provide you with:
@@ -440,7 +440,7 @@ export async function callPastContextAgent(
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: prompt },
+          { role: 'system', content: systemPrompt },
         ],
         temperature: 0.6,
         top_p: 1.0
@@ -502,7 +502,7 @@ export async function callPastContextRelevanceAgent(
   pastContext: string
 ): Promise<{ relevance: number; reason: string }> {
   try {
-    const prompt = `
+    const systemPrompt = `
     You are an expert in analyzing diary entries and understanding emotional and psychological connections between current experiences and personal life history.
     
     I will provide you with:
@@ -544,7 +544,7 @@ export async function callPastContextRelevanceAgent(
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: prompt },
+          { role: 'system', content: systemPrompt },
         ],
         temperature: 0.3,
       }),
