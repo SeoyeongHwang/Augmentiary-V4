@@ -56,7 +56,6 @@ export default function Home() {
          (typeof user.profile === 'object' && user.profile !== null))
       
       if (!hasProfile) {
-        main
         console.log('📝 프로필이 비어있음 - 설문 페이지로 이동')
         router.push('/survey')
         return
