@@ -23,6 +23,12 @@ class AIPromptQueue {
 
   async flush(): Promise<void> {
     if (this.isProcessing || this.queue.length === 0) return
+    
+    // supabase가 초기화되지 않은 경우 (빌드 시 등) 처리를 건너뜀
+    if (!supabase) {
+      return
+    }
+    
     this.isProcessing = true
     const batch = this.queue.splice(0, this.queue.length)
     try {

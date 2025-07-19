@@ -97,9 +97,12 @@ export default function SurveyPage() {
 
   // 이미 profile이 있는 경우 메인 페이지로 리다이렉트
   useEffect(() => {
-    if (user && user.profile && user.profile.trim() !== '') {
-      console.log('📝 이미 프로필이 존재함 - 메인 페이지로 이동')
-      router.push('/')
+    if (user && user.profile) {
+      const profileText = typeof user.profile === 'string' ? user.profile : ''
+      if (profileText.trim() !== '') {
+        console.log('📝 이미 프로필이 존재함 - 메인 페이지로 이동')
+        router.push('/')
+      }
     }
   }, [user, router])
 

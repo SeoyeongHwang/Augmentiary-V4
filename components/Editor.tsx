@@ -23,7 +23,10 @@ export default function Editor({ userId }: { userId: string }) {
         .eq('id', userId)
         .single()
       if (!error && data?.profile) {
-        setBeliefSummary(data.profile)
+        const profileText = typeof data.profile === 'string' ? data.profile : ''
+        if (profileText.trim()) {
+          setBeliefSummary(profileText)
+        }
       }
     }
     if (userId) fetchBelief()

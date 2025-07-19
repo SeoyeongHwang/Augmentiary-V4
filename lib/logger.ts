@@ -6,16 +6,19 @@ import { getCurrentKST } from './time'
  * 인터랙션 로그를 Supabase에 기록하는 함수
  */
 export async function logInteraction(data: CreateInteractionLogData & { timestamp: string }): Promise<void> {
+  // supabase가 초기화되지 않은 경우 (빌드 시 등) 로그를 건너뜀
+  if (!supabase) {
+    return
+  }
+
   try {
     const { error } = await supabase
       .from('interaction_logs')
       .insert([data])
     if (error) {
-      // console.error('로그 기록 실패:', error)
       console.error('로그 기록 실패')
     }
   } catch (error) {
-    // console.error('로그 기록 중 예외 발생:', error)
     console.error('로그 기록 중 예외 발생')
   }
 }

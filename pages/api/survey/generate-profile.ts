@@ -293,7 +293,8 @@ async function generateProfileHandler(
   }
 
   // 6. 이미 프로필이 있는 경우 확인
-  if (userData.profile && userData.profile.trim() !== '') {
+  const profileText = typeof userData.profile === 'string' ? userData.profile : ''
+  if (profileText && profileText.trim() !== '') {
     console.log('⚠️ 이미 프로필이 존재함', `[${requestId}]`)
     
     const profileExistsError = createApiError(

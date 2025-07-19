@@ -23,7 +23,8 @@ export default function Home() {
   useEffect(() => {
     if (!sessionLoading && user) {
       // profile이 비어있으면 설문 페이지로 이동
-      if (!user.profile || user.profile.trim() === '') {
+      const profileText = typeof user.profile === 'string' ? user.profile : ''
+      if (!profileText || profileText.trim() === '') {
         console.log('📝 프로필이 비어있음 - 설문 페이지로 이동')
         router.push('/survey')
         return
