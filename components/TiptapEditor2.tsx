@@ -509,6 +509,32 @@ export default function Editor({
     return text.trim().split(/\s+/).filter(word => word.length > 0).length
   }, [])
 
+  // 한국어 음절 수 계산 함수
+  const getSyllableCount = useCallback((text: string) => {
+    if (!text) return 0
+    
+    // 한글 음절 범위: AC00-D7AF (가-힣)
+    const koreanSyllableRegex = /[\uAC00-\uD7AF]/g
+    const koreanSyllables = text.match(koreanSyllableRegex) || []
+    
+    // 한글 자모 범위: 1100-11FF (ㄱ-ㅣ)
+    const koreanJamoRegex = /[\u1100-\u11FF]/g
+    const koreanJamos = text.match(koreanJamoRegex) || []
+    
+    // 한글 호환 자모 범위: 3130-318F (ㄱ-ㅣ)
+    const koreanCompatJamoRegex = /[\u3130-\u318F]/g
+    const koreanCompatJamos = text.match(koreanCompatJamoRegex) || []
+    
+    // 한글 음절 + 한글 자모 + 한글 호환 자모
+    const totalKoreanChars = koreanSyllables.length + koreanJamos.length + koreanCompatJamos.length
+    
+    // 전체 글자 수에서 한글 문자 수를 빼면 영문/숫자/기호 등
+    const nonKoreanChars = text.length - totalKoreanChars
+    
+    // 한글은 음절 단위, 나머지는 글자 단위로 계산
+    return totalKoreanChars + nonKoreanChars
+  }, [])
+
   const getChangeType = useCallback((oldText: string, newText: string, position: number) => {
     if (oldText.length === newText.length) {
       return 'replace'
@@ -1559,9 +1585,9 @@ export default function Editor({
                         <div className="w-4 h-4 border-2 border-amber-300 border-t-stone-400 rounded-full animate-spin mr-2"></div>
                         생각 중...
                       </div>
-                    ) : editor && editor.state.doc.textContent.length < 200 ? (
+                    ) : editor && getSyllableCount(editor.state.doc.textContent) < 150 ? (
                       <div className="flex items-center justify-center px-6 py-2 text-sm font-medium text-amber-200">
-                        충분히 작성한 뒤 다시 시도해주세요 (200자 이상)
+                        충분히 작성한 뒤 다시 시도해주세요 (150자 이상)
                       </div>
                     ) : (
                       <>
