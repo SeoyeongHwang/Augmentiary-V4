@@ -179,13 +179,14 @@ export default function Editor({
     
     const fullText = editor.state.doc.textContent
     const diaryEntryMarked = fullText.slice(0, to) + ' <<INSERT HERE>> ' + fullText.slice(to)
+    const previousContext = fullText.slice(0, from) // 선택된 부분 직전까지의 맥락
 
     try {
       const res = await fetch('/api/augment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          diaryEntry: fullText,
+          diaryEntry: previousContext,
           diaryEntryMarked: diaryEntryMarked,
           userProfile: beliefSummary,
           entryId: entryId,
@@ -371,13 +372,14 @@ export default function Editor({
     
     const fullText = editor.state.doc.textContent
     const diaryEntryMarked = fullText.slice(0, to) + ' <<INSERT HERE>> ' + fullText.slice(to)
+    const previousContext = fullText.slice(0, from) // 선택된 부분 직전까지의 맥락
 
     try {
       const res = await fetch('/api/augment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          diaryEntry: fullText,
+          diaryEntry: previousContext,
           diaryEntryMarked: diaryEntryMarked,
           userProfile: beliefSummary,
           entryId: entryId,
@@ -702,9 +704,9 @@ export default function Editor({
                       <span className="text-l">❇️</span>
                       <span className="font-bold text-l text-gray-900">{option.title || `생각 ${option.index + 1}`}</span>
                     </div>
-                    {option.strategy && (
+                    {option.approach && (
                       <div className="text-gray-500 text-xs mb-2 italic">
-                        {option.strategy}
+                        {option.approach}
                       </div>
                     )}
                     <div className="text-gray-800 text-[15px] leading-relaxed">

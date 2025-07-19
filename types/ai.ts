@@ -16,9 +16,10 @@ export interface CreateAIPromptData {
 
 // 새로운 AI 옵션 타입
 export interface AIOption {
-  strategy: string
+  approach: string
   title: string
   text: string
+  resource: string[]
 }
 
 export interface AIAgentResult {

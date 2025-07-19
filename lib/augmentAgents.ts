@@ -3,6 +3,7 @@
 import { supabase } from './supabase'
 import { getCurrentKST } from './time'
 import { AIAgentResult, AIOption } from '../types/ai'
+import { getDirectionAgentApproachesPrompt, getAllApproachNames, getInterpretiveAgentApproachesPrompt, getApproachGuidelines } from './approaches'
 
 
 
@@ -49,28 +50,29 @@ export async function saveAIPrompt(
   }
 }
 
-export async function callNarrativeAgent(diaryEntry: string, selectedEntry: string): Promise<{ strategy: string; justification: string; raw?: string }> {
+export async function callDirectionAgent(diaryEntry: string, selectedEntry: string): Promise<{ reflective_summary: string; significance: string; approaches: string[]; raw?: string }> {
     // OpenAI API 호출 예시
     const systemPrompt = `
-    You are an expert in narrative identity and meaning-making in personal writing.
+    You are a reflective writing assistant trained in narrative psychology.
 
-Your task is to analyze the following diary entry and determine the best AI interpretation strategy to support further reflection.
+Your task is to analyze the following diary entry and identify its reflective potential. Based on your analysis, recommend the three most suitable meaning-making strategies that could support deeper reflection.
 
-Choose ONE strategy from the following list:
-- Exploratory insight generation
-- Positive reframing and redemption
-- Action-oriented behavioral guidance
-- Connecting with values and life themes
-- Acceptance and closure support
+INPUT:
+<Selected Diary Entry>: The specific part that the user wants to interpret.
+<Previous Context>: Diary entries up to the selected section
+
+Start by interpreting what the selected entry reveals about the person's emotional state, thoughts, or personal concerns. Then assess how much reflective potential this passage holds—i.e., how likely it is to support meaningful self-exploration if meaning-making approaches are applied.
+
+Select THREE approaches from the following list:
+${getDirectionAgentApproachesPrompt()}
 
 You must output your response in the following JSON format only:
 {
-"strategy": "The chosen strategy name exactly as listed above",
-"justification": "A rich, natural paragraph explaining why this strategy is most appropriate for this diary entry. Consider the emotional tone, narrative coherence, and dominant themes present in the writing."
-}
-
-Do not include any text before or after the JSON. Return only valid JSON.
-    `
+  "reflective_summary": "<Interpretive summary of the selected diary entry>",
+  "significance": "1~5",  // Reflective potential: 1 = low (mundane), 5 = high (rich point for meaning-making)
+  "approaches": ["<first approach>", "<second approach>", "<third approach>"]
+}    
+  `
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -81,87 +83,120 @@ Do not include any text before or after the JSON. Return only valid JSON.
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Diary Entry: \n${diaryEntry}
+          { role: 'user', content: `
+          <Selected Diary Entry>: \n${selectedEntry}
           \n\n
-          Selected Entry: \n${selectedEntry}` },
+          <Previous Context>: \n${diaryEntry}` },
         ],
-        temperature: 1.0,
+        temperature: 0.7,
       }),
     });
   
     const data = await response.json();
     const textResult = data.choices?.[0]?.message?.content || '';
     
-    console.log('🔍 [NARRATIVE AGENT] Raw OpenAI response:', textResult);
+    console.log('🔍 [DIRECTION AGENT] Raw OpenAI response:', textResult);
     
     try {
         const jsonStart = textResult.indexOf('{');
         const jsonEnd = textResult.lastIndexOf('}');
         const jsonString = textResult.substring(jsonStart, jsonEnd + 1);
-        console.log('🔍 [NARRATIVE AGENT] Extracted JSON string:', jsonString);
+        console.log('🔍 [DIRECTION AGENT] Extracted JSON string:', jsonString);
         const parsedResult = JSON.parse(jsonString);
-        console.log('🔍 [NARRATIVE AGENT] Parsed result:', parsedResult);
+        console.log('🔍 [DIRECTION AGENT] Parsed result:', parsedResult);
         
         // 필수 필드들을 체크하고 기본값 설정
         const safeResult = {
-          strategy: parsedResult.strategy || 'Exploratory insight generation',
-          justification: parsedResult.justification || 'Default justification for narrative analysis.',
+          reflective_summary: parsedResult.reflective_summary || 'Default reflective summary.',
+          significance: parsedResult.significance || '3',
+          approaches: Array.isArray(parsedResult.approaches) ? parsedResult.approaches : getAllApproachNames().slice(0, 3),
           raw: parsedResult.raw
         };
         
-        if (!parsedResult.strategy) {
-          console.warn('⚠️ [NARRATIVE AGENT] strategy is missing, using default');
+        if (!parsedResult.reflective_summary) {
+          console.warn('⚠️ [DIRECTION AGENT] reflective_summary is missing, using default');
         }
-        if (!parsedResult.justification) {
-          console.warn('⚠️ [NARRATIVE AGENT] justification is missing, using default');
+        if (!parsedResult.significance) {
+          console.warn('⚠️ [DIRECTION AGENT] significance is missing, using default');
+        }
+        if (!Array.isArray(parsedResult.approaches)) {
+          console.warn('⚠️ [DIRECTION AGENT] approaches is missing or not an array, using default');
         }
         
         return safeResult;
       } catch (err) {
-        console.error('❌ [NARRATIVE AGENT] Error parsing JSON:', err);
-        console.error('❌ [NARRATIVE AGENT] Raw response was:', textResult);
-        return { strategy: '', justification: '', raw: textResult};
+        console.error('❌ [DIRECTION AGENT] Error parsing JSON:', err);
+        console.error('❌ [DIRECTION AGENT] Raw response was:', textResult);
+        return { 
+          reflective_summary: 'Error processing response', 
+          significance: '3', 
+          approaches: getAllApproachNames().slice(0, 3), 
+          raw: textResult
+        };
       }
   }
   
 export async function callInterpretiveAgent(
-    diaryEntryMarked: string,
+    diaryEntry: string,
+    selectedEntry: string,
+    significance: string,
     userProfile: string,
-    narrativeStrategy: string
+    approaches: string[]
   ): Promise<AIAgentResult> {
-    // 마찬가지로 OpenAI API 호출 구현
-    // 예시 생략 가능, 위 구조 동일
+
+    
     const systemPrompt = `
-    You are an expert in narrative coaching and personal meaning-making through writing.
+    You are a narrative meaning-making assistant and a personal writing assistant.
 
-You will receive:
-- The full diary entry. Inside the diary entry, there will be a <<INSERT HERE>> marker.
-- The user's profile (core values, life themes, identity cues)
-- The suggested narrative strategy to apply
+Your task is to generate three different short reflective paragraph scaffolds that will be inserted at the end of the selected diary entry. You will use three different meaning-making approaches and selectively incorporate relevant personal resources to personalize and deepen the reflection.
 
-Your task is to generate THREE interpretive options that will be inserted in place of <<INSERT HERE>> in the diary to encourage deeper reflection and meaning-making.
+INPUT:
+<Selected Diary Entry>: The specific part that the user wants to interpret.
+<Previous Context>: Diary entries up to the selected section.
+<Significance>: The significance of the selected entry. Shows how much reflective potential this passage holds.
+<Approaches>: Three different meaning-making approaches to apply, each for a different option.
+<Resource>: The user's profile information in JSON format (demographics, personality, value, past context, current context) that can be used for meaning-making.
 
-For each option, provide:
-1. strategy: meaning-making strategy being used in this option (lesson learning / gaining insight / positive reappraisal)
-2. title: A short, engaging title for this interpretive approach. Put relative emoji in front of the title.
-3. text: The actual interpretive sentence to be inserted
-
-You can meaning-make based on following meaning-making strategies:
-- lesson learning: Practical reasoning derived from experience, guiding future actions in similar situations.
-- gaining insight: Taking a step back from experience and connecting the message gained from that experience with a deeper understanding of oneself or knowledge of the world and relationships.
-- positive reappraisal: Re-framing a situation in a more positive or hopeful light, based on one's beliefs and values.
+For each approach, create a distinct perspective and interpretation. Use only the resources that meaningfully support each specific approach.
+From the following resource categories, select only those that help you personalize or ground the reflection: demographics, personality, values, current_context, and future_ideal.
 
 Guidelines:
-- Align with the suggested narrative strategy.
-- You can subtly reflect the user's profile and values but avoid directly citing phrases in profile data.
-- Avoid directly citing meaning-making strategies in the text.
-- Avoid generic or clichéd phrasing.
-- Avoid using excessive commas in the text.
+- Keep each text to 2 to 3 sentences.
+- Use the significance level to adjust the tone and depth of reflection:
+  - If significance is low (1~2), keep the tone light and grounded in everyday observation. Avoid heavy emotional language or deep philosophical conclusions.
+  - If significance is high (4~5), allow for more introspective or emotionally resonant insights.
+  - For moderate significance (3), maintain a balanced tone—thoughtful but not overly weighty.
+- Avoid directly citing the meaning-making approach or the user's profile information in the text.
+- Avoid generic or clichéd sentences and excessive commas.
 - Be phrased as if written by the user (first-person voice) in fluent Korean.
-- Vary across the three versions (each offering different perspectives)
-- The text should have an open stance. Avoid overly prescriptive phrasing such as "I will do X", "I must Y". Instead, favor phrases that open up possibilities (could, might, perhaps, etc.).
-- End the generated text with an open-ended clause or question that can encourage the user to reflect and continue writing.
-    `
+- Each text should have an open stance. Use phrases that open up possibilities (could, might, perhaps, etc.)
+- Make sure the last sentence is unfinished to continue writing.
+- The titles should reflect specific aspects of the text and be different for each option.
+- Put emojis that match the thematic context (🌱💭🔄💫🎯🪞✨🌅📝💪🤝😌🔍) in front of the title.
+- Each option should offer a genuinely different perspective and interpretation approach.
+
+You must output your response in the following JSON format only:
+{
+  "option1": {
+    "approach": "<First approach name>",
+    "resource": [<List of used resource names>],
+    "title": "<Short and concise title>", 
+    "text": "<A paragraph or so of text written according to the first meaning-forming approach>"
+  },
+  "option2": {
+    "approach": "<Second approach name>",
+    "resource": [<List of used resource names>],
+    "title": "<Short and concise title>", 
+    "text": "<A paragraph or so of text written according to the second meaning-forming approach>"
+  },
+  "option3": {
+    "approach": "<Third approach name>",
+    "resource": [<List of used resource names>],
+    "title": "<Short and concise title>", 
+    "text": "<A paragraph or so of text written according to the third meaning-forming approach>"
+  }
+}    
+  `
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -172,34 +207,22 @@ Guidelines:
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Diary Entry with <<INSERT HERE>> Marker: \n${diaryEntryMarked}
+          { role: 'user', content: `Selected Diary Entry: \n${selectedEntry}
           \n\n
-          User Profile: \n${userProfile}
+          Previous Context: \n${diaryEntry}
           \n\n
-          Narrative Strategy: \n${narrativeStrategy}
+          Significance: \n${significance}
           \n\n
-          Please output the result in the following JSON format:
-          {
-          "option1": {
-            "strategy": "<<<STRATEGY>>>",
-            "title": "<<<TITLE>>>",
-            "text": "<<<TEXT>>>"
-          },
-          "option2": {
-            "strategy": "<<<STRATEGY>>>",
-            "title": "<<<TITLE>>>",
-            "text": "<<<TEXT>>>"
-          },
-          "option3": {
-            "strategy": "<<<STRATEGY>>>",
-            "title": "<<<TITLE>>>",
-            "text": "<<<TEXT>>>"
-          }
-          }
+          Approaches: 
+          1. ${approaches[0]} - ${getApproachGuidelines(approaches[0]).map(guideline => `${guideline}`).join(', ')}
+          2. ${approaches[1]} - ${getApproachGuidelines(approaches[1]).map(guideline => `${guideline}`).join(', ')}
+          3. ${approaches[2]} - ${getApproachGuidelines(approaches[2]).map(guideline => `${guideline}`).join(', ')}
+          \n\n
+          Resource: \n${userProfile}
           ` },
         ],
-        temperature: 0.4,
-        top_p: 0.9,
+        temperature: 0.7,
+        top_p: 1.0,
       }),
     })
 
@@ -230,32 +253,19 @@ Guidelines:
         // JSON 파싱 시도
         const parsedResult = JSON.parse(finalJson);
         
-        // 필수 필드 확인 및 기본값 설정
-        return {
+        // AIAgentResult 형식으로 변환
+        const result: AIAgentResult = {
           option1: createAIOption(parsedResult.option1),
           option2: createAIOption(parsedResult.option2),
           option3: createAIOption(parsedResult.option3)
         };
         
+        return result;
+        
       } catch (err) {
         console.error('Error parsing Interpretive Agent JSON:', err);
         console.error('Raw response:', textResult);
-        
-        // JSON 파싱 실패 시 텍스트에서 직접 추출 시도
-        try {
-          const option1Match = textResult.match(/"option1":\s*\{([^}]*)\}/);
-          const option2Match = textResult.match(/"option2":\s*\{([^}]*)\}/);
-          const option3Match = textResult.match(/"option3":\s*\{([^}]*)\}/);
-          
-          return {
-            option1: parseAIOptionFromMatch(option1Match),
-            option2: parseAIOptionFromMatch(option2Match),
-            option3: parseAIOptionFromMatch(option3Match)
-          };
-        } catch (fallbackErr) {
-          console.error('Fallback parsing also failed:', fallbackErr);
-          return createDefaultAIAgentResult();
-        }
+        return createDefaultAIAgentResult();
       }
   }
 
@@ -286,17 +296,17 @@ Guidelines:
 Please output the result in the following JSON format:
 {
 "option1": {
-  "strategy": "<<<STRATEGY>>>",
+  "approach": "<<<STRATEGY>>>",
   "title": "<<<TITLE>>>",
   "text": "<<<MODIFIED_TEXT_WITH_CONNECTIVE>>>"
 },
 "option2": {
-  "strategy": "<<<STRATEGY>>>",
+  "approach": "<<<STRATEGY>>>",
   "title": "<<<TITLE>>>",
   "text": "<<<MODIFIED_TEXT_WITH_CONNECTIVE>>>"
 },
 "option3": {
-  "strategy": "<<<STRATEGY>>>",
+  "approach": "<<<STRATEGY>>>",
   "title": "<<<TITLE>>>",
   "text": "<<<MODIFIED_TEXT_WITH_CONNECTIVE>>>"
 }
@@ -307,17 +317,17 @@ Please output the result in the following JSON format:
 Please analyze the following interpretive options and add appropriate causal connective phrases:
 
 Option 1:
-Strategy: ${aiAgentResult.option1.strategy}
+Strategy: ${aiAgentResult.option1.approach}
 Title: ${aiAgentResult.option1.title}
 Text: ${aiAgentResult.option1.text}
 
 Option 2:
-Strategy: ${aiAgentResult.option2.strategy}
+Strategy: ${aiAgentResult.option2.approach}
 Title: ${aiAgentResult.option2.title}
 Text: ${aiAgentResult.option2.text}
 
 Option 3:
-Strategy: ${aiAgentResult.option3.strategy}
+Strategy: ${aiAgentResult.option3.approach}
 Title: ${aiAgentResult.option3.title}
 Text: ${aiAgentResult.option3.text}
   `;
@@ -382,10 +392,13 @@ Text: ${aiAgentResult.option3.text}
 
 // 헬퍼 함수들
 function createAIOption(option: any): AIOption {
+  const approachValue = option?.approach || option?.approach || '';
+  
   return {
-    strategy: option?.strategy || '',
+    approach: approachValue,
     title: option?.title || '',
-    text: option?.text || ''
+    text: option?.text || '',
+    resource: option?.resource || []
   };
 }
 
@@ -393,28 +406,41 @@ function parseAIOptionFromMatch(match: RegExpMatchArray | null): AIOption {
   if (!match) return createAIOption({});
   
   const optionText = match[1];
-  const strategyMatch = optionText.match(/"strategy":\s*"([^"]*)"/);
+  const approachMatch = optionText.match(/"approach":\s*"([^"]*)"/);
   const titleMatch = optionText.match(/"title":\s*"([^"]*)"/);
   const textMatch = optionText.match(/"text":\s*"([^"]*)"/);
   
+  const approachValue = approachMatch ? approachMatch[1] : '';
+  
   return {
-    strategy: strategyMatch ? strategyMatch[1] : '',
+    approach: approachValue,
     title: titleMatch ? titleMatch[1] : '',
-    text: textMatch ? textMatch[1] : ''
+    text: textMatch ? textMatch[1] : '',
+    resource: []
   };
 }
 
 function createDefaultAIAgentResult(): AIAgentResult {
   const defaultOption: AIOption = {
-    strategy: '',
+    approach: '',
     title: '',
-    text: ''
+    text: '',
+    resource: []
   };
   
   return {
     option1: defaultOption,
     option2: defaultOption,
     option3: defaultOption
+  };
+}
+
+function createDefaultAIOption(): AIOption {
+  return {
+    approach: '',
+    title: '',
+    text: '',
+    resource: []
   };
 }
 

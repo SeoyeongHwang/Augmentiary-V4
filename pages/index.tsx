@@ -19,11 +19,29 @@ export default function Home() {
   const router = useRouter()
   const supabase = createClient()
 
+  // 프로필이 비어있는지 확인하는 헬퍼 함수
+  const isProfileEmpty = (profile: any): boolean => {
+    if (!profile) return true
+    
+    // 문자열인 경우
+    if (typeof profile === 'string') {
+      return profile.trim() === ''
+    }
+    
+    // 객체인 경우
+    if (typeof profile === 'object') {
+      // null이나 빈 객체인지 확인
+      return profile === null || Object.keys(profile).length === 0
+    }
+    
+    return true
+  }
+
   // 사용자가 로그인되어 있으면 일기 목록 가져오기
   useEffect(() => {
     if (!sessionLoading && user) {
       // profile이 비어있으면 설문 페이지로 이동
-      if (!user.profile || user.profile.trim() === '') {
+      if (isProfileEmpty(user.profile)) {
         console.log('📝 프로필이 비어있음 - 설문 페이지로 이동')
         router.push('/survey')
         return
