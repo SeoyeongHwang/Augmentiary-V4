@@ -20,6 +20,7 @@ export interface AIOption {
   title: string
   text: string
   resource: string[]
+  resource_usage?: string
 }
 
 export interface AIAgentResult {

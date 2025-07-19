@@ -13,9 +13,17 @@ const generateRequestId = (): string => {
 // userProfile JSON을 필요한 필드들만 추출하여 변환하는 함수
 const extractUserProfileForResource = (userProfileInput: any) => {
   try {
+    console.log('🔍 [EXTRACT] Input analysis:', {
+      type: typeof userProfileInput,
+      isNull: userProfileInput === null,
+      isUndefined: userProfileInput === undefined,
+      isEmpty: userProfileInput === '',
+      fullInput: userProfileInput
+    });
+    
     // null/undefined 처리
     if (!userProfileInput) {
-      console.log('Empty user profile, using default structure');
+      console.log('❌ [EXTRACT] Empty user profile, using default structure');
       return JSON.stringify({
         demographics: {},
         personality: {},
@@ -28,7 +36,7 @@ const extractUserProfileForResource = (userProfileInput: any) => {
     // 이미 객체인 경우
     let fullProfile;
     if (typeof userProfileInput === 'object') {
-      console.log('User profile is already an object');
+      console.log('📊 [EXTRACT] User profile is already an object:', userProfileInput);
       fullProfile = userProfileInput;
     } else if (typeof userProfileInput === 'string') {
       // 문자열인 경우 trim 체크
@@ -64,14 +72,24 @@ const extractUserProfileForResource = (userProfileInput: any) => {
       }, null, 2);
     }
     
-    // InterpretiveAgent에서 사용할 필드들만 추출
+    // 실제 프로필 구조에 맞춰 InterpretiveAgent에서 사용할 필드들 추출
     const resourceProfile = {
-      demographics: fullProfile.demographics || {},
-      personality: fullProfile.personality || {},
-      values: fullProfile.values || {},
-      current_context: fullProfile.current_context || {},
-      future_ideal: fullProfile.future_ideal || {}
+      demographics: fullProfile.social_identity || fullProfile.demographics || {},
+      personality: fullProfile.personal_identity?.personality 
+        ? { description: fullProfile.personal_identity.personality }
+        : fullProfile.personality || {},
+      values: fullProfile.personal_identity?.value 
+        ? { description: fullProfile.personal_identity.value }
+        : fullProfile.values || {},
+      current_context: fullProfile.personal_life_context?.present 
+        ? { description: fullProfile.personal_life_context.present }
+        : fullProfile.current_context || {},
+      future_ideal: fullProfile.personal_life_context?.future 
+        ? { description: fullProfile.personal_life_context.future }
+        : fullProfile.future_ideal || {}
     };
+    
+    console.log('📊 [EXTRACT] Mapped resource profile:', resourceProfile);
     
     return JSON.stringify(resourceProfile, null, 2);
   } catch (error) {
@@ -108,7 +126,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // userProfile을 resource 형태로 변환
+    console.log('📊 [AUGMENT] Original userProfile received:', {
+      type: typeof userProfile,
+      isNull: userProfile === null,
+      isUndefined: userProfile === undefined,
+      isEmpty: userProfile === '',
+      fullContent: userProfile,
+      stringLength: typeof userProfile === 'string' ? userProfile.length : 'N/A'
+    });
+    
     const resourceProfile = extractUserProfileForResource(userProfile);
+    
+    console.log('📊 [AUGMENT] Processed resourceProfile:', {
+      type: typeof resourceProfile,
+      length: resourceProfile ? resourceProfile.length : 0,
+      content: resourceProfile ? resourceProfile.substring(0, 200) + '...' : 'No content'
+    });
 
     // Step 2: Interpretive Agent (모든 approach를 한번에 처리)
     console.log('💭 [STEP 2] Starting Interpretive Agent with all approaches...');
@@ -127,18 +160,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       title: interpretiveAgentResult.option1.title,
       approach: interpretiveAgentResult.option1.approach,
       resources: interpretiveAgentResult.option1.resource,
+      resource_usage: interpretiveAgentResult.option1.resource_usage,
       text: interpretiveAgentResult.option1.text ? interpretiveAgentResult.option1.text.substring(0, 50) + '...' : 'No text'
     });
     console.log('  Option 2:', {
       title: interpretiveAgentResult.option2.title,
       approach: interpretiveAgentResult.option2.approach,
       resources: interpretiveAgentResult.option2.resource,
+      resource_usage: interpretiveAgentResult.option2.resource_usage,
       text: interpretiveAgentResult.option2.text ? interpretiveAgentResult.option2.text.substring(0, 50) + '...' : 'No text'
     });
     console.log('  Option 3:', {
       title: interpretiveAgentResult.option3.title,
       approach: interpretiveAgentResult.option3.approach,
       resources: interpretiveAgentResult.option3.resource,
+      resource_usage: interpretiveAgentResult.option3.resource_usage,
       text: interpretiveAgentResult.option3.text ? interpretiveAgentResult.option3.text.substring(0, 50) + '...' : 'No text'
     });
 

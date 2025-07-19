@@ -558,7 +558,7 @@ export default function Editor({
   }, [title, onTitleChange])
   
   const [augments, setAugments] = useState<{ start: number; end: number; inserted: string; requestId: string; category: AICategory; originalText: string }[]>([])
-  const [userInfo, setBeliefSummary] = useState('')
+  const [userInfo, setUserInfo] = useState('')
   const [augmentOptions, setAugmentOptions] = useState<AIAgentResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [fontMenuOpen, setFontMenuOpen] = useState(false)
@@ -651,11 +651,20 @@ export default function Editor({
 
   // 사용자 프로필 이어쓰기 - 서버사이드 API 사용 대신 useSession의 user 데이터 활용
   useEffect(() => {
+    console.log('📊 [TIPTAP2] User session data:', {
+      userExists: !!user,
+      hasProfile: !!(user?.profile),
+      profileType: typeof user?.profile,
+      profileContent: user?.profile ? (typeof user.profile === 'string' ? user.profile.substring(0, 100) + '...' : JSON.stringify(user.profile).substring(0, 100) + '...') : 'No profile'
+    });
+    
     // user 객체에 profile이 있으면 사용, 없으면 빈 문자열
     if (user?.profile) {
-      setBeliefSummary(user.profile)
+      setUserInfo(user.profile)
+      console.log('📊 [TIPTAP2] Setting userInfo with profile');
     } else {
-      setBeliefSummary('') // 기본값으로 빈 문자열 설정
+      setUserInfo('') // 기본값으로 빈 문자열 설정
+      console.log('📊 [TIPTAP2] Setting userInfo to empty string');
     }
   }, [user])
 
@@ -1629,7 +1638,7 @@ export default function Editor({
       <aside className={`flex-1 max-w-full lg:max-w-sm min-w-0 flex flex-col h-fit px-0 pb-4 overflow-visible order-3 lg:order-3 ${
         (bubbleMenuOptions || augmentOptions) && augmentVisible && !augmentCollapsed ? 'lg:h-full lg:overflow-hidden' : 'lg:overflow-visible'
       }`}>
-        <div className={`px-0 lg:px-3 lg:pb-10 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 ${
+        <div className={`px-0 lg:pb-10 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 ${
           (bubbleMenuOptions || augmentOptions) && augmentVisible && !augmentCollapsed ? 'lg:flex-1 lg:overflow-y-auto' : ''
         }`}>
           {/* <Button onClick={handleAugment} disabled={loading} className="px-4 py-2 rounded">

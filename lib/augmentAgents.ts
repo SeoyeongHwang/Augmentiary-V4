@@ -155,59 +155,54 @@ INPUT:
 <Previous Context>: Diary entries up to the selected section.
 <Significance>: The significance of the selected entry. Shows how much reflective potential this passage holds.
 <Approaches>: Three different meaning-making approaches to apply, each for a different option.
-<Resource>: The user's profile information in JSON format (demographics, personality, value, past context, current context) that can be used for meaning-making.
+<Resource>: The user's profile information in JSON format (demographics, personality, value, past_context, current_context) that can be used for meaning-making.
 
-For each approach, create a distinct perspective and interpretation. Use only the resources that meaningfully support each specific approach.
-From the following resource categories, select only those that help you personalize or ground the reflection: demographics, personality, values, current_context, and future_ideal.
+For each approach, create a distinct perspective and interpretation. Select only relevant resources from these categories that meaningfully support each specific approach: demographics, personality, values, current_context, and future_ideal. Or if there is no reason to use resource, just empty array.
 
 Guidelines:
-- Keep each text to 2 to 3 sentences.
-- Use the significance level to adjust the tone and depth of reflection:
-  - If significance is low (1~2), keep the tone light and grounded in everyday observation. Avoid heavy emotional language or deep philosophical conclusions.
-  - If significance is high (4~5), allow for more introspective or emotionally resonant insights.
-  - For moderate significance (3), maintain a balanced tone—thoughtful but not overly weighty.
-- Avoid directly citing the meaning-making approach or the user's profile information in the text.
-- Avoid generic or clichéd sentences and excessive commas.
-- Be phrased as if written by the user (first-person voice) in fluent Korean.
-- Each text should have an open stance. Use phrases that open up possibilities (could, might, perhaps, etc.)
-- Make sure the last sentence is unfinished to continue writing.
-- The titles should reflect specific aspects of the text and be different for each option.
-- Put emojis that match the thematic context (🌱💭🔄💫🎯🪞✨🌅📝💪🤝😌🔍) in front of the title.
 - Each option should offer a genuinely different perspective and interpretation approach.
+- Keep each text to 2-3 sentences with an open stance using possibility phrases (could, might, perhaps, etc.).
+- Write in first-person voice with fluent, natural Korean that maintains self-talking tone.
+- Avoid directly citing the meaning-making approach or user profile information.
+- Avoid generic sentences, clichés, and excessive commas.
+- End with a grammatically incomplete sentence that trails off mid-thought, requiring the reader to complete the idea (avoid ending complete thoughts with "...").
+
+**Tone and depth by significance level:**
+- Low significance (1-2): Light tone, grounded in everyday observation, avoid heavy emotional language
+- Moderate significance (3): Balanced tone—thoughtful but not overly weighty  
+- High significance (4-5): Allow for more introspective or emotionally resonant insights
+
+**Title requirements:**
+- Reflect specific aspects of the text, different for each option (e.g. "~하기", "~보기")
+- In front of the title, include matching thematic emoji (e.g. 🌱💭🔄💫🎯🪞✨🌅📝💪🤝😌🔍)
 
 You must output your response in the following JSON format only:
 {
   "option1": {
     "approach": "<First approach name>",
-    "resource": [<List of used resource names>],
+    "resource": [List of referenced resource categories],
+    "resource_usage": "<Brief explanation of why you used the resource to support the approach>",
     "title": "<Short and concise title>", 
-    "text": "<A paragraph or so of text written according to the first meaning-forming approach>"
+    "text": "<Paragraph of interpretive text written according to the first meaning-making approach>"
   },
   "option2": {
     "approach": "<Second approach name>",
-    "resource": [<List of used resource names>],
+    "resource": [List of referenced resource categories],
+    "resource_usage": "<Brief explanation of why you used the resource to support the approach>",
     "title": "<Short and concise title>", 
-    "text": "<A paragraph or so of text written according to the second meaning-forming approach>"
+    "text": "<Paragraph of interpretive text written according to the second meaning-making approach>"
   },
   "option3": {
     "approach": "<Third approach name>",
-    "resource": [<List of used resource names>],
+    "resource": [List of referenced resource categories],
+    "resource_usage": "<Brief explanation of why you used the resource to support the approach>",
     "title": "<Short and concise title>", 
-    "text": "<A paragraph or so of text written according to the third meaning-forming approach>"
+    "text": "<Paragraph of interpretive text written according to the third meaning-making approach>"
   }
 }    
   `
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Selected Diary Entry: \n${selectedEntry}
+    
+    const userMessage = `Selected Diary Entry: \n${selectedEntry}
           \n\n
           Previous Context: \n${diaryEntry}
           \n\n
@@ -219,7 +214,19 @@ You must output your response in the following JSON format only:
           3. ${approaches[2]} - ${getApproachGuidelines(approaches[2]).map(guideline => `${guideline}`).join(', ')}
           \n\n
           Resource: \n${userProfile}
-          ` },
+          `;
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
         ],
         temperature: 0.7,
         top_p: 1.0,
@@ -234,19 +241,27 @@ You must output your response in the following JSON format only:
         const jsonEnd = textResult.lastIndexOf('}');
         
         if (jsonStart === -1 || jsonEnd === -1) {
-          console.error('JSON brackets not found in response');
+          console.error('❌ [INTERPRETIVE AGENT] JSON brackets not found in response');
           return createDefaultAIAgentResult();
         }
         
         let jsonString = textResult.substring(jsonStart, jsonEnd + 1);
         
-        // JSON 문자열 정리 (불필요한 공백 제거)
-        const cleanedJson = jsonString.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+        // JSON 문자열 정리 및 수정
+        let cleanedJson = jsonString.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+        
+        // 일반적인 JSON 오류 수정
+        cleanedJson = cleanedJson
+          // 마지막 쉼표 제거 (객체나 배열 끝에서)
+          .replace(/,(\s*[}\]])/g, '$1')
+          // 쌍따옴표 누락 수정 시도
+          .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+          // 홀따옴표를 쌍따옴표로 변경
+          .replace(/'/g, '"');
         
         // JSON이 완전하지 않은 경우 수정 시도
         let finalJson = cleanedJson;
         if (!cleanedJson.endsWith('}')) {
-          // 마지막 쉼표나 불완전한 문자열 제거 후 닫는 괄호 추가
           finalJson = cleanedJson.replace(/,\s*$/, '') + '}';
         }
         
@@ -260,11 +275,29 @@ You must output your response in the following JSON format only:
           option3: createAIOption(parsedResult.option3)
         };
         
+        console.log('✅ [INTERPRETIVE AGENT] Final result with resources:');
+        console.log('  Option 1 resources:', result.option1.resource);
+        console.log('  Option 2 resources:', result.option2.resource);
+        console.log('  Option 3 resources:', result.option3.resource);
+        
         return result;
         
       } catch (err) {
-        console.error('Error parsing Interpretive Agent JSON:', err);
-        console.error('Raw response:', textResult);
+        console.error('❌ [INTERPRETIVE AGENT] Error parsing JSON:', err);
+        console.error('❌ [INTERPRETIVE AGENT] Attempting fallback parsing...');
+        
+        // Fallback: 정규표현식으로 개별 필드 추출
+        try {
+          const fallbackResult = extractFieldsWithRegex(textResult);
+          if (fallbackResult) {
+            console.log('✅ [INTERPRETIVE AGENT] Fallback parsing successful');
+            return fallbackResult;
+          }
+        } catch (fallbackErr) {
+          console.error('❌ [INTERPRETIVE AGENT] Fallback parsing also failed:', fallbackErr);
+        }
+        
+        console.error('❌ [INTERPRETIVE AGENT] Raw response was:', textResult);
         return createDefaultAIAgentResult();
       }
   }
@@ -292,6 +325,7 @@ Refer to the following conjunctions:
 Guidelines:
 - Choose Korean conjunctions that naturally flow from the last sentence of the text
 - Keep the original text intact, only add the connective phrase at the end of the text
+- Preserve the original approach, resource, and resource_usage information exactly as provided
 
 Please output the result in the following JSON format:
 {
@@ -318,16 +352,22 @@ Please analyze the following interpretive options and add appropriate causal con
 
 Option 1:
 Strategy: ${aiAgentResult.option1.approach}
+Resource: ${JSON.stringify(aiAgentResult.option1.resource)}
+Resource Usage: ${aiAgentResult.option1.resource_usage || ''}
 Title: ${aiAgentResult.option1.title}
 Text: ${aiAgentResult.option1.text}
 
 Option 2:
 Strategy: ${aiAgentResult.option2.approach}
+Resource: ${JSON.stringify(aiAgentResult.option2.resource)}
+Resource Usage: ${aiAgentResult.option2.resource_usage || ''}
 Title: ${aiAgentResult.option2.title}
 Text: ${aiAgentResult.option2.text}
 
 Option 3:
 Strategy: ${aiAgentResult.option3.approach}
+Resource: ${JSON.stringify(aiAgentResult.option3.resource)}
+Resource Usage: ${aiAgentResult.option3.resource_usage || ''}
 Title: ${aiAgentResult.option3.title}
 Text: ${aiAgentResult.option3.text}
   `;
@@ -392,14 +432,67 @@ Text: ${aiAgentResult.option3.text}
 
 // 헬퍼 함수들
 function createAIOption(option: any): AIOption {
-  const approachValue = option?.approach || option?.approach || '';
-  
   return {
-    approach: approachValue,
+    approach: option?.approach || '',
     title: option?.title || '',
     text: option?.text || '',
-    resource: option?.resource || []
+    resource: Array.isArray(option?.resource) ? option.resource : [],
+    resource_usage: option?.resource_usage || ''
   };
+}
+
+function extractFieldsWithRegex(textResult: string): AIAgentResult | null {
+  try {
+    // 각 옵션을 개별적으로 추출 (개행 문자 포함)
+    const option1Match = textResult.match(/"option1"\s*:\s*{([\s\S]*?)},?\s*"option2"/);
+    const option2Match = textResult.match(/"option2"\s*:\s*{([\s\S]*?)},?\s*"option3"/);
+    const option3Match = textResult.match(/"option3"\s*:\s*{([\s\S]*?)}\s*}/);
+    
+    // option3이 마지막인 경우를 위한 추가 매칭
+    const option3MatchAlt = textResult.match(/"option3"\s*:\s*{([\s\S]*?)}\s*$/);
+    const finalOption3Match = option3Match || option3MatchAlt;
+    
+    if (!option1Match || !option2Match || !finalOption3Match) {
+      console.log('❌ Could not find all three options in regex fallback');
+      return null;
+    }
+    
+    const extractOption = (optionText: string): AIOption => {
+      const approachMatch = optionText.match(/"approach"\s*:\s*"([^"]*)"/);
+      const titleMatch = optionText.match(/"title"\s*:\s*"([^"]*)"/);
+      const textMatch = optionText.match(/"text"\s*:\s*"([^"]*)"/);
+      const resourceMatch = optionText.match(/"resource"\s*:\s*\[([^\]]*)\]/);
+      const resourceUsageMatch = optionText.match(/"resource_usage"\s*:\s*"([^"]*)"/);
+      
+      // resource 배열 파싱
+      let resourceArray: string[] = [];
+      if (resourceMatch && resourceMatch[1].trim()) {
+        try {
+          resourceArray = resourceMatch[1].split(',').map(s => s.trim().replace(/"/g, ''));
+        } catch {
+          resourceArray = [];
+        }
+      }
+      
+      return {
+        approach: approachMatch ? approachMatch[1] : '',
+        title: titleMatch ? titleMatch[1] : '',
+        text: textMatch ? textMatch[1] : '',
+        resource: resourceArray,
+        resource_usage: resourceUsageMatch ? resourceUsageMatch[1] : ''
+      };
+    };
+    
+    return {
+      option1: extractOption(option1Match[1]),
+      option2: extractOption(option2Match[1]),
+      option3: extractOption(finalOption3Match[1])
+    };
+    
+  } catch (err) {
+    console.error('❌ Regex extraction failed:', err);
+    return null;
+  }
 }
 
 function parseAIOptionFromMatch(match: RegExpMatchArray | null): AIOption {
