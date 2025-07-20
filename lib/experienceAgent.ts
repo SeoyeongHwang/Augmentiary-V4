@@ -229,7 +229,7 @@ export async function callAutobiographicReasoningAgent(
         messages: [
           { role: 'system', content: systemPrompt },
         ],
-        temperature: 0.6,
+        temperature: 0.7,
         top_p: 1.0
       }),
     })
@@ -337,7 +337,7 @@ export async function callPastContextAgent(
         messages: [
           { role: 'system', content: systemPrompt },
         ],
-        temperature: 0.6,
+        temperature: 0.7,
         top_p: 1.0
       }),
     })

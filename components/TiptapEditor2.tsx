@@ -1234,26 +1234,20 @@ export default function Editor({
     
     if (!textToInsert.trim()) return;
     
-    // AI 텍스트 삽입 로그 (경험 찾기 결과 추가)
-    if (canLog && entryId) {
-      logAITextInsert(entryId, {
-        type: 'experience_addition',
-        strategy: experience.strategy,
-        description: textToInsert,
-        originalEntryId: experience.id
-      });
-    }
+    // 🔧 중복 로깅 제거: applyAugmentation 함수 내부에서만 로깅하도록 함
+    // AI 텍스트 삽입 로그는 applyAugmentation 함수에서 처리됨
     
     // applyAugmentation 함수 재사용하여 텍스트 추가
     applyAugmentation(textToInsert, {
       type: 'experience_addition',
       strategy: experience.strategy,
-      description: textToInsert
+      description: textToInsert,
+      originalEntryId: experience.id
     });
     
     // 경험 찾기 결과 패널 닫기 (옵션)
     // setExperienceVisible(false);
-  }, [editor, canLog, entryId, logAITextInsert, applyAugmentation]);
+  }, [editor, applyAugmentation]);
 
   // 로깅 시스템 검증을 위한 디버깅 함수
   const debugLoggingState = useCallback(() => {
