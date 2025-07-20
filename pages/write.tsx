@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { createClient } from '../utils/supabase/client'
 import { ArrowLeftIcon } from "@heroicons/react/24/outline"
@@ -74,6 +74,22 @@ export default function Write() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canLog, entryId])
 
+  // 추가 메트릭 데이터를 저장할 상태
+  const [additionalMetrics, setAdditionalMetrics] = useState<{
+    leftPanelRequests: number
+    rightPanelRequests: number
+    leftPanelInsertions: number
+    rightPanelInsertions: number
+    aiTextsAdded: Array<{
+      text: string
+      type: 'experience' | 'generation'
+      timestamp: string
+      source: 'left' | 'right'
+      metadata?: any
+    }>
+    syllableCount: number
+  } | null>(null)
+
   const handleSave = async () => {
     if (!user || !participantCode || !entryId) {
       console.error('ESM 모달 표시 실패: 사용자 정보 부족', { user: !!user, participantCode, entryId })
@@ -86,6 +102,16 @@ export default function Write() {
       return
     }
 
+    console.log('📊 [WRITE] 저장 시점 메트릭 상태:', {
+      hasMetrics: !!additionalMetrics,
+      leftPanelRequests: additionalMetrics?.leftPanelRequests || 0,
+      rightPanelRequests: additionalMetrics?.rightPanelRequests || 0,
+      leftPanelInsertions: additionalMetrics?.leftPanelInsertions || 0,
+      rightPanelInsertions: additionalMetrics?.rightPanelInsertions || 0,
+      aiTextsCount: additionalMetrics?.aiTextsAdded?.length || 0,
+      syllableCount: additionalMetrics?.syllableCount || 0
+    })
+
     // ESM 트리거 로그 (ESM 모달 표시)
     if (canLog) {
       logTriggerESM(entryId)
@@ -93,6 +119,32 @@ export default function Write() {
 
     setShowESM(true)
   }
+
+  // 에디터에서 메트릭 업데이트 받는 함수
+  const handleMetricsChange = useCallback((metrics: {
+    leftPanelRequests: number
+    rightPanelRequests: number
+    leftPanelInsertions: number
+    rightPanelInsertions: number
+    aiTextsAdded: Array<{
+      text: string
+      type: 'experience' | 'generation'
+      timestamp: string
+      source: 'left' | 'right'
+      metadata?: any
+    }>
+    syllableCount: number
+  }) => {
+    setAdditionalMetrics(metrics)
+    console.log('📊 [WRITE] 에디터에서 메트릭 업데이트:', {
+      leftPanelRequests: metrics.leftPanelRequests,
+      rightPanelRequests: metrics.rightPanelRequests,
+      leftPanelInsertions: metrics.leftPanelInsertions,
+      rightPanelInsertions: metrics.rightPanelInsertions,
+      aiTextsCount: metrics.aiTextsAdded?.length || 0,
+      syllableCount: metrics.syllableCount
+    })
+  }, [])
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -198,6 +250,103 @@ export default function Write() {
         })()
       }))
       
+      // 추가 메트릭 데이터를 완전히 안전하게 정리 (메타데이터 제외)
+      const safeAdditionalMetrics = additionalMetrics ? {
+        leftPanelRequests: Number(additionalMetrics.leftPanelRequests) || 0,
+        rightPanelRequests: Number(additionalMetrics.rightPanelRequests) || 0,
+        leftPanelInsertions: Number(additionalMetrics.leftPanelInsertions) || 0,
+        rightPanelInsertions: Number(additionalMetrics.rightPanelInsertions) || 0,
+        syllableCount: Number(additionalMetrics.syllableCount) || 0,
+        // AI 텍스트와 안전한 메타데이터 저장
+        aiTextsAdded: Array.isArray(additionalMetrics.aiTextsAdded) ? 
+          additionalMetrics.aiTextsAdded.map((item, index) => {
+            try {
+              // 안전한 메타데이터 처리
+              const safeMetadata: any = {};
+              if (item?.metadata && typeof item.metadata === 'object') {
+                // 허용된 메타데이터 키들만 포함
+                const allowedKeys = ['strategy', 'originalEntryId', 'title', 'isPastContext', 'sum_innerstate', 'sum_insight', 'created_at', 'approach', 'resource', 'index', 'category', 'confidence'];
+                
+                for (const key of allowedKeys) {
+                  const value = item.metadata[key];
+                  if (value !== undefined && value !== null) {
+                    if (typeof value === 'string') {
+                      safeMetadata[key] = value.substring(0, 200); // 문자열 길이 제한
+                    } else if (typeof value === 'number' || typeof value === 'boolean') {
+                      safeMetadata[key] = value; // 원시 타입은 그대로
+                    }
+                  }
+                }
+              }
+              
+              return {
+                text: typeof item?.text === 'string' ? item.text.substring(0, 200) : '', 
+                type: (item?.type === 'experience' || item?.type === 'generation') ? item.type : 'generation',
+                timestamp: typeof item?.timestamp === 'string' ? item.timestamp : new Date().toISOString(),
+                source: (item?.source === 'left' || item?.source === 'right') ? item.source : 'right',
+                metadata: safeMetadata
+              };
+            } catch (error) {
+              console.warn(`AI 텍스트 ${index} 정리 중 오류:`, error);
+              return {
+                text: '',
+                type: 'generation',
+                timestamp: new Date().toISOString(),
+                source: 'right',
+                metadata: {}
+              };
+            }
+          }) : []
+      } : null;
+      
+             // 전송 전 JSON 검증 (매우 엄격)
+       let finalMetrics = null;
+       console.log('🔍 [WRITE] additionalMetrics 존재 여부:', !!additionalMetrics);
+       console.log('🔍 [WRITE] safeAdditionalMetrics 존재 여부:', !!safeAdditionalMetrics);
+       
+       if (safeAdditionalMetrics) {
+         // 안전한 로그 출력 (AI 텍스트 배열 요약)
+         const logSafeMetrics = {
+           leftPanelRequests: safeAdditionalMetrics.leftPanelRequests,
+           rightPanelRequests: safeAdditionalMetrics.rightPanelRequests,
+           leftPanelInsertions: safeAdditionalMetrics.leftPanelInsertions,
+           rightPanelInsertions: safeAdditionalMetrics.rightPanelInsertions,
+           syllableCount: safeAdditionalMetrics.syllableCount,
+           aiTextsCount: safeAdditionalMetrics.aiTextsAdded?.length || 0
+         };
+         console.log('🔍 [WRITE] safeAdditionalMetrics 내용:', logSafeMetrics);
+         
+         try {
+           // 이중 검증: 직렬화 테스트
+           const testSerialization = JSON.stringify(safeAdditionalMetrics);
+           JSON.parse(testSerialization); // 역직렬화도 테스트
+           
+           finalMetrics = safeAdditionalMetrics;
+           console.log('📊 [WRITE] 안전한 메트릭 검증 완료:', logSafeMetrics);
+         } catch (error) {
+           console.error('❌ [WRITE] 메트릭 JSON 검증 실패, 기본값 사용:', error);
+           // 가장 안전한 기본값만 전송
+           try {
+             finalMetrics = {
+               leftPanelRequests: Number(additionalMetrics?.leftPanelRequests) || 0,
+               rightPanelRequests: Number(additionalMetrics?.rightPanelRequests) || 0,
+               leftPanelInsertions: Number(additionalMetrics?.leftPanelInsertions) || 0,
+               rightPanelInsertions: Number(additionalMetrics?.rightPanelInsertions) || 0,
+               syllableCount: Number(additionalMetrics?.syllableCount) || 0,
+               aiTextsAdded: []
+             };
+             // 기본값도 검증
+             JSON.stringify(finalMetrics);
+             console.log('📊 [WRITE] 기본 메트릭 사용:', finalMetrics);
+           } catch (fallbackError) {
+             console.error('❌ [WRITE] 기본 메트릭도 실패, 메트릭 전송 안함:', fallbackError);
+             finalMetrics = null; // 메트릭 전송하지 않음
+           }
+         }
+       } else {
+         console.log('⚠️ [WRITE] safeAdditionalMetrics가 null이라서 메트릭 전송 안함');
+       }
+      
       // 서버 사이드 API 호출
       const response = await fetch('/api/entries', {
         method: 'POST',
@@ -208,7 +357,8 @@ export default function Write() {
           entryData: insertData,
           esmData: esmDataToInsert,
           logsData: logsData,
-          aiPromptsData: processedAIPromptsData
+          aiPromptsData: processedAIPromptsData,
+          additionalMetrics: finalMetrics
         })
       })
       
@@ -316,6 +466,7 @@ export default function Write() {
           onTitleChange={setTitle}
           onContentChange={setContent}
           onSave={handleSave}
+          onMetricsChange={handleMetricsChange}
         />
       </main>
 

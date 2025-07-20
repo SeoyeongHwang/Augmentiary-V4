@@ -39,17 +39,45 @@ export default function Editor({
   entryId,
   onTitleChange, 
   onContentChange,
-  onSave
+  onSave,
+  onMetricsChange
 }: { 
   userId: string
   entryId: string
   onTitleChange?: (title: string) => void
   onContentChange?: (content: string) => void
   onSave?: () => void
+  onMetricsChange?: (metrics: {
+    leftPanelRequests: number
+    rightPanelRequests: number
+    leftPanelInsertions: number
+    rightPanelInsertions: number
+    aiTextsAdded: Array<{
+      text: string
+      type: 'experience' | 'generation'
+      timestamp: string
+      source: 'left' | 'right'
+      metadata?: any
+    }>
+    syllableCount: number
+  }) => void
 }) {
   const [editorContent, setEditorContent] = useState('');
   const [title, setTitle] = useState('')
   const [previousContent, setPreviousContent] = useState('')
+  
+  // 사용량 추적을 위한 상태 추가
+  const [leftPanelRequests, setLeftPanelRequests] = useState(0) // 경험 찾기 요청 횟수
+  const [rightPanelRequests, setRightPanelRequests] = useState(0) // 의미 만들기 요청 횟수
+  const [leftPanelInsertions, setLeftPanelInsertions] = useState(0) // 경험 찾기 결과 삽입 횟수
+  const [rightPanelInsertions, setRightPanelInsertions] = useState(0) // 의미 만들기 결과 삽입 횟수
+  const [aiTextsAdded, setAiTextsAdded] = useState<Array<{
+    text: string
+    type: 'experience' | 'generation'
+    timestamp: string
+    source: 'left' | 'right'
+    metadata?: any
+  }>>([]) // 추가된 AI 텍스트들의 기록
   
   // 인터랙션 로그 훅 사용
   const { 
@@ -700,6 +728,12 @@ export default function Editor({
     const selectedText = editor.state.doc.textBetween(from, to).trim()
     if (!selectedText) return
 
+    // 왼쪽 패널 요청 횟수 증가
+    setLeftPanelRequests(prev => {
+      console.log('🔍 [METRICS] 왼쪽 패널 요청 카운트:', prev, '->', prev + 1);
+      return prev + 1;
+    })
+
     // 경험 살펴보기 요청 로그 (REQUEST_RECORD)
     if (canLog && entryId) {
       logRequestRecord(entryId, selectedText)
@@ -880,6 +914,12 @@ export default function Editor({
 
     const selectedText = editor.state.doc.textBetween(from, to).trim()
     if (!selectedText) return
+
+    // 오른쪽 패널 요청 횟수 증가
+    setRightPanelRequests(prev => {
+      console.log('✨ [METRICS] 오른쪽 패널 요청 카운트:', prev, '->', prev + 1);
+      return prev + 1;
+    })
 
     // AI 호출 로그 기록
     if (canLog && entryId) {
@@ -1062,6 +1102,8 @@ export default function Editor({
     }
   }
 
+
+
   // 저장 함수 (부모 컴포넌트에 위임)
   const handleSave = () => {
     // 저장 직전에 미완료된 텍스트 변경사항 강제 로깅
@@ -1160,6 +1202,58 @@ export default function Editor({
     const finalRequestId = generateRequestId();
     const category: AICategory = 'interpretive';
 
+    // 오른쪽 패널(의미 만들기)에서 직접 호출된 경우 카운트 및 기록 추가
+    if (selectedOption?.type === 'generation') {
+      setRightPanelInsertions(prev => {
+        console.log('⚡ [METRICS] 오른쪽 패널 삽입 카운트:', prev, '->', prev + 1);
+        return prev + 1;
+      });
+      
+      // 의미 만들기 결과에서 안전한 메타데이터 추출
+      const safeText = String(inserted || '').substring(0, 200); // 문자열로 변환 후 제한
+      
+      // selectedOption에서 안전한 메타데이터 추출
+      const safeMetadata = {
+        title: typeof selectedOption?.title === 'string' ? selectedOption.title.substring(0, 100) : undefined,
+        strategy: typeof selectedOption?.strategy === 'string' ? selectedOption.strategy.substring(0, 100) : undefined,
+        approach: typeof selectedOption?.approach === 'string' ? selectedOption.approach.substring(0, 200) : undefined,
+        resource: typeof selectedOption?.resource === 'string' ? selectedOption.resource.substring(0, 200) : undefined,
+        index: typeof selectedOption?.index === 'number' ? selectedOption.index : undefined,
+        category: typeof selectedOption?.category === 'string' ? selectedOption.category.substring(0, 50) : undefined,
+        confidence: typeof selectedOption?.confidence === 'number' ? selectedOption.confidence : undefined
+      };
+      
+      const aiTextRecord = {
+        text: safeText,
+        type: 'generation' as const,
+        timestamp: new Date().toISOString(),
+        source: 'right' as const,
+        metadata: safeMetadata
+      };
+      
+      // 안전성을 위해 JSON 직렬화 테스트
+      try {
+        JSON.stringify(aiTextRecord);
+        setAiTextsAdded(prev => [...prev, aiTextRecord]);
+        console.log('⚡ [METRICS] AI 텍스트 기록 추가 성공:', {
+          text: safeText.substring(0, 20) + '...',
+          type: aiTextRecord.type,
+          source: aiTextRecord.source,
+          metadataKeys: Object.keys(safeMetadata).filter(key => safeMetadata[key as keyof typeof safeMetadata] !== undefined)
+        });
+      } catch (error) {
+        console.error('❌ [METRICS] AI 텍스트 기록 실패:', error);
+        // 실패 시 기본 기록만 추가
+        setAiTextsAdded(prev => [...prev, {
+          text: '(기록 실패)',
+          type: 'generation' as const,
+          timestamp: new Date().toISOString(),
+          source: 'right' as const,
+          metadata: {}
+        }]);
+      }
+    }
+
     // AI 텍스트 삽입 로그 (먼저 기록)
     if (canLog && entryId) {
       logAITextInsert(entryId, selectedOption || inserted);
@@ -1227,6 +1321,8 @@ export default function Editor({
     setAugmentOptions(null);
   };
 
+
+
   // 경험 찾기 결과를 본문에 추가하는 함수
   const handleAddExperience = useCallback((experience: any) => {
     if (!editor) return;
@@ -1236,6 +1332,56 @@ export default function Editor({
     const textToInsert = experience.description || '';
     
     if (!textToInsert.trim()) return;
+    
+    // 왼쪽 패널 삽입 횟수 증가
+    setLeftPanelInsertions(prev => {
+      console.log('➕ [METRICS] 왼쪽 패널 삽입 카운트:', prev, '->', prev + 1);
+      return prev + 1;
+    });
+    
+    // AI 텍스트 기록 추가 (안전한 메타데이터 포함)
+    const safeText = String(textToInsert || '').substring(0, 200); // 문자열로 변환 후 제한
+    
+    // 경험 객체에서 안전한 메타데이터 추출
+    const safeMetadata = {
+      strategy: typeof experience?.strategy === 'string' ? experience.strategy.substring(0, 100) : undefined,
+      originalEntryId: typeof experience?.id === 'string' ? experience.id.substring(0, 50) : undefined,
+      title: typeof experience?.title === 'string' ? experience.title.substring(0, 100) : undefined,
+      isPastContext: typeof experience?.isPastContext === 'boolean' ? experience.isPastContext : undefined,
+      sum_innerstate: typeof experience?.sum_innerstate === 'string' ? experience.sum_innerstate.substring(0, 200) : undefined,
+      sum_insight: typeof experience?.sum_insight === 'string' ? experience.sum_insight.substring(0, 200) : undefined,
+      created_at: typeof experience?.created_at === 'string' ? experience.created_at.substring(0, 50) : undefined
+    };
+    
+    const aiTextRecord = {
+      text: safeText,
+      type: 'experience' as const,
+      timestamp: new Date().toISOString(),
+      source: 'left' as const,
+      metadata: safeMetadata
+    };
+    
+    // 안전성을 위해 JSON 직렬화 테스트
+    try {
+      JSON.stringify(aiTextRecord);
+      setAiTextsAdded(prev => [...prev, aiTextRecord]);
+      console.log('➕ [METRICS] AI 텍스트 기록 추가 성공:', {
+        text: safeText.substring(0, 20) + '...',
+        type: aiTextRecord.type,
+        source: aiTextRecord.source,
+        metadataKeys: Object.keys(safeMetadata).filter(key => safeMetadata[key as keyof typeof safeMetadata] !== undefined)
+      });
+    } catch (error) {
+      console.error('❌ [METRICS] AI 텍스트 기록 실패:', error);
+      // 실패 시 기본 기록만 추가
+      setAiTextsAdded(prev => [...prev, {
+        text: '(기록 실패)',
+        type: 'experience' as const,
+        timestamp: new Date().toISOString(),
+        source: 'left' as const,
+        metadata: {}
+      }]);
+    }
     
     // 🔧 중복 로깅 제거: applyAugmentation 함수 내부에서만 로깅하도록 함
     // AI 텍스트 삽입 로그는 applyAugmentation 함수에서 처리됨
@@ -1316,6 +1462,67 @@ export default function Editor({
       setExperienceCardCollapsed({});
     }
   }, [experienceOptions]);
+
+
+
+  // 메트릭 변경 시 부모 컴포넌트에 전달
+  useEffect(() => {
+    if (onMetricsChange && editor) {
+      const plainText = editor.state.doc.textContent || '';
+      const syllableCount = getSyllableCount(plainText);
+      
+      // 안전한 AI 텍스트 배열 생성 (메타데이터 포함)
+      const safeAiTextsAdded = aiTextsAdded.map((item, index) => {
+        try {
+          // 안전한 메타데이터 처리
+          const safeMetadata: any = {};
+          if (item?.metadata && typeof item.metadata === 'object') {
+            // 허용된 메타데이터 키들만 포함
+            const allowedKeys = ['strategy', 'originalEntryId', 'title', 'isPastContext', 'sum_innerstate', 'sum_insight', 'created_at', 'approach', 'resource', 'index', 'category', 'confidence'];
+            
+            for (const key of allowedKeys) {
+              const value = item.metadata[key];
+              if (value !== undefined && value !== null) {
+                if (typeof value === 'string') {
+                  safeMetadata[key] = value.substring(0, 200); // 문자열 길이 제한
+                } else if (typeof value === 'number' || typeof value === 'boolean') {
+                  safeMetadata[key] = value; // 원시 타입은 그대로
+                }
+              }
+            }
+          }
+          
+          return {
+            text: typeof item?.text === 'string' ? item.text.substring(0, 200) : '',
+            type: (item?.type === 'experience' || item?.type === 'generation') ? item.type : 'generation',
+            timestamp: typeof item?.timestamp === 'string' ? item.timestamp : new Date().toISOString(),
+            source: (item?.source === 'left' || item?.source === 'right') ? item.source : 'right',
+            metadata: safeMetadata
+          };
+        } catch (error) {
+          console.warn(`AI 텍스트 ${index} 처리 중 오류:`, error);
+          return {
+            text: '',
+            type: 'generation' as const,
+            timestamp: new Date().toISOString(),
+            source: 'right' as const,
+            metadata: {}
+          };
+        }
+      });
+      
+      const metrics = {
+        leftPanelRequests,
+        rightPanelRequests,
+        leftPanelInsertions,
+        rightPanelInsertions,
+        aiTextsAdded: safeAiTextsAdded,
+        syllableCount
+      };
+      
+      onMetricsChange(metrics);
+    }
+  }, [leftPanelRequests, rightPanelRequests, leftPanelInsertions, rightPanelInsertions, aiTextsAdded, editor, onMetricsChange, getSyllableCount]);
 
   // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {

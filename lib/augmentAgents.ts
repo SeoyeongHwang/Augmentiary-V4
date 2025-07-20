@@ -172,7 +172,7 @@ INPUT:
 - Write in a consistent informal Korean, diary style tone as if speaking to yourself (casual self-talk without honorifics).
 - Do not directly cite the approach or user profile information.
 - Avoid generic sentences, clichés, and excessive commas.
-- End each paragraph with a sentence that breaks off abruptly in the middle and invites the reader to complete the thought (do not simply use an ellipse).
+- *End the last sentence of each paragraph with a sentence that breaks off abruptly in the middle with ellipsis(…) and invites the reader to complete the thought.*
 - Ensure each text connects smoothly from where the <<INSERT HERE>> marker appears.
 
 **Tone and Depth by Significance:**

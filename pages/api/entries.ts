@@ -23,12 +23,121 @@ export default async function handler(
   }
 
   try {
-    const { entryData, esmData, logsData, aiPromptsData } = req.body
+    const { entryData, esmData, logsData, aiPromptsData, additionalMetrics } = req.body
+
+    // 매우 안전한 JSON 변환 함수 (순환 참조 완전 차단)
+    const safeStringify = (obj: any) => {
+      const seen = new WeakSet();
+      
+      try {
+        return JSON.stringify(obj, (key, value) => {
+          // 순환 참조 차단
+          if (typeof value === 'object' && value !== null) {
+            if (seen.has(value)) {
+              return '[Circular Reference]';
+            }
+            seen.add(value);
+          }
+          
+          // 위험한 타입들 제외
+          if (typeof value === 'function' || 
+              typeof value === 'undefined' || 
+              typeof value === 'symbol') {
+            return undefined;
+          }
+          
+          // DOM/React 요소 완전 차단
+          if (value && typeof value === 'object') {
+            // HTML 요소 체크
+            if (value.nodeType || 
+                value.nodeName || 
+                (value.constructor && (
+                  value.constructor.name?.includes('HTML') ||
+                  value.constructor.name?.includes('Element') ||
+                  value.constructor.name?.includes('Node') ||
+                  value.constructor.name?.includes('Fiber')
+                ))) {
+              return undefined;
+            }
+            
+            // React 관련 속성 체크
+            if (value._reactInternalFiber || 
+                value._reactFiber ||
+                value.$$typeof ||
+                value._owner ||
+                value.stateNode) {
+              return undefined;
+            }
+            
+            // 너무 큰 객체 제한
+            if (Object.keys(value).length > 50) {
+              return '[Object Too Large]';
+            }
+          }
+          
+          // 문자열 길이 제한
+          if (typeof value === 'string' && value.length > 2000) {
+            return value.substring(0, 2000) + '...[truncated]';
+          }
+          
+          return value;
+        });
+      } catch (error) {
+        console.error('❌ JSON 변환 완전 실패:', error);
+        return '[]'; // 기본값으로 빈 배열
+      }
+    };
+
+    // 추가 메트릭 데이터가 있는 경우 entryData에 포함
+    let finalEntryData = { ...entryData }
+    if (additionalMetrics) {
+      // 안전한 로그 출력 (AI 텍스트 배열 요약)
+      const logSafeMetrics = {
+        leftPanelRequests: additionalMetrics.leftPanelRequests || 0,
+        rightPanelRequests: additionalMetrics.rightPanelRequests || 0,
+        leftPanelInsertions: additionalMetrics.leftPanelInsertions || 0,
+        rightPanelInsertions: additionalMetrics.rightPanelInsertions || 0,
+        syllableCount: additionalMetrics.syllableCount || 0,
+        aiTextsCount: Array.isArray(additionalMetrics.aiTextsAdded) ? additionalMetrics.aiTextsAdded.length : 0
+      };
+      console.log('📊 [API] 받은 추가 메트릭:', logSafeMetrics)
+      
+      // 기존 테이블에 새로운 필드들을 안전하게 추가
+      const metricsToAdd = {
+        left_panel_requests: additionalMetrics.leftPanelRequests || 0,
+        right_panel_requests: additionalMetrics.rightPanelRequests || 0,
+        left_panel_insertions: additionalMetrics.leftPanelInsertions || 0,
+        right_panel_insertions: additionalMetrics.rightPanelInsertions || 0,
+        ai_texts_added: safeStringify(additionalMetrics.aiTextsAdded || []),
+        syllable_count: additionalMetrics.syllableCount || 0
+      }
+      
+      console.log('📊 [API] 추가할 메트릭 필드들:', {
+        ...logSafeMetrics,
+        ai_texts_added_length: metricsToAdd.ai_texts_added.length
+      })
+      
+      finalEntryData = {
+        ...finalEntryData,
+        ...metricsToAdd
+      }
+      
+      console.log('📊 [API] 최종 저장 데이터 요약:', {
+        id: finalEntryData.id,
+        participant_code: finalEntryData.participant_code,
+        title: finalEntryData.title?.substring(0, 20) + '...',
+        content_length: finalEntryData.content_html?.length || 0,
+        ...logSafeMetrics
+      })
+    } else {
+      console.log('⚠️ [API] additionalMetrics가 없음')
+    }
 
     // 1. Entry 저장
+    console.log('💾 [API] Entry 저장 시도 중...')
     const { data: entryResult, error: entryError } = await supabase
       .from('entries')
-      .upsert(entryData)
+      .upsert(finalEntryData)
       .select()
 
     if (entryError) {
@@ -37,6 +146,30 @@ export default async function handler(
         error: 'Entry 저장 실패', 
         details: entryError 
       })
+    }
+    
+    // 저장 결과를 안전하게 로그 출력
+    if (entryResult && entryResult.length > 0) {
+      const savedEntry = entryResult[0];
+      console.log('✅ [API] Entry 저장 성공:', {
+        id: savedEntry.id,
+        participant_code: savedEntry.participant_code,
+        title: savedEntry.title?.substring(0, 30) + '...',
+        left_panel_requests: savedEntry.left_panel_requests,
+        right_panel_requests: savedEntry.right_panel_requests,
+        left_panel_insertions: savedEntry.left_panel_insertions,
+        right_panel_insertions: savedEntry.right_panel_insertions,
+        syllable_count: savedEntry.syllable_count,
+        ai_texts_added_count: (() => {
+          try {
+            return savedEntry.ai_texts_added ? JSON.parse(savedEntry.ai_texts_added).length : 0;
+          } catch (e) {
+            return 0;
+          }
+        })()
+      });
+    } else {
+      console.log('✅ [API] Entry 저장 성공 (결과 없음)');
     }
 
     // 2. ESM 응답 저장
