@@ -205,7 +205,7 @@ export async function callAutobiographicReasoningAgent(
     - Strategy should be actionable and specific to the type of connection
     - Description should explain the emotional or situational connection but as a ambiguous hint, not a direct quote.
     - Keep both concise but meaningful
-    - Write in a consistent informal Korean, diary style tone as if speaking to yourself (casual self-talk without honorifics).
+    - Write in a consistent informal Korean, diary style tone as if speaking to yourself (casual self-suggesting tone without honorifics).
     - The text should have an open stance. Avoid overly prescriptive or definitive phrasing. Instead, favor phrases that open up possibilities (could, might, perhaps, ...)
     - End each paragraph with a sentence that breaks off abruptly in the middle and invites the reader to complete the thought (do not simply use an ellipse).
 

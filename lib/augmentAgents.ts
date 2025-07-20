@@ -70,7 +70,12 @@ ${getDirectionAgentApproachesPrompt()}
 Your output must be a JSON object structured as follows:
 {
   "reflective_summary": "<Interpretive summary of the selected diary entry; provide a concise and insightful overview of the writer's emotional state, thoughts, or concerns based on the entry and its context>",
-  "significance": "<1~5>",  // Reflective potential: rate how rich or meaningful the passage is for self-exploration. 1 = low (mundane), 5 = high (rich point for meaning-making).
+  "significance": "<1~5>",  
+    - 5 = Strong inner conflict, value dissonance, or identity-level questioning.
+    - 4 = Emotional charge or unclear feelings suggesting tension or ambiguity.
+    - 3 = Mild tension or uncertainty, but not clearly conflicted.
+    - 2 = Mostly observational or resolved emotion.
+    - 1 = Neutral, routine, or logistical content.
   "approaches": ["<first approach>", "<second approach>", "<third approach>"] // Select the three most relevant approaches from the provided list. They do not need to be rank-ordered.
 }
 
@@ -93,7 +98,7 @@ Your output must be a JSON object structured as follows:
           \n\n
           <Previous Context>: \n${diaryEntry}` },
         ],
-        temperature: 0.7,
+        temperature: 0.3,
       }),
     });
   
@@ -160,20 +165,24 @@ INPUT:
 <Previous Context>: Diary entries up to the selected section.
 <Significance>: The significance level of the selected entry. Higher values mean greater reflective potential.
 <Approaches>: Three different meaning-making approaches to be applied, each for a different option.
-<Resource>: User's profile information in JSON format (demographics, personality, values, past_context, current_context) to use for meaning-making.
+<Resource>: User's profile information in JSON format (demographics, personality, values, current_context, future_ideal) to use for meaning-making.
 
 **Resource Selection Guidelines:**
 - Select only relevant resources (strings from: demographics, personality, values, current_context, future_ideal) that meaningfully support each specific approach.
 - If there is no reason to use a resource, use an empty array.
 
 **Text Generation Guidelines:**
-- Each option must be based on a genuinely different interpretive approach and perspective.
-- Limit each text to 2-3 sentences. Use an open, first-person stance with possibility phrases (could, might, perhaps, etc.).
-- Write in a consistent informal Korean, diary style tone as if speaking to yourself (casual self-talk without honorifics).
-- Do not directly cite the approach or user profile information.
+- The text for each option must differ from the others and follow the guidelines for the specified approach.
+- Limit each text to 2-3 sentences. 
+- Text should be thought-provoking and open-ended grounded in the entry's significance.
+- Use an open-ended question or self-suggesting tone with possibility phrases (could, might, perhaps, etc.).
+- Write in a consistent informal Korean, self-talking tone without honorifics (e.g. ends with "~다.").
+- Avoid explicitly mentioning the approach name or user profile information.
 - Avoid generic sentences, clichés, and excessive commas.
-- *End the last sentence of each paragraph with a sentence that breaks off abruptly in the middle with ellipsis(…) and invites the reader to complete the thought.*
 - Ensure each text connects smoothly from where the <<INSERT HERE>> marker appears.
+
+**Text Requirement:**
+- End the last sentence of each paragraph with an unfinished sentence using an ellipsis (…).
 
 **Tone and Depth by Significance:**
 - Low significance (1-2): Use a light tone, everyday observations, avoid heavy emotion.
