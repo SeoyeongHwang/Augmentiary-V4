@@ -1160,7 +1160,7 @@ export default function Editor({
     const finalRequestId = generateRequestId();
     const category: AICategory = 'interpretive';
 
-    // AI 텍스트 삽입 로그
+    // AI 텍스트 삽입 로그 (먼저 기록)
     if (canLog && entryId) {
       logAITextInsert(entryId, selectedOption || inserted);
     }
@@ -1171,47 +1171,50 @@ export default function Editor({
     const opacity = Math.max(0, 1 - editRatio)
     const backgroundColor = opacity > 0 ? currentBgColor.replace('1)', `${opacity})`) : 'transparent'
 
-    // AI 텍스트 삽입을 위한 트랜잭션 생성 (메타데이터 포함)
-    const tr = editor.state.tr
-    tr.setMeta('aiTextInsert', true)
-    
-    // 텍스트 삽입
-    tr.insertText(inserted, to)
-    
-    // AI 하이라이트 마크 적용
-    const aiHighlightMark = editor.schema.marks.aiHighlight.create({
-      requestId: finalRequestId,
-      category,
-      dataOriginal: inserted,
-      editRatio: '0',
-      style: `background-color: ${backgroundColor};`
-    })
-    
-    tr.addMark(to, to + inserted.length, aiHighlightMark)
-    
-    // 트랜잭션 실행
-    editor.view.dispatch(tr)
-
-    // DOM 속성 설정 (히스토리에 영향을 주지 않음)
+    // 약간의 지연 후 에디터 트랜잭션 실행 (로깅 순서 보장)
     setTimeout(() => {
-      const editorElement = editor.view.dom as HTMLElement;
-      const aiElements = editorElement.querySelectorAll('mark[ai-text]');
-      const lastElement = aiElements[aiElements.length - 1] as HTMLElement;
+      // AI 텍스트 삽입을 위한 트랜잭션 생성 (메타데이터 포함)
+      const tr = editor.state.tr
+      tr.setMeta('aiTextInsert', true)
       
-      if (lastElement) {
-        const dataOriginal = lastElement.getAttribute('data-original');
-        if (!dataOriginal) {
-          lastElement.setAttribute('data-original', inserted);
-          lastElement.setAttribute('request-id', finalRequestId);
-          lastElement.setAttribute('category', category);
-        }
-      }
+      // 텍스트 삽입
+      tr.insertText(inserted, to)
+      
+      // AI 하이라이트 마크 적용
+      const aiHighlightMark = editor.schema.marks.aiHighlight.create({
+        requestId: finalRequestId,
+        category,
+        dataOriginal: inserted,
+        editRatio: '0',
+        style: `background-color: ${backgroundColor};`
+      })
+      
+      tr.addMark(to, to + inserted.length, aiHighlightMark)
+      
+      // 트랜잭션 실행
+      editor.view.dispatch(tr)
 
-      // 텍스트 삽입 후 선택 해제하여 버블 메뉴 숨기기
-      if (editor) {
-        editor.commands.setTextSelection(to + inserted.length)
-      }
-    }, 50);
+      // DOM 속성 설정 (히스토리에 영향을 주지 않음)
+      setTimeout(() => {
+        const editorElement = editor.view.dom as HTMLElement;
+        const aiElements = editorElement.querySelectorAll('mark[ai-text]');
+        const lastElement = aiElements[aiElements.length - 1] as HTMLElement;
+        
+        if (lastElement) {
+          const dataOriginal = lastElement.getAttribute('data-original');
+          if (!dataOriginal) {
+            lastElement.setAttribute('data-original', inserted);
+            lastElement.setAttribute('request-id', finalRequestId);
+            lastElement.setAttribute('category', category);
+          }
+        }
+
+        // 텍스트 삽입 후 선택 해제하여 버블 메뉴 숨기기
+        if (editor) {
+          editor.commands.setTextSelection(to + inserted.length)
+        }
+      }, 50);
+    }, 10); // 10ms 지연으로 로깅 순서 보장
 
     setAugments((prev) => [...prev, {
       start: to,
@@ -1239,7 +1242,7 @@ export default function Editor({
     
     // applyAugmentation 함수 재사용하여 텍스트 추가
     applyAugmentation(textToInsert, {
-      type: 'experience_addition',
+      type: 'connection',
       strategy: experience.strategy,
       description: textToInsert,
       originalEntryId: experience.id
@@ -1730,7 +1733,12 @@ export default function Editor({
                           
                           {/* 이어쓰기 버튼 */}
                           <button
-                            onClick={() => applyAugmentation(option.text, option)}
+                            onClick={() => {
+                              applyAugmentation(option.text, {
+                                ...option,
+                                type: 'generation', // 액션 타입 추가
+                              })
+                            }}
                             className={`w-full flex items-center justify-between px-3 py-2 mt-2 bg-green-50 hover:bg-green-100 border border-green-300 hover:border-green-400 rounded-md transition-colors duration-200 ${(experienceButtonLoading || bubbleMenuLoading) ? 'pointer-events-none' : ''}`}
                             disabled={experienceButtonLoading || bubbleMenuLoading}
                           >

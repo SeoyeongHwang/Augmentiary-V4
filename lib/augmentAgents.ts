@@ -169,10 +169,10 @@ INPUT:
 **Text Generation Guidelines:**
 - Each option must be based on a genuinely different interpretive approach and perspective.
 - Limit each text to 2-3 sentences. Use an open, first-person stance with possibility phrases (could, might, perhaps, etc.).
-- Write in fluent, natural Korean with a self-talking, first-person voice.
+- Write in a consistent informal Korean, diary style tone as if speaking to yourself (casual self-talk without honorifics).
 - Do not directly cite the approach or user profile information.
 - Avoid generic sentences, clichés, and excessive commas.
-- End each text with a grammatically incomplete sentence that trails off and invites the reader to complete the thought (do not simply use an ellipse).
+- End each paragraph with a sentence that breaks off abruptly in the middle and invites the reader to complete the thought (do not simply use an ellipse).
 - Ensure each text connects smoothly from where the <<INSERT HERE>> marker appears.
 
 **Tone and Depth by Significance:**

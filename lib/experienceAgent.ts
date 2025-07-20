@@ -207,7 +207,7 @@ export async function callAutobiographicReasoningAgent(
     - Keep both concise but meaningful
     - Use warm, encouraging informal self-suggesting style
     - The text should have an open stance. Avoid overly prescriptive or definitive phrasing. Instead, favor phrases that open up possibilities (could, might, perhaps, ...)
-    - Make sure the last sentence is unfinished.
+    - End each paragraph with a sentence that breaks off abruptly in the middle and invites the reader to complete the thought (do not simply use an ellipse).
 
     ## Output Format
     Your output must be a JSON object structured as follows:

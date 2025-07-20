@@ -24,13 +24,13 @@ export type ESMData = {
 export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = false }: ESMModalProps) {
   const [formData, setFormData] = useState<ESMData>({
     SL: 0, // -50 ~ +50 범위의 중간값
-    SO: 3,
-    REF1: 3,
-    REF2: 3,
-    RUM1: 3,
-    RUM2: 3,
-    THK1: 3,
-    THK2: 3
+    SO: 4,
+    REF1: 4,
+    REF2: 4,
+    RUM1: 4,
+    RUM2: 4,
+    THK1: 4,
+    THK2: 4
   })
 
   if (!isOpen) return null
@@ -84,7 +84,7 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
                     <input
                       type="range"
                       min={question.id === 'SL' ? '-50' : '1'}
-                      max={question.id === 'SL' ? '50' : '5'}
+                      max={question.id === 'SL' ? '50' : '7'}
                       value={formData[question.id as keyof ESMData] as number}
                       onChange={(e) => setFormData(prev => ({
                         ...prev,

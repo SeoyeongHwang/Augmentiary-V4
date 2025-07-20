@@ -72,9 +72,10 @@ export function useInteractionLog() {
   }, [logAsync])
 
   /**
-   * AI 텍스트 삽입 로그
+   * AI 텍스트 삽입 로그 (우선순위 처리로 순서 보장)
    */
   const logAITextInsert = useCallback((entryId: string, selectedOption: any) => {
+    // 즉시 큐에 추가하여 INSERT_AI_TEXT보다 먼저 처리되도록 함
     logAsync(ActionType.SELECT_AI_TEXT, { 
       selectedOption
     }, entryId)
