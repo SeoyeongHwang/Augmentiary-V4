@@ -104,6 +104,9 @@ export default function Editor({
   // 디바운스용 ref
   const aiTextEditTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
+  // AI 텍스트 삽입 상태 추적
+  const isAITextInsertingRef = useRef<boolean>(false)
+  
   // 로그 상태를 ref로 관리 (클로저 문제 해결)
   const canLogRef = useRef<boolean>(false)
   const entryIdRef = useRef<string>('')
@@ -203,6 +206,12 @@ export default function Editor({
               
               if (!currentCanLog) return null
               
+              // DOM 업데이트 트랜잭션은 무시
+              const hasDomUpdate = transactions.some(tr => tr.getMeta('domUpdate'))
+              if (hasDomUpdate) {
+                return null // DOM 업데이트 트랜잭션은 로깅하지 않음
+              }
+              
               // 강제 저장 로그 처리 (저장 직전 미완료 변경사항 로깅)
               const hasForceSaveLog = transactions.some(tr => tr.getMeta('forceSaveLog'))
               if (hasForceSaveLog) {
@@ -248,38 +257,8 @@ export default function Editor({
               
               if (oldText === newText) return null
               
-              // AI 텍스트 삽입인지 확인 (AI 하이라이트 마크가 새로 추가되었는지 체크)
-              let hasAIInsert = false
-              try {
-                // 새 상태에서 AI 마크가 있는지 확인
-                newState.doc.descendants((node: any, pos: number) => {
-                  if (node.isText && node.marks) {
-                    const hasAIMark = node.marks.some((mark: any) => mark.type.name === 'aiHighlight')
-                    if (hasAIMark) {
-                      // 해당 위치에서 구 상태와 비교하여 새로 추가된 것인지 확인
-                      try {
-                        let foundInOld = false
-                        oldState.doc.nodesBetween(pos, pos + node.nodeSize, (oldNode: any) => {
-                          if (oldNode.isText && oldNode.marks && 
-                              oldNode.marks.some((mark: any) => mark.type.name === 'aiHighlight')) {
-                            foundInOld = true
-                            return false
-                          }
-                        })
-                        if (!foundInOld) {
-                          hasAIInsert = true
-                          return false // 찾았으면 중단
-                        }
-                      } catch (e) {
-                        // 범위 오류 시 무시
-                      }
-                    }
-                  }
-                })
-              } catch (e) {
-                // 문서 순회 오류 시 무시
-              }
-              
+              // AI 텍스트 삽입인지 확인
+              const hasAIInsert = transactions.some(tr => tr.getMeta('aiTextInsert'))
               if (hasAIInsert) {
                 console.log('🤖 [AI_TEXT_INSERT] AI 텍스트 삽입 감지:', {
                   oldLength: oldText.length,
@@ -693,13 +672,17 @@ export default function Editor({
         onContentChange(optimizedContent)
       }
       
-      // AI 텍스트 편집 감지 (디바운스 적용)
+      // AI 텍스트 편집 감지 (디바운스 적용) - AI 텍스트 삽입 직후에는 실행하지 않음
       if (aiTextEditTimeoutRef.current) {
         clearTimeout(aiTextEditTimeoutRef.current)
       }
-      aiTextEditTimeoutRef.current = setTimeout(() => {
-        handleAITextEdit()
-      }, 300) // 디바운스 시간을 300ms로 증가
+      
+      // AI 텍스트 삽입 중일 때는 감지하지 않음
+      if (!isAITextInsertingRef.current) {
+        aiTextEditTimeoutRef.current = setTimeout(() => {
+          handleAITextEdit()
+        }, 1000) // 디바운스 시간을 1초로 증가하여 불필요한 호출 방지
+      }
     },
     onSelectionUpdate: ({ editor }: { editor: any }) => {
       // 텍스트 선택 로그 제거됨
@@ -1020,6 +1003,9 @@ export default function Editor({
     const tr = editor.state.tr
     let hasChanges = false
     
+    // 히스토리에 추가되지 않도록 메타데이터 설정
+    tr.setMeta('addToHistory', false)
+    
     // 문서 전체를 순회하면서 AI 하이라이트 마크 찾기
     doc.descendants((node, pos) => {
       if (node.isText && node.marks.length > 0) {
@@ -1102,6 +1088,9 @@ export default function Editor({
     const doc = editor.state.doc
     const tr = editor.state.tr
     let hasChanges = false
+    
+    // 히스토리에 추가되지 않도록 메타데이터 설정
+    tr.setMeta('addToHistory', false)
     
     // 문서 전체를 순회하면서 AI 하이라이트 마크 찾기
     doc.descendants((node, pos) => {
@@ -1295,25 +1284,43 @@ export default function Editor({
     const opacity = Math.max(0, 1 - editRatio)
     const backgroundColor = opacity > 0 ? currentBgColor.replace('1)', `${opacity})`) : 'transparent'
 
-    // 약간의 지연 후 에디터 작업 실행 (로깅 순서 보장)
+    // AI 텍스트 삽입 시작 표시
+    isAITextInsertingRef.current = true
+    
+    // 약간의 지연 후 에디터 트랜잭션 실행 (로깅 순서 보장)
     setTimeout(() => {
-      // TipTap의 chain API 사용으로 히스토리 관리 보장
-      editor.chain()
-        .focus()
-        .setTextSelection(to)
-        .insertContent(inserted)
-        .setTextSelection({ from: to, to: to + inserted.length })
-        .setMark('aiHighlight', {
-          requestId: finalRequestId,
-          category,
-          dataOriginal: inserted,
-          editRatio: '0',
-          style: `background-color: ${backgroundColor};`
-        })
-        .run();
+      // AI 텍스트 삽입을 위한 트랜잭션 생성 (메타데이터 포함)
+      const tr = editor.state.tr
+      tr.setMeta('aiTextInsert', true)
+      tr.setMeta('addToHistory', true) // AI 텍스트 삽입은 히스토리에 추가 (되돌리기 가능)
+      
+      // 텍스트 삽입
+      tr.insertText(inserted, to)
+      
+      // AI 하이라이트 마크 적용
+      const aiHighlightMark = editor.schema.marks.aiHighlight.create({
+        requestId: finalRequestId,
+        category,
+        dataOriginal: inserted,
+        editRatio: '0',
+        style: `background-color: ${backgroundColor};`
+      })
+      
+      tr.addMark(to, to + inserted.length, aiHighlightMark)
+      
+      // 트랜잭션 실행
+      editor.view.dispatch(tr)
 
-      // DOM 속성 설정 (히스토리에 영향을 주지 않음)
+      // DOM 속성 설정 (히스토리에 영향을 주지 않는 별도 트랜잭션)
       setTimeout(() => {
+        const domUpdateTr = editor.state.tr
+        domUpdateTr.setMeta('addToHistory', false) // DOM 업데이트는 히스토리에 추가하지 않음
+        domUpdateTr.setMeta('domUpdate', true)
+        
+        // 트랜잭션 실행 (실제 DOM 변경 없이 메타데이터만 설정)
+        editor.view.dispatch(domUpdateTr)
+
+        // DOM 속성 직접 설정
         const editorElement = editor.view.dom as HTMLElement;
         const aiElements = editorElement.querySelectorAll('mark[ai-text]');
         const lastElement = aiElements[aiElements.length - 1] as HTMLElement;
@@ -1331,6 +1338,11 @@ export default function Editor({
         if (editor) {
           editor.commands.setTextSelection(to + inserted.length)
         }
+        
+        // AI 텍스트 삽입 완료 표시 (약간의 지연 후)
+        setTimeout(() => {
+          isAITextInsertingRef.current = false
+        }, 100)
       }, 50);
     }, 10); // 10ms 지연으로 로깅 순서 보장
 
