@@ -142,7 +142,7 @@ export default function Write() {
         participant_code: participantCode,
         title: title.trim(),
         content_html: content,
-        shared: esmData.consent,
+        shared: true, // ESM에서 consent 필드가 제거되었으므로 기본값으로 true 설정
         created_at: getCurrentKST()
       }
       
@@ -166,12 +166,14 @@ export default function Write() {
       const esmDataToInsert: CreateESMResponseData = {
         participant_code: participantCode,
         entry_id: entryId,
-        consent: esmData.consent,
-        q1: esmData.q1,
-        q2: esmData.q2,
-        q3: esmData.q3,
-        q4: esmData.q4,
-        q5: esmData.q5
+        SL: esmData.SL,
+        SO: esmData.SO,
+        REF1: esmData.REF1,
+        REF2: esmData.REF2,
+        RUM1: esmData.RUM1,
+        RUM2: esmData.RUM2,
+        THK1: esmData.THK1,
+        THK2: esmData.THK2
       }
       
       // 큐에 있는 로그와 AI 프롬프트 데이터 가져오기
@@ -224,7 +226,7 @@ export default function Write() {
       // ESM 제출 로그
       if (canLog) {
         try {
-          logESMSubmit(entryId, esmData.consent)
+          logESMSubmit(entryId, true) // ESM에서 consent 필드가 제거되었으므로 기본값으로 true 설정
         } catch (error) {
           console.error('ESM 제출 로그 기록 실패:', error)
         }

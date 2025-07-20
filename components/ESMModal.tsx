@@ -11,22 +11,26 @@ type ESMModalProps = {
 import type { CreateESMResponseData } from '../types/esm'
 
 export type ESMData = {
-  consent: boolean
-  q1: number
-  q2: number
-  q3: number
-  q4: number
-  q5: number
+  SL: number
+  SO: number
+  REF1: number
+  REF2: number
+  RUM1: number
+  RUM2: number
+  THK1: number
+  THK2: number
 }
 
 export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = false }: ESMModalProps) {
   const [formData, setFormData] = useState<ESMData>({
-    consent: true,
-    q1: 4,
-    q2: 4,
-    q3: 4,
-    q4: 4,
-    q5: 4
+    SL: 0, // -50 ~ +50 범위의 중간값
+    SO: 3,
+    REF1: 3,
+    REF2: 3,
+    RUM1: 3,
+    RUM2: 3,
+    THK1: 3,
+    THK2: 3
   })
 
   if (!isOpen) return null
@@ -42,11 +46,14 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
   }
 
   const questions = [
-    { id: 'q1', label: 'Q1. 시스템과 상호작용하는 동안 내 행동의 주체는 나였습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
-    { id: 'q2', label: 'Q2. 글을 쓰는 동안 텍스트를 통제하고 있다는 느낌이 들었습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
-    { id: 'q3', label: 'Q3. (일기에서 주로 묘사된) 이 경험을 이해하게 되었습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
-    { id: 'q4', label: 'Q4. AI로 생성된 텍스트가 마치 나를 위해 특별히 작성된 것처럼 느껴졌습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
-    { id: 'q5', label: 'Q5. AI로 생성된 텍스트가 의미나 통찰을 찾는 데 도움이 되었다고 느꼈습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' }
+    { id: 'SL', label: 'Q1. 이번 세션에서 글쓰기를 주도한 것은 누구였나요?', min: 'AI', max: '나' },
+    { id: 'SO', label: 'Q2. 완성한 오늘의 일기가 완전히 내 것으로 느껴집니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
+    { id: 'REF1', label: 'Q3. 이번 일기 쓰기를 통해 내 감정이나 행동을 더 잘 인식하게 되었습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
+    { id: 'REF2', label: 'Q4. 이번 일기 쓰기는 나를 성찰할 수 있는 계기가 되었습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
+    { id: 'RUM1', label: 'Q5. 이번 일기를 쓰면서, 부정적인 생각의 반복에서 벗어나기 어려웠습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
+    { id: 'RUM2', label: 'Q6. 이번 일기 쓰기는 과거의 상황을 반복해서 떠올리게 만들었습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
+    { id: 'THK1', label: 'Q7. 이번 일기 쓰기를 통해 내가 왜 그렇게 느끼는지를 이해하는 것이 중요하다고 느꼈습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' },
+    { id: 'THK2', label: 'Q8. 이번 일기 쓰기를 통해 내 생각이 어떻게 생겨나는지를 이해하는 것이 중요하다고 느꼈습니다.', min: '전혀 동의하지 않음', max: '매우 동의함' }
   ]
 
   return (
@@ -62,28 +69,8 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
         <Card className="flex flex-col p-0 h-full">
           <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">저장하기</h2>
-              <p className="text-sm text-gray-600">작성해주신 글을 데이터 분석에 활용해도 괜찮으신가요?<br/>(통계적 패턴 분석 목적)</p>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">글쓰기 세션 평가</h2>
             </div>
-
-            {/* 동의 토글 */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-gray-700">데이터 분석에 이 글을 사용하는 것에 동의합니다</span>
-              <button
-                onClick={() => setFormData(prev => ({ ...prev, consent: !prev.consent }))}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  formData.consent ? 'bg-emerald-500' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    formData.consent ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-            
-            <hr className="my-4" />
             {/* 질문들 */}
             <div className="space-y-4">
               <p className="text-sm text-gray-600">작성 과정을 떠올리며 해당하는 정도를 선택해주세요.</p>
@@ -96,8 +83,8 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
                   <div className="space-y-1">
                     <input
                       type="range"
-                      min="1"
-                      max="7"
+                      min={question.id === 'SL' ? '-50' : '1'}
+                      max={question.id === 'SL' ? '50' : '5'}
                       value={formData[question.id as keyof ESMData] as number}
                       onChange={(e) => setFormData(prev => ({
                         ...prev,
@@ -105,12 +92,15 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
                       }))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider accent-emerald-400"
                     />
-                    <div className="flex justify-between text-xs text-gray-500">
+                    <div className="flex justify-between text-sm text-gray-700">
                       <span>{question.min}</span>
                       <span>{question.max}</span>
                     </div>
                     <div className="w-full flex justify-center">
-                      <span className="font-bold text-emerald-600">{formData[question.id as keyof ESMData]}</span>
+                      <span className="font-bold text-emerald-600">
+                        {question.id === 'SL' && formData[question.id as keyof ESMData] > 0 ? '+' : ''}
+                        {formData[question.id as keyof ESMData]}
+                      </span>
                     </div>
                   </div>
                 </div>
