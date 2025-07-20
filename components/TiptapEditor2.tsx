@@ -248,8 +248,38 @@ export default function Editor({
               
               if (oldText === newText) return null
               
-              // AI 텍스트 삽입인지 확인
-              const hasAIInsert = transactions.some(tr => tr.getMeta('aiTextInsert'))
+              // AI 텍스트 삽입인지 확인 (AI 하이라이트 마크가 새로 추가되었는지 체크)
+              let hasAIInsert = false
+              try {
+                // 새 상태에서 AI 마크가 있는지 확인
+                newState.doc.descendants((node: any, pos: number) => {
+                  if (node.isText && node.marks) {
+                    const hasAIMark = node.marks.some((mark: any) => mark.type.name === 'aiHighlight')
+                    if (hasAIMark) {
+                      // 해당 위치에서 구 상태와 비교하여 새로 추가된 것인지 확인
+                      try {
+                        let foundInOld = false
+                        oldState.doc.nodesBetween(pos, pos + node.nodeSize, (oldNode: any) => {
+                          if (oldNode.isText && oldNode.marks && 
+                              oldNode.marks.some((mark: any) => mark.type.name === 'aiHighlight')) {
+                            foundInOld = true
+                            return false
+                          }
+                        })
+                        if (!foundInOld) {
+                          hasAIInsert = true
+                          return false // 찾았으면 중단
+                        }
+                      } catch (e) {
+                        // 범위 오류 시 무시
+                      }
+                    }
+                  }
+                })
+              } catch (e) {
+                // 문서 순회 오류 시 무시
+              }
+              
               if (hasAIInsert) {
                 console.log('🤖 [AI_TEXT_INSERT] AI 텍스트 삽입 감지:', {
                   oldLength: oldText.length,
@@ -1265,28 +1295,22 @@ export default function Editor({
     const opacity = Math.max(0, 1 - editRatio)
     const backgroundColor = opacity > 0 ? currentBgColor.replace('1)', `${opacity})`) : 'transparent'
 
-    // 약간의 지연 후 에디터 트랜잭션 실행 (로깅 순서 보장)
+    // 약간의 지연 후 에디터 작업 실행 (로깅 순서 보장)
     setTimeout(() => {
-      // AI 텍스트 삽입을 위한 트랜잭션 생성 (메타데이터 포함)
-      const tr = editor.state.tr
-      tr.setMeta('aiTextInsert', true)
-      
-      // 텍스트 삽입
-      tr.insertText(inserted, to)
-      
-      // AI 하이라이트 마크 적용
-      const aiHighlightMark = editor.schema.marks.aiHighlight.create({
-        requestId: finalRequestId,
-        category,
-        dataOriginal: inserted,
-        editRatio: '0',
-        style: `background-color: ${backgroundColor};`
-      })
-      
-      tr.addMark(to, to + inserted.length, aiHighlightMark)
-      
-      // 트랜잭션 실행
-      editor.view.dispatch(tr)
+      // TipTap의 chain API 사용으로 히스토리 관리 보장
+      editor.chain()
+        .focus()
+        .setTextSelection(to)
+        .insertContent(inserted)
+        .setTextSelection({ from: to, to: to + inserted.length })
+        .setMark('aiHighlight', {
+          requestId: finalRequestId,
+          category,
+          dataOriginal: inserted,
+          editRatio: '0',
+          style: `background-color: ${backgroundColor};`
+        })
+        .run();
 
       // DOM 속성 설정 (히스토리에 영향을 주지 않음)
       setTimeout(() => {
