@@ -134,9 +134,10 @@ export default function Home() {
 
   const getGreeting = () => {
     const hour = new Date().getHours()
-    if (hour < 12) return '좋은 아침입니다'
-    if (hour < 18) return '좋은 오후입니다'
-    return '좋은 저녁입니다'
+    if (hour < 6) return '밤이 깊었습니다'
+    if (hour < 12) return '오늘 하루 잘 시작하셨나요?'
+    if (hour < 18) return '안녕하세요'
+    return '오늘 하루는 어떠셨나요?'
   }
 
   // 세션 로딩 중이면 로딩 화면 표시
