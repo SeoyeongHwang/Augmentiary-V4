@@ -675,6 +675,10 @@ export default function Editor({
       if (onContentChange) {
         onContentChange(optimizedContent)
       }
+      // 공백 제외 글자수 계산
+      const plainText = editor.state.doc.textContent || ''
+      const noSpaceText = plainText.replace(/\s/g, '')
+      setCharCount(noSpaceText.length)
       
       // AI 텍스트 편집 감지 (디바운스 적용) - AI 텍스트 삽입 직후에는 실행하지 않음
       if (aiTextEditTimeoutRef.current) {
@@ -1617,6 +1621,8 @@ export default function Editor({
     }
   }, [])
 
+  const [charCount, setCharCount] = useState(0)
+
   return (
     <div className="flex flex-col lg:flex-row h-auto lg:h-full w-full overflow-visible lg:overflow-hidden lg:justify-center bg-[#faf9f5] px-6 gap-4">
       {/* 왼쪽 패널: 경험 찾기 결과 */}
@@ -1860,86 +1866,90 @@ export default function Editor({
 
         </div>
         {/* 에디터 영역 */}
-        <div className="flex-1 h-full lg:min-w-[500px] overflow-hidden lg:mx-3">
-          <div className="w-full h-full flex flex-col overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
-          <div className="w-full flex flex-col">
-            {/* 엔트리 타이틀 */}
-            <TextInput 
-              type='text' 
-              className='w-full pt-4 text-3xl lg:text-4xl font-extrabold text-center border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
-              placeholder='제목' 
-              value={title} 
-              onChange={setTitle} 
-            />
-            <div className={`tiptap editor-wrapper w-full h-fit p-6 min-h-[30vh] max-h-[30vh] lg:min-h-[80vh] lg:max-h-none border-none overflow-y-auto lg:overflow-hidden antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none relative ${(loading || bubbleMenuLoading || experienceButtonLoading) ? 'opacity-60 cursor-wait' : ''}`} style={{marginBottom: '30px' }}>
-              <EditorContent editor={editor} />
-              
-              {/* BubbleMenu - 공식 React 컴포넌트 사용 */}
-              {editor && (
-                <BubbleMenu 
-                  editor={editor} 
-                  tippyOptions={{ 
-                    duration: 100,
-                    interactive: true,
-                  }}
-                  shouldShow={({ state }) => {
-                    const { from, to } = state.selection
-                    const selectedText = state.doc.textBetween(from, to).trim()
-                    
-                    // 모달이 열렸을 때는 버블 메뉴 숨기기
-                    if (originalEntryModal.isOpen) {
-                      return false
-                    }
-                    
-                    // 텍스트가 선택되었고 500자 이하일 때만 표시
-                    return from !== to && selectedText.length > 0 && selectedText.length < 500
-                  }}
-                >
-                  <div className="flex items-center gap-1 rounded-xl shadow-2xl border border-stone-400 bg-black backdrop-blur-sm p-1.5">
-                    {(experienceButtonLoading || bubbleMenuLoading) ? (
-                      <div className="flex items-center justify-center px-6 py-2 text-sm font-bold text-white">
-                        <div className="w-4 h-4 border-2 border-amber-300 border-t-stone-400 rounded-full animate-spin mr-2"></div>
-                        생각 중...
+        <div className="flex-1 h-full lg:min-w-[500px] overflow-hidden lg:mx-3 flex flex-col">
+          <div className="flex-1 h-full lg:min-w-[500px] flex flex-col">
+            <div className="flex-1 overflow-y-auto p-4 text-lg bg-white border border-gray-300 rounded-lg scroll-smooth [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
+              <div className="w-full flex flex-col">
+                {/* 엔트리 타이틀 */}
+                <TextInput 
+                  type='text' 
+                  className='w-full pt-4 text-3xl lg:text-4xl font-extrabold text-center border-none overflow-auto focus:outline-none focus:border-none focus:ring-0 focus:underline focus:underline-offset-4' 
+                  placeholder='제목' 
+                  value={title} 
+                  onChange={setTitle} 
+                />
+                <div className={`tiptap editor-wrapper w-full h-fit p-6 min-h-[30vh] max-h-[30vh] lg:min-h-[80vh] lg:max-h-none border-none overflow-y-auto lg:overflow-hidden antialiased focus:outline-none transition resize-none placeholder:text-muted ${namum.className} font-sans border-none relative ${(loading || bubbleMenuLoading || experienceButtonLoading) ? 'opacity-60 cursor-wait' : ''}`} style={{marginBottom: '30px' }}>
+                  <EditorContent editor={editor} />   
+                  {/* BubbleMenu - 공식 React 컴포넌트 사용 */}
+                  {editor && (
+                    <BubbleMenu 
+                      editor={editor} 
+                      tippyOptions={{ 
+                        duration: 100,
+                        interactive: true,
+                      }}
+                      shouldShow={({ state }) => {
+                        const { from, to } = state.selection
+                        const selectedText = state.doc.textBetween(from, to).trim()
+                        
+                        // 모달이 열렸을 때는 버블 메뉴 숨기기
+                        if (originalEntryModal.isOpen) {
+                          return false
+                        }
+                        
+                        // 텍스트가 선택되었고 500자 이하일 때만 표시
+                        return from !== to && selectedText.length > 0 && selectedText.length < 500
+                      }}
+                    >
+                      <div className="flex items-center gap-1 rounded-xl shadow-2xl border border-stone-400 bg-black backdrop-blur-sm p-1.5">
+                        {(experienceButtonLoading || bubbleMenuLoading) ? (
+                          <div className="flex items-center justify-center px-6 py-2 text-sm font-bold text-white">
+                            <div className="w-4 h-4 border-2 border-amber-300 border-t-stone-400 rounded-full animate-spin mr-2"></div>
+                            생각 중...
+                          </div>
+                        ) : editor && getSyllableCount(editor.state.doc.textContent) < 150 ? (
+                          <div className="flex items-center justify-center px-6 py-2 text-sm font-medium text-amber-200">
+                            충분히 작성한 뒤 다시 시도해주세요 (150자 이상)
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => {
+                                handleExperienceRecall();
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-transparent hover:bg-gradient-to-r hover:from-amber-500/30 hover:to-orange-500/30 transition-all duration-300 text-base font-bold text-white hover:text-white hover:shadow-lg"
+                              title="맞닿은 경험 찾기"
+                            >
+                              <LoaderIcon className="w-4 h-4" />
+                              맞닿은 경험 찾기
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleMeaningAugment();
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-transparent hover:bg-gradient-to-r hover:from-amber-500/30 hover:to-orange-500/30 transition-all duration-300 text-base font-bold text-white hover:text-white hover:shadow-lg"
+                              title="확장하기"
+                            >
+                              <SparkleIcon className="w-4 h-4" />
+                              확장하기
+                            </button>
+                          </>
+                        )}
                       </div>
-                    ) : editor && getSyllableCount(editor.state.doc.textContent) < 150 ? (
-                      <div className="flex items-center justify-center px-6 py-2 text-sm font-medium text-amber-200">
-                        충분히 작성한 뒤 다시 시도해주세요 (150자 이상)
-                      </div>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => {
-                            handleExperienceRecall();
-                          }}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-transparent hover:bg-gradient-to-r hover:from-amber-500/30 hover:to-orange-500/30 transition-all duration-300 text-base font-bold text-white hover:text-white hover:shadow-lg"
-                          title="맞닿은 경험 찾기"
-                        >
-                          <LoaderIcon className="w-4 h-4" />
-                          맞닿은 경험 찾기
-                        </button>
-                        <button
-                          onClick={() => {
-                            handleMeaningAugment();
-                          }}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-transparent hover:bg-gradient-to-r hover:from-amber-500/30 hover:to-orange-500/30 transition-all duration-300 text-base font-bold text-white hover:text-white hover:shadow-lg"
-                          title="확장하기"
-                        >
-                          <SparkleIcon className="w-4 h-4" />
-                          확장하기
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </BubbleMenu>
-              )}
-              
-
+                    </BubbleMenu>
+                  )}
+                </div>
+              </div>
+            </div>
+            {/* 글자수 표시: 흰색 영역 바깥 */}
+            <div className="w-full text-center text-md text-gray-500 mt-2 pr-2 select-none">
+              {charCount}자
             </div>
           </div>
         </div>
       </div>
-      </div>
-      {/* 오른쪽 패널: 확장하기 결과 */}
+      {/* 오른쪽 패널
+      : 확장하기 결과 */}
       <aside className={`flex-1 max-w-full lg:max-w-sm min-w-0 flex flex-col h-fit px-0 pb-4 overflow-visible order-3 lg:order-3 ${
         (bubbleMenuOptions || augmentOptions) && augmentVisible && !augmentCollapsed ? 'lg:h-full lg:overflow-hidden' : 'lg:overflow-visible'
       }`}>
