@@ -207,13 +207,12 @@ export async function callAutobiographicReasoningAgent(
     - Keep both concise but meaningful
     - Write in a consistent informal Korean, diary style tone as if speaking to yourself (casual self-suggesting tone without honorifics).
     - The text should have an open stance. Avoid overly prescriptive or definitive phrasing. Instead, favor phrases that open up possibilities (could, might, perhaps, ...)
-    - End each paragraph with a sentence that breaks off abruptly in the middle and invites the reader to complete the thought (do not simply use an ellipse).
 
     ## Output Format
     Your output must be a JSON object structured as follows:
      {
        "strategy": "<Korean title with appropriate emoji suggesting how to recall this experience (e.g., '💭 ~해보기', '🌱 ~돌아보기', '🔄 ~인식하기')>",
-       "description": "<Korean description of why this past experience is relevant to current text, 2-3 sentences max>",
+       "description": "<Korean description of why this past experience is relevant to current text, 2 sentences max>",
        "entry_id": "${experienceData.id}"
      }
     `
@@ -315,7 +314,6 @@ export async function callPastContextAgent(
     - The text should have an open stance. Avoid overly prescriptive or definitive phrasing. Instead, favor phrases that open up possibilities (could, might, perhaps, ...)
     - Focus on how the user's background, personality, or past experiences might influence their current thoughts or feelings
     - IMPORTANT: Make the strategy title specific to the content of the past context, not generic
-    - Make sure the last sentence is unfinished.
        
     ## Output Format
     Return your output as a JSON object structured exactly as follows:
@@ -480,5 +478,263 @@ export async function callPastContextRelevanceAgent(
   } catch (error) {
     console.error('과거 맥락 연관성 에이전트 API 호출 오류:', error)
     return { relevance: 0, reason: '분석 오류' }
+  }
+}
+
+// 경험 스캐폴딩 에이전트 - callAutobiographicReasoningAgent 결과에 미완성 구문 추가
+export async function callExperienceScaffoldingAgent(
+  originalResult: ExperienceDescriptionResult,
+  selectedText: string
+): Promise<ExperienceDescriptionResult> {
+  try {
+    const systemPrompt = `
+    You are a writing assistant who helps extend experience descriptions by adding a natural, open-ended continuation at the end.
+
+INPUT: You will receive a JSON object containing an experience description with strategy and description fields.
+
+TASK: For the description field, append exactly ONE unfinished phrase that ends with "..."
+
+REQUIREMENTS for the added phrase:
+- Must be clearly **unfinished** and end with "..."
+- Must NOT end with "~다..." (avoid complete Korean sentence endings)
+- Must feel like a natural continuation of the original description
+- Must reflect the same tone, topic, and writing style as experience reflection
+- Must encourage deeper reflection or curiosity about the past experience
+- Should maintain the introspective, diary-like tone
+
+EXAMPLE:
+Input description: "그때도 비슷한 혼란을 겪었던 것 같아. 그 상황에서 어떻게 해결했는지 떠올려보면 지금에도 도움이 될 거야."
+Output description: "그때도 비슷한 혼란을 겪었던 것 같아. 그 상황에서 어떻게 해결했는지 떠올려보면 지금에도 도움이 될 거야. 그때 내가 어떤 마음으로..."
+
+## Output Format
+Return the exact same JSON structure as input, but with the description field containing the original text plus your added unfinished phrase:
+
+{
+  "strategy": "<keep original strategy>",
+  "description": "<Original description + your unfinished phrase ending with '...'>",
+  "entry_id": "<keep original entry_id>"
+}
+    `;
+
+    const userMessage = `
+    ${JSON.stringify(originalResult, null, 2)}
+    
+    Selected text context: ${selectedText}
+    `;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: 0.7,
+        top_p: 1.0,
+      }),
+    });
+
+    const data = await response.json();
+    const textResult = data.choices?.[0]?.message?.content || '';
+
+    try {
+      const jsonStart = textResult.indexOf('{');
+      const jsonEnd = textResult.lastIndexOf('}');
+      
+      if (jsonStart === -1 || jsonEnd === -1) {
+        console.error('❌ [EXPERIENCE SCAFFOLDING AGENT] JSON brackets not found in response');
+        return originalResult;
+      }
+      
+      let jsonString = textResult.substring(jsonStart, jsonEnd + 1);
+      
+      // JSON 문자열 정리
+      let cleanedJson = jsonString
+        .replace(/\r?\n/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/[""]/g, '"')
+        .replace(/['']/g, "'")
+        .replace(/[\x00-\x1F\x7F]/g, ' ')
+        .replace(/,(\s*[}\]])/g, '$1')
+        .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+      
+      let finalJson = cleanedJson;
+      
+      // 중괄호 짝 맞추기
+      const openBraces = (finalJson.match(/{/g) || []).length;
+      const closeBraces = (finalJson.match(/}/g) || []).length;
+      if (openBraces > closeBraces) {
+        finalJson += '}';
+      }
+      
+      // 따옴표 짝 맞추기
+      const quotes = (finalJson.match(/"/g) || []).length;
+      if (quotes % 2 !== 0) {
+        finalJson = finalJson.replace(/,$/, '"');
+      }
+      
+      console.log('🔍 [EXPERIENCE SCAFFOLDING AGENT] Cleaned JSON:', finalJson.substring(0, 200) + '...');
+      
+      // JSON 파싱
+      const parsedResult = JSON.parse(finalJson);
+      
+      // 결과 검증 및 반환
+      const result: ExperienceDescriptionResult = {
+        strategy: parsedResult.strategy || originalResult.strategy,
+        description: parsedResult.description || originalResult.description,
+        entry_id: parsedResult.entry_id || originalResult.entry_id
+      };
+      
+      console.log('✅ [EXPERIENCE SCAFFOLDING AGENT] Final result:', {
+        strategy: result.strategy,
+        description: result.description.substring(0, 100) + '...',
+        entry_id: result.entry_id
+      });
+      
+      return result;
+      
+    } catch (err) {
+      console.error('❌ [EXPERIENCE SCAFFOLDING AGENT] Error parsing JSON:', err);
+      console.error('❌ [EXPERIENCE SCAFFOLDING AGENT] Raw response was:', textResult);
+      return originalResult;
+    }
+  } catch (error) {
+    console.error('❌ [EXPERIENCE SCAFFOLDING AGENT] API call error:', error);
+    return originalResult;
+  }
+}
+
+// 과거 맥락 스캐폴딩 에이전트 - callPastContextAgent 결과에 미완성 구문 추가
+export async function callPastContextScaffoldingAgent(
+  originalResult: ExperienceDescriptionResult,
+  selectedText: string
+): Promise<ExperienceDescriptionResult> {
+  try {
+    const systemPrompt = `
+    You are a writing assistant who helps extend past context descriptions by adding a natural, open-ended continuation at the end.
+
+INPUT: You will receive a JSON object containing a past context description with strategy and description fields.
+
+TASK: For the description field, append exactly ONE unfinished phrase that ends with "..."
+
+REQUIREMENTS for the added phrase:
+- Must be clearly **unfinished** and end with "..."
+- Must NOT end with "~다..." (avoid complete Korean sentence endings)
+- Must feel like a natural continuation of the original description
+- Must reflect the same tone, topic, and writing style as past context reflection
+- Must encourage deeper reflection or curiosity about personal background/history
+- Should maintain the introspective, diary-like tone about personal past
+
+EXAMPLE:
+Input description: "내 성격상 새로운 환경에서는 항상 이런 불안감을 느꼈던 것 같아. 과거의 경험들이 지금 이 상황과 어떻게 연결되는지 생각해보면 도움이 될 거야."
+Output description: "내 성격상 새로운 환경에서는 항상 이런 불안감을 느꼈던 것 같아. 과거의 경험들이 지금 이 상황과 어떻게 연결되는지 생각해보면 도움이 될 거야. 어쩌면 그때의 나와 지금의 나가..."
+
+## Output Format
+Return the exact same JSON structure as input, but with the description field containing the original text plus your added unfinished phrase:
+
+{
+  "strategy": "<keep original strategy>",
+  "description": "<Original description + your unfinished phrase ending with '...'>",
+  "entry_id": "<keep original entry_id>"
+}
+    `;
+
+    const userMessage = `
+    ${JSON.stringify(originalResult, null, 2)}
+    
+    Selected text context: ${selectedText}
+    `;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: 0.7,
+        top_p: 1.0,
+      }),
+    });
+
+    const data = await response.json();
+    const textResult = data.choices?.[0]?.message?.content || '';
+
+    try {
+      const jsonStart = textResult.indexOf('{');
+      const jsonEnd = textResult.lastIndexOf('}');
+      
+      if (jsonStart === -1 || jsonEnd === -1) {
+        console.error('❌ [PAST CONTEXT SCAFFOLDING AGENT] JSON brackets not found in response');
+        return originalResult;
+      }
+      
+      let jsonString = textResult.substring(jsonStart, jsonEnd + 1);
+      
+      // JSON 문자열 정리
+      let cleanedJson = jsonString
+        .replace(/\r?\n/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/[""]/g, '"')
+        .replace(/['']/g, "'")
+        .replace(/[\x00-\x1F\x7F]/g, ' ')
+        .replace(/,(\s*[}\]])/g, '$1')
+        .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+      
+      let finalJson = cleanedJson;
+      
+      // 중괄호 짝 맞추기
+      const openBraces = (finalJson.match(/{/g) || []).length;
+      const closeBraces = (finalJson.match(/}/g) || []).length;
+      if (openBraces > closeBraces) {
+        finalJson += '}';
+      }
+      
+      // 따옴표 짝 맞추기
+      const quotes = (finalJson.match(/"/g) || []).length;
+      if (quotes % 2 !== 0) {
+        finalJson = finalJson.replace(/,$/, '"');
+      }
+      
+      console.log('🔍 [PAST CONTEXT SCAFFOLDING AGENT] Cleaned JSON:', finalJson.substring(0, 200) + '...');
+      
+      // JSON 파싱
+      const parsedResult = JSON.parse(finalJson);
+      
+      // 결과 검증 및 반환
+      const result: ExperienceDescriptionResult = {
+        strategy: parsedResult.strategy || originalResult.strategy,
+        description: parsedResult.description || originalResult.description,
+        entry_id: parsedResult.entry_id || originalResult.entry_id
+      };
+      
+      console.log('✅ [PAST CONTEXT SCAFFOLDING AGENT] Final result:', {
+        strategy: result.strategy,
+        description: result.description.substring(0, 100) + '...',
+        entry_id: result.entry_id
+      });
+      
+      return result;
+      
+    } catch (err) {
+      console.error('❌ [PAST CONTEXT SCAFFOLDING AGENT] Error parsing JSON:', err);
+      console.error('❌ [PAST CONTEXT SCAFFOLDING AGENT] Raw response was:', textResult);
+      return originalResult;
+    }
+  } catch (error) {
+    console.error('❌ [PAST CONTEXT SCAFFOLDING AGENT] API call error:', error);
+    return originalResult;
   }
 }

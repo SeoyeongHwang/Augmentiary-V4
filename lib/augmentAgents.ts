@@ -173,16 +173,13 @@ INPUT:
 
 **Text Generation Guidelines:**
 - The text for each option must differ from the others and follow the guidelines for the specified approach.
-- Limit each text to 2-3 sentences. 
+- Limit each text to 2 sentences. 
 - Text should be thought-provoking and open-ended grounded in the entry's significance.
 - Use an open-ended question or self-suggesting tone with possibility phrases (could, might, perhaps, etc.).
 - Write in a consistent informal Korean, self-talking tone without honorifics (e.g. ends with "~다.").
 - Avoid explicitly mentioning the approach name or user profile information.
 - Avoid generic sentences, clichés, and excessive commas.
 - Ensure each text connects smoothly from where the <<INSERT HERE>> marker appears.
-
-**Text Requirement:**
-- End the last sentence of each paragraph with an unfinished sentence using an ellipsis (…).
 
 **Tone and Depth by Significance:**
 - Low significance (1-2): Use a light tone, everyday observations, avoid heavy emotion.
@@ -345,6 +342,164 @@ You must provide your response as valid, strictly structured JSON. The output mu
         return createDefaultAIAgentResult();
       }
   }
+
+export async function callScaffoldingAgent(
+  aiAgentResult: AIAgentResult
+): Promise<AIAgentResult> {
+  
+    const systemPrompt = `
+  You are a writing assistant who helps extend fully written paragraphs by adding a natural, open-ended continuation at the end.
+
+INPUT: You will receive a JSON object containing three options, each with a "text" field containing a complete Korean paragraph.
+
+TASK: For each option's text, append exactly ONE unfinished phrase that ends with "..."
+
+REQUIREMENTS for the added phrase:
+- Must be clearly **unfinished** and end with "..."
+- Must NOT end with "~다..." (avoid complete Korean sentence endings)
+- Must feel like a natural continuation of the original paragraph
+- Must reflect the same tone, topic, and writing style
+- Must encourage reflection, curiosity, or expansion
+- Each of the three phrases must follow different unfinished patterns
+
+EXAMPLE:
+Input text: "디자인과 기술 분야에서의 선택이 나의 미래에 어떤 의미를 가질지 탐색하는 것이 중요하겠다는 생각이 든다."
+Output text: "디자인과 기술 분야에서의 선택이 나의 미래에 어떤 의미를 가질지 탐색하는 것이 중요하겠다는 생각이 든다. 어쩌면..."
+
+## Output Format
+Return the exact same JSON structure as input, but with each "text" field containing the original paragraph plus your added unfinished sentence:
+
+{
+  "option1": {
+    "approach": "<keep original approach>",
+    "resource": [keep original resource array],
+    "resource_usage": "<keep original resource_usage>", 
+    "title": "<keep original title>",
+    "text": "<Original paragraph + your unfinished phrase ending with '...'>"
+  },
+  "option2": {
+    "approach": "<keep original approach>",
+    "resource": [keep original resource array],
+    "resource_usage": "<keep original resource_usage>",
+    "title": "<keep original title>", 
+    "text": "<Original paragraph + your unfinished phrase ending with '...'>"
+  },
+  "option3": {
+    "approach": "<keep original approach>",
+    "resource": [keep original resource array],
+    "resource_usage": "<keep original resource_usage>",
+    "title": "<keep original title>",
+    "text": "<Original paragraph + your unfinished phrase ending with '...'>"
+  }
+}
+  `;
+  
+  const userMessage = `
+  ${JSON.stringify(aiAgentResult, null, 2)}
+  `;
+  
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+      temperature: 0.7,
+      top_p: 1.0,
+    }),
+  });
+
+  const data = await response.json();
+  const textResult = data.choices?.[0]?.message?.content || '';
+  
+  try {
+    const jsonStart = textResult.indexOf('{');
+    const jsonEnd = textResult.lastIndexOf('}');
+    
+    if (jsonStart === -1 || jsonEnd === -1) {
+      console.error('❌ [SCAFFOLDING AGENT] JSON brackets not found in response');
+      return createDefaultAIAgentResult();
+    }
+    
+    let jsonString = textResult.substring(jsonStart, jsonEnd + 1);
+    
+    // JSON 문자열 정리 및 수정 - callInterpretiveAgent와 동일한 정리 로직
+    let cleanedJson = jsonString
+      .replace(/\r?\n/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/[""]/g, '"')
+      .replace(/['']/g, "'")
+      .replace(/[\x00-\x1F\x7F]/g, ' ')
+      .replace(/,(\s*[}\]])/g, '$1')
+      .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+    
+    let finalJson = cleanedJson;
+    
+    // 중괄호 짝 맞추기
+    const openBraces = (finalJson.match(/{/g) || []).length;
+    const closeBraces = (finalJson.match(/}/g) || []).length;
+    if (openBraces > closeBraces) {
+      finalJson += '}';
+    }
+    
+    // 따옴표 짝 맞추기
+    const quotes = (finalJson.match(/"/g) || []).length;
+    if (quotes % 2 !== 0) {
+      finalJson = finalJson.replace(/,$/, '"');
+    }
+    
+    console.log('🔍 [SCAFFOLDING AGENT] Cleaned JSON:', finalJson.substring(0, 200) + '...');
+    
+    // JSON 파싱 시도
+    const parsedResult = JSON.parse(finalJson);
+    
+    // 결과 검증
+    if (!parsedResult.option1 || !parsedResult.option2 || !parsedResult.option3) {
+      console.error('❌ [SCAFFOLDING AGENT] Missing required options in parsed result');
+      throw new Error('Missing required options');
+    }
+    
+    // AIAgentResult 형식으로 변환
+    const result: AIAgentResult = {
+      option1: createAIOption(parsedResult.option1),
+      option2: createAIOption(parsedResult.option2),
+      option3: createAIOption(parsedResult.option3)
+    };
+    
+    console.log('✅ [SCAFFOLDING AGENT] Final result with resources:');
+    console.log('  Option 1 text:', result.option1.text);
+    console.log('  Option 2 text:', result.option2.text);
+    console.log('  Option 3 text:', result.option3.text);
+    
+    return result;
+    
+  } catch (err) {
+    console.error('❌ [SCAFFOLDING AGENT] Error parsing JSON:', err);
+    console.error('❌ [SCAFFOLDING AGENT] Attempting fallback parsing...');
+    
+    // Fallback: 정규표현식으로 개별 필드 추출
+    try {
+      const fallbackResult = extractFieldsWithRegex(textResult);
+      if (fallbackResult) {
+        console.log('✅ [SCAFFOLDING AGENT] Fallback parsing successful');
+        return fallbackResult;
+      }
+    } catch (fallbackErr) {
+      console.error('❌ [SCAFFOLDING AGENT] Fallback parsing also failed:', fallbackErr);
+    }
+    
+    console.error('❌ [SCAFFOLDING AGENT] Raw response was:', textResult);
+    return createDefaultAIAgentResult();
+  }
+}
+
 
 // 헬퍼 함수들
 function createAIOption(option: any): AIOption {

@@ -2,7 +2,7 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-import { callDirectionAgent, callInterpretiveAgent, saveAIPrompt } from '../../lib/augmentAgents';
+import { callDirectionAgent, callInterpretiveAgent, callScaffoldingAgent, saveAIPrompt } from '../../lib/augmentAgents';
 import { AIAgentResult } from '../../types/ai';
 
 // Request ID 생성 함수
@@ -129,7 +129,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       directionAgentResult.approaches
     );
 
-    console.log('✅ [STEP 2] All Interpretive Agents completed:');
+    console.log('✅ [STEP 2] Interpretive Agent completed:');
     console.log('  Option 1:', {
       title: interpretiveAgentResult.option1.title,
       approach: interpretiveAgentResult.option1.approach,
@@ -152,12 +152,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       text: interpretiveAgentResult.option3.text ? interpretiveAgentResult.option3.text.substring(0, 50) + '...' : 'No text'
     });
 
-    console.log('🎉 [AUGMENT] Augmentation pipeline completed successfully!');
+    // Step 3: Scaffolding Agent
+    console.log('🔧 [STEP 3] Starting Scaffolding Agent...');
+    
+    const scaffoldingAgentResult = await callScaffoldingAgent(
+      interpretiveAgentResult,
+      diaryEntry,
+      selectedText,
+      directionAgentResult.significance,
+      resourceProfile,
+      directionAgentResult.approaches
+    );
 
-    // 최종 결과 반환
+    console.log('✅ [STEP 3] Scaffolding Agent completed:');
+    console.log('  Option 1:', {
+      title: scaffoldingAgentResult.option1.title,
+      approach: scaffoldingAgentResult.option1.approach,
+      text: scaffoldingAgentResult.option1.text ? scaffoldingAgentResult.option1.text.substring(0, 50) + '...' : 'No text'
+    });
+    console.log('  Option 2:', {
+      title: scaffoldingAgentResult.option2.title,
+      approach: scaffoldingAgentResult.option2.approach,
+      text: scaffoldingAgentResult.option2.text ? scaffoldingAgentResult.option2.text.substring(0, 50) + '...' : 'No text'
+    });
+    console.log('  Option 3:', {
+      title: scaffoldingAgentResult.option3.title,
+      approach: scaffoldingAgentResult.option3.approach,
+      text: scaffoldingAgentResult.option3.text ? scaffoldingAgentResult.option3.text.substring(0, 50) + '...' : 'No text'
+    });
+
+    console.log('🎉 [AUGMENT] Complete augmentation pipeline finished successfully!');
+
+    // 최종 결과 반환 (클라이언트 호환성을 위해 interpretiveAgentResult라는 이름으로 scaffolding 결과 반환)
     res.status(200).json({
       directionAgentResult,
-      interpretiveAgentResult: interpretiveAgentResult,
+      interpretiveAgentResult: scaffoldingAgentResult,
     });
 
   } catch (error) {

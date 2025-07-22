@@ -9,7 +9,7 @@ import {
   sendSuccessResponse,
   sendErrorResponse
 } from '../../lib/apiErrorHandler'
-import { callPastRecordAgent, callAutobiographicReasoningAgent, callPastContextAgent, callPastContextRelevanceAgent } from '../../lib/experienceAgent'
+import { callPastRecordAgent, callAutobiographicReasoningAgent, callPastContextAgent, callPastContextRelevanceAgent, callExperienceScaffoldingAgent, callPastContextScaffoldingAgent } from '../../lib/experienceAgent'
 
 // 서버 사이드에서 service_role 사용
 const supabase = createClient(
@@ -135,12 +135,16 @@ async function experienceHandler(
   const experiencesWithDescriptions = await Promise.all(
     topExperiences.map(async (exp) => {
       try {
+        console.log(`🔧 [STEP 1] 경험 설명 생성 (ID: ${exp.id})`, `[${requestId}]`)
         const descriptionResult = await callAutobiographicReasoningAgent(selectedText, {
           id: exp.id,
           sum_innerstate: exp.sum_innerstate,
           sum_insight: exp.sum_insight,
           content: exp.content_html
         })
+
+        console.log(`🔧 [STEP 2] 경험 스캐폴딩 (ID: ${exp.id})`, `[${requestId}]`)
+        const scaffoldedResult = await callExperienceScaffoldingAgent(descriptionResult, selectedText)
 
         return {
           id: exp.id,
@@ -151,8 +155,8 @@ async function experienceHandler(
           sum_insight: exp.sum_insight,
           similarity: exp.similarity,
           analysisReasons: exp.analysisReasons || [],
-          strategy: descriptionResult.strategy,
-          description: descriptionResult.description
+          strategy: scaffoldedResult.strategy,
+          description: scaffoldedResult.description
         }
       } catch (error) {
         console.error(`❌ 경험 설명 생성 실패 (ID: ${exp.id}):`, error, `[${requestId}]`)
@@ -248,11 +252,14 @@ async function experienceHandler(
           
           // 연관성이 0.4 이상일 때만 과거 맥락 카드 생성
           if (relevanceAnalysis.relevance >= 0.4) {
-            console.log('🌱 과거 맥락 카드 생성 시작 (연관성 충족)', `[${requestId}]`)
+            console.log('🌱 [STEP 1] 과거 맥락 카드 생성 시작 (연관성 충족)', `[${requestId}]`)
             
             const pastContextResult = await callPastContextAgent(selectedText, pastContext)
             
-            console.log('🔍 과거 맥락 에이전트 결과:', pastContextResult, `[${requestId}]`)
+            console.log('🌱 [STEP 2] 과거 맥락 스캐폴딩 시작', `[${requestId}]`)
+            const scaffoldedPastContextResult = await callPastContextScaffoldingAgent(pastContextResult, selectedText)
+            
+            console.log('🔍 과거 맥락 스캐폴딩 결과:', scaffoldedPastContextResult, `[${requestId}]`)
             
             const pastContextCard = {
               id: 'past_context',
@@ -263,8 +270,8 @@ async function experienceHandler(
               sum_insight: null,
               similarity: relevanceAnalysis.relevance, // 실제 분석된 연관성 사용
               analysisReasons: [`과거 생애 맥락 기반: ${relevanceAnalysis.reason}`],
-              strategy: pastContextResult.strategy,
-              description: pastContextResult.description,
+              strategy: scaffoldedPastContextResult.strategy,
+              description: scaffoldedPastContextResult.description,
               isPastContext: true // 과거 맥락 카드임을 표시
             }
 
