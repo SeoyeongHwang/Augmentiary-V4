@@ -156,12 +156,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('🔧 [STEP 3] Starting Scaffolding Agent...');
     
     const scaffoldingAgentResult = await callScaffoldingAgent(
-      interpretiveAgentResult,
-      diaryEntry,
-      selectedText,
-      directionAgentResult.significance,
-      resourceProfile,
-      directionAgentResult.approaches
+      interpretiveAgentResult
     );
 
     console.log('✅ [STEP 3] Scaffolding Agent completed:');
