@@ -110,10 +110,25 @@ export default function ESMModal({ isOpen, onSubmit, onClose, isSubmitting = fal
           </div>
           {/* 고정된 버튼 영역 */}
           <div className="flex-shrink-0 pt-4 border-t border-gray-200 bg-white">
+            {/* 저장 중일 때 안내 메시지 추가 */}
+            {isSubmitting && (
+              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-amber-600"></div>
+                  <p className="text-sm text-amber-800 font-medium">
+                    일기를 저장하고 있습니다...
+                  </p>
+                </div>
+                <p className="text-xs text-amber-700 mt-1">
+                  완료될 때까지 창을 닫지 말아주세요!
+                </p>
+              </div>
+            )}
             <div className="flex space-x-3">
               <Button
                 onClick={onClose}
                 className="flex-1 bg-stone-300 text-stone-700 hover:bg-stone-400"
+                disabled={isSubmitting}
               >
                 취소
               </Button>

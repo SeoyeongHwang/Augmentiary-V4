@@ -148,6 +148,20 @@ export default function Write() {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // 저장 중일 때 창 닫기 방지
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSubmitting) {
+        e.preventDefault()
+        e.returnValue = '일기 저장이 진행 중입니다. 지금 나가시면 저장되지 않을 수 있습니다.'
+        return '일기 저장이 진행 중입니다. 지금 나가시면 저장되지 않을 수 있습니다.'
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isSubmitting])
+
   const handleESMSubmit = async (esmData: ESMData) => {
     // 중복 제출 방지
     if (isSubmitting) {
@@ -409,6 +423,9 @@ export default function Write() {
   }
 
   const handleBack = () => {
+    if (isSubmitting) {
+      return
+    }
     setShowConfirmModal(true)
   }
 
@@ -437,12 +454,30 @@ export default function Write() {
 
   return (
     <div className="flex flex-col h-screen bg-[#faf9f5]">
+      {/* 저장 중 안내 메시지 */}
+      {isSubmitting && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+          <div className="flex items-center justify-center space-x-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-600"></div>
+            <div className="text-center">
+              <p className="text-sm text-amber-800 font-medium">
+                일기를 저장하고 있습니다...
+              </p>
+              <p className="text-xs text-amber-700">
+                완료될 때까지 창을 닫지 말아주세요!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 헤더 */}
       <header className="bg-transparent px-6 py-4 flex-shrink-0">
         <div className="bg-transparent flex items-center justify-between">
           <button
             onClick={handleBack}
-            className="flex items-center text-gray-600 hover:text-gray-900"
+            className={`flex items-center ${isSubmitting ? 'text-gray-400 cursor-not-allowed' : 'text-gray-600 hover:text-gray-900'}`}
+            disabled={isSubmitting}
           >
             <ArrowLeftIcon className="h-5 w-5 mr-2" />
             뒤로가기
@@ -451,9 +486,9 @@ export default function Write() {
           <Button
             onClick={handleSave}
             className="px-6 py-2 bg-stone-700 text-white hover:bg-stone-800"
-            disabled={!entryId}
+            disabled={!entryId || isSubmitting}
           >
-            저장하기
+            {isSubmitting ? '저장 중...' : '저장하기'}
           </Button>
         </div>
       </header>
@@ -480,7 +515,7 @@ export default function Write() {
 
       {/* 확인 모달 */}
       <ConfirmModal
-        isOpen={showConfirmModal}
+        isOpen={showConfirmModal && !isSubmitting}
         onConfirm={handleConfirmBack}
         onCancel={handleCancelBack}
         title="메인 화면으로 나가기"
