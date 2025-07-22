@@ -173,7 +173,7 @@ INPUT:
 
 **Text Generation Guidelines:**
 - The text for each option must differ from the others and follow the guidelines for the specified approach.
-- Limit each text to 2 sentences. 
+- Limit each text to 2~3 sentences. 
 - Text should be thought-provoking and open-ended grounded in the entry's significance.
 - Use an open-ended question or self-suggesting tone with possibility phrases (could, might, perhaps, etc.).
 - Write in a consistent informal Korean, self-talking tone without honorifics (e.g. ends with "~다.").
@@ -410,7 +410,7 @@ Return the exact same JSON structure as input, but with each "text" field contai
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      temperature: 0.7,
+      temperature: 0.5,
       top_p: 1.0,
     }),
   });

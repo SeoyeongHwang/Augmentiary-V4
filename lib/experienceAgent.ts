@@ -212,7 +212,7 @@ export async function callAutobiographicReasoningAgent(
     Your output must be a JSON object structured as follows:
      {
        "strategy": "<Korean title with appropriate emoji suggesting how to recall this experience (e.g., '💭 ~해보기', '🌱 ~돌아보기', '🔄 ~인식하기')>",
-       "description": "<Korean description of why this past experience is relevant to current text, 2 sentences max>",
+       "description": "<Korean description of why this past experience is relevant to current text, 2~3 sentences max>",
        "entry_id": "${experienceData.id}"
      }
     `
@@ -319,7 +319,7 @@ export async function callPastContextAgent(
     Return your output as a JSON object structured exactly as follows:
     {
       "strategy": "<Korean title with appropriate emoji suggesting how to connect with past background>",
-      "description": "<Korean description of why this past context is relevant to current text, 2-3 sentences max>",
+      "description": "<Korean description of why this past context is relevant to current text, 2~3 sentences max>",
       "entry_id": "past_context"
     }
     `
@@ -663,7 +663,7 @@ Return the exact same JSON structure as input, but with the description field co
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },
         ],
-        temperature: 0.7,
+        temperature: 0.5,
         top_p: 1.0,
       }),
     });
