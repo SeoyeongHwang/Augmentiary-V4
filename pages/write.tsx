@@ -17,7 +17,7 @@ import { getQueuedLogsForServerSide } from '../lib/logger'
 import { getQueuedAIPromptsForServerSide } from '../utils/aiPromptQueue'
 
 export default function Write() {
-  const { user, loading, refreshSession } = useSession()
+  const { user, loading, refreshSession, checkSession } = useSession()
   const supabase = createClient()
   const [participantCode, setParticipantCode] = useState<string | null>(null)
   const [entryId, setEntryId] = useState<string | null>(null)
@@ -102,6 +102,24 @@ export default function Write() {
       return
     }
 
+    // 💡 저장 전 세션 유효성 확인 및 자동 갱신
+    console.log('🔍 저장 전 세션 유효성 확인 중...')
+    try {
+      const sessionCheck = await checkSession()
+      if (!sessionCheck.success) {
+        if (sessionCheck.needsLogin) {
+          alert('세션이 만료되었습니다. 다시 로그인해주세요.')
+          router.push('/login')
+          return
+        }
+      }
+      console.log('✅ 세션 유효성 확인 완료')
+    } catch (error) {
+      console.error('❌ 세션 유효성 확인 실패:', error)
+      alert('세션 확인 중 오류가 발생했습니다. 다시 시도해주세요.')
+      return
+    }
+
     console.log('📊 [WRITE] 저장 시점 메트릭 상태:', {
       hasMetrics: !!additionalMetrics,
       leftPanelRequests: additionalMetrics?.leftPanelRequests || 0,
@@ -175,6 +193,26 @@ export default function Write() {
     }
 
     setIsSubmitting(true)
+
+    // 💡 ESM 제출 전 세션 유효성 재확인 (더블 체크)
+    console.log('🔍 ESM 제출 전 세션 재확인 중...')
+    try {
+      const sessionRecheck = await checkSession()
+      if (!sessionRecheck.success) {
+        if (sessionRecheck.needsLogin) {
+          setIsSubmitting(false)
+          alert('세션이 만료되었습니다. 저장을 위해 다시 로그인해주세요.')
+          router.push('/login')
+          return
+        }
+      }
+      console.log('✅ ESM 제출 전 세션 재확인 완료')
+    } catch (error) {
+      console.error('❌ ESM 제출 전 세션 재확인 실패:', error)
+      setIsSubmitting(false)
+      alert('세션 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
 
     // 저장 로그 기록 (실제 저장 시점)
     if (canLog) {
@@ -417,8 +455,27 @@ export default function Write() {
       // 실패 시 처리
       setIsSubmitting(false)
       
-      // 에러 메시지 표시
-      alert(`저장 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+      // 세션 만료 관련 에러인지 확인
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류'
+      if (errorMessage.includes('세션') || errorMessage.includes('토큰') || errorMessage.includes('인증')) {
+        alert(`인증 오류가 발생했습니다: ${errorMessage}\n\n잠시 후 다시 시도하거나, 필요시 다시 로그인해주세요.`)
+        
+        // 세션 재확인 시도
+        try {
+          const sessionRecheck = await checkSession()
+          if (!sessionRecheck.success && sessionRecheck.needsLogin) {
+            console.log('🔒 저장 실패 후 세션 재확인 결과: 로그인 필요')
+            localStorage.removeItem('supabase_session')
+            router.push('/login')
+            return
+          }
+        } catch (recheckError) {
+          console.error('세션 재확인 중 오류:', recheckError)
+        }
+      } else {
+        // 일반적인 저장 오류
+        alert(`저장 중 오류가 발생했습니다: ${errorMessage}\n\n네트워크 연결을 확인하고 다시 시도해주세요.`)
+      }
     }
   }
 
