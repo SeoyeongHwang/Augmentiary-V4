@@ -6,8 +6,12 @@ import { useSession } from './useSession'
 /**
  * 인터랙션 로그를 기록하는 커스텀 훅
  */
-export function useInteractionLog() {
+export function useInteractionLog(participantCode?: string) {
   const { user } = useSession()
+
+  // participantCode가 전달되면 우선 사용, 없으면 user.participant_code 사용
+  const effectiveParticipantCode = participantCode || user?.participant_code
+  const canLog = !!effectiveParticipantCode
 
   /**
    * 비동기 로그 기록 (큐 사용, UX에 영향 없음)
@@ -17,20 +21,20 @@ export function useInteractionLog() {
     meta?: Record<string, any>,
     entryId?: string
   ) => {
-    if (!user?.participant_code || !entryId) {
+    if (!effectiveParticipantCode || !entryId) {
       // entryId가 없으면 기록하지 않음
       return
     }
 
     const logData: CreateInteractionLogData = {
-      participant_code: user.participant_code,
+      participant_code: effectiveParticipantCode,
       action_type: actionType,
       meta,
       entry_id: entryId
     }
 
     logInteractionAsync(logData)
-  }, [user?.participant_code])
+  }, [effectiveParticipantCode])
 
   /**
    * 동기 로그 기록 (즉시 저장, 중요한 액션용)
@@ -40,19 +44,19 @@ export function useInteractionLog() {
     meta?: Record<string, any>,
     entryId?: string
   ) => {
-    if (!user?.participant_code || !entryId) {
+    if (!effectiveParticipantCode || !entryId) {
       return
     }
 
     const logData: CreateInteractionLogData = {
-      participant_code: user.participant_code,
+      participant_code: effectiveParticipantCode,
       action_type: actionType,
       meta,
       entry_id: entryId
     }
 
     await logInteractionSync(logData)
-  }, [user?.participant_code])
+  }, [effectiveParticipantCode])
 
   /**
    * AI 호출 로그
@@ -205,6 +209,6 @@ export function useInteractionLog() {
     logTextDeselection,
     
     // 사용자 정보 확인
-    canLog: !!user?.participant_code
+    canLog: canLog
   }
 }

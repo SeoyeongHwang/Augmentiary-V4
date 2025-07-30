@@ -34,7 +34,7 @@ export default function Write() {
     logESMSubmit,
     logTriggerESM,
     canLog
-  } = useInteractionLog()
+  } = useInteractionLog(participantCode || undefined)
 
   useEffect(() => {
     // 로딩 중이면 기다림

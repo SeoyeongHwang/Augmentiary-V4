@@ -83,8 +83,12 @@ export default function Editor({
     metadata?: any
   }>>([]) // 추가된 AI 텍스트들의 기록
   
-  // 인터랙션 로그 훅 사용
+  // 세션 정보 이어쓰기
+  const { user } = useSession()
+
+  // 인터랙션 로그 훅 (participant_code 전달)
   const { 
+    logStartWriting, 
     logAITrigger, 
     logAIReceive, 
     logAITextInsert, 
@@ -94,10 +98,7 @@ export default function Editor({
     logTextEdit,
     logAsync,
     canLog 
-  } = useInteractionLog()
-
-  // 세션 정보 이어쓰기
-  const { user } = useSession()
+  } = useInteractionLog(user?.participant_code)
 
   // 변화 감지용 ref (필요한 것만 유지)
   const lastReceiveAI = useRef<string>('')
