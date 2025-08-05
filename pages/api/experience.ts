@@ -124,7 +124,7 @@ async function experienceHandler(
 
   // 8. 유사도가 높은 순으로 정렬하고 상위 3개 선택
   const topExperiences = experiencesWithSimilarity
-    .filter(exp => exp.similarity >= 0.6) // 최소 유사도 0.6 이상으로 필터링
+    .filter(exp => exp.similarity >= 0.7) // 최소 유사도 0.7 이상으로 필터링
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, 3)
 
