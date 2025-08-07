@@ -1,5 +1,5 @@
 // pages/index.tsx
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { createClient } from '../utils/supabase/client'
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline"
@@ -12,12 +12,17 @@ export default function Home() {
   const { user, loading: sessionLoading, signOut } = useSession()
   const [entries, setEntries] = useState<Entry[]>([])
   const [entriesLoading, setEntriesLoading] = useState(true)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [offset, setOffset] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [hideTitle, setHideTitle] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null)
   const [showModal, setShowModal] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const loadingRef = useRef<HTMLDivElement>(null)
 
   // 프로필이 비어있는지 확인하는 헬퍼 함수
   const isProfileEmpty = (profile: any): boolean => {
@@ -61,15 +66,21 @@ export default function Home() {
         return
       }
       
-      fetchEntries()
+      fetchEntries(true) // 초기 로딩
     } else if (!sessionLoading && !user) {
       router.push('/login')
     }
   }, [user, sessionLoading, router])
 
-  const fetchEntries = async () => {
+  const fetchEntries = async (reset = false) => {
     try {
-      setEntriesLoading(true)
+      if (reset) {
+        setEntriesLoading(true)
+        setOffset(0)
+        setHasMore(true)
+      } else {
+        setLoadingMore(true)
+      }
       
       // localStorage에서 세션 정보 가져오기
       const sessionData = localStorage.getItem('supabase_session')
@@ -84,8 +95,11 @@ export default function Home() {
         return
       }
 
+      const currentOffset = reset ? 0 : offset
+      const limit = 20 // 한 번에 20개씩 로드
+
       // 서버사이드 API로 일기 목록 조회
-      const response = await fetch('/api/entries/list?limit=9', {
+      const response = await fetch(`/api/entries/list?limit=${limit}&offset=${currentOffset}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -105,14 +119,41 @@ export default function Home() {
         return
       }
 
-      console.log('✅ 일기 목록 조회 성공:', data.data.entries.length + '개')
-      setEntries(data.data.entries || [])
+      const newEntries = data.data.entries || []
+      console.log('✅ 일기 목록 조회 성공:', newEntries.length + '개')
+
+      if (reset) {
+        setEntries(newEntries)
+      } else {
+        setEntries(prev => [...prev, ...newEntries])
+      }
+
+      // 더 로드할 데이터가 있는지 확인
+      setHasMore(newEntries.length === limit)
+      setOffset(currentOffset + newEntries.length)
+
     } catch (error) {
       console.error('일기 목록 불러오기 오류:', error)
     } finally {
       setEntriesLoading(false)
+      setLoadingMore(false)
     }
   }
+
+  // 무한 스크롤을 위한 Intersection Observer 설정
+  const lastEntryRef = useCallback((node: HTMLDivElement) => {
+    if (entriesLoading || loadingMore) return
+    
+    if (observerRef.current) observerRef.current.disconnect()
+    
+    observerRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        fetchEntries(false)
+      }
+    })
+    
+    if (node) observerRef.current.observe(node)
+  }, [entriesLoading, loadingMore, hasMore])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -215,16 +256,34 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {entries.map((entry) => (
-                <JournalCard
+              {entries.map((entry, index) => (
+                <div
                   key={entry.id}
-                  id={entry.id}
-                  title={entry.title}
-                  content={entry.content_html}
-                  createdAt={entry.created_at}
-                  onClick={() => handleCardClick(entry)}
-                />
+                  ref={index === entries.length - 1 ? lastEntryRef : undefined}
+                >
+                  <JournalCard
+                    id={entry.id}
+                    title={entry.title}
+                    content={entry.content_html}
+                    createdAt={entry.created_at}
+                    onClick={() => handleCardClick(entry)}
+                  />
+                </div>
               ))}
+            </div>
+          )}
+
+          {/* 더 로딩 중일 때 표시 */}
+          {loadingMore && (
+            <div className="text-center py-8">
+              <p className="text-gray-500">더 많은 일기를 불러오는 중...</p>
+            </div>
+          )}
+
+          {/* 모든 일기를 다 불러왔을 때 */}
+          {!hasMore && entries.length > 0 && (
+            <div className="text-center py-8">
+              <p className="text-gray-500">모든 일기를 불러왔습니다.</p>
             </div>
           )}
         </div>
